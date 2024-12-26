@@ -60,3 +60,6 @@ auth.json
 /repopack-output.txt
 /phpunit.txt
 /phpstan.txt
+
+# Storage Logs
+/storage/logs/

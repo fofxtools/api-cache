@@ -9,6 +9,7 @@ class ApiException extends \Exception
     public function setContext(array $context): self
     {
         $this->context = $context;
+
         return $this;
     }
 
@@ -16,4 +17,4 @@ class ApiException extends \Exception
     {
         return $this->context;
     }
-} 
+}

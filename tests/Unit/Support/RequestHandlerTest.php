@@ -15,4 +15,4 @@ class RequestHandlerTest extends TestCase
 
         $this->assertInstanceOf(RequestHandler::class, $handler);
     }
-} 
+}

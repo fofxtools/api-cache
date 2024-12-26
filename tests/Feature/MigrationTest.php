@@ -13,7 +13,7 @@ class MigrationTest extends TestCase
             Schema::hasTable('api_cache_responses'),
             'api_cache_responses table not found'
         );
-        
+
         $this->assertTrue(
             Schema::hasTable('api_cache_rate_limits'),
             'api_cache_rate_limits table not found'
@@ -27,4 +27,4 @@ class MigrationTest extends TestCase
             'window_request_count column not found in api_cache_rate_limits table'
         );
     }
-} 
+}

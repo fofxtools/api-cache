@@ -7,7 +7,6 @@ use FOfX\ApiCache\Exceptions\RateLimitException;
 use FOfX\GuzzleMiddleware\MiddlewareClient;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
@@ -18,26 +17,26 @@ class RequestHandler
     protected MiddlewareClient $client;
     protected array $config;
     protected Logger $logger;
-    
+
     public function __construct(array $config)
     {
         $this->config = $config;
-        
+
         // Create a logger for the middleware
         $this->logger = new Logger('api-cache');
-        
+
         // Handle both package and local testing scenarios
-        $logPath = defined('LARAVEL_START') 
+        $logPath = defined('LARAVEL_START')
             ? storage_path('logs/api-cache.log')
             : __DIR__ . '/../../storage/logs/api-cache.log';
-            
+
         $this->logger->pushHandler(new StreamHandler($logPath, Level::Info));
-        
+
         // Initialize the middleware client
         $this->client = new MiddlewareClient(
             [
                 'http_errors' => false,
-                'timeout' => $config['timeout'] ?? 30,
+                'timeout'     => $config['timeout'] ?? 30,
             ],
             $this->logger
         );
@@ -55,13 +54,13 @@ class RequestHandler
 
         try {
             $startTime = microtime(true);
-            $response = $this->client->makeRequest($method, $url, $options);
-            $endTime = microtime(true);
+            $response  = $this->client->makeRequest($method, $url, $options);
+            $endTime   = microtime(true);
 
             $result = [
-                'status_code' => $response->getStatusCode(),
-                'headers' => $response->getHeaders(),
-                'body' => (string) $response->getBody(),
+                'status_code'   => $response->getStatusCode(),
+                'headers'       => $response->getHeaders(),
+                'body'          => (string) $response->getBody(),
                 'response_time' => $endTime - $startTime,
             ];
 
@@ -79,8 +78,8 @@ class RequestHandler
 
     protected function checkRateLimit(string $client, string $url): void
     {
-        $endpoint = parse_url($url, PHP_URL_PATH);
-        $windowSize = $this->config['clients'][$client]['rate_limits']['window_size'] ?? 60; // default 60 seconds
+        $endpoint    = parse_url($url, PHP_URL_PATH);
+        $windowSize  = $this->config['clients'][$client]['rate_limits']['window_size'] ?? 60; // default 60 seconds
         $maxRequests = $this->config['clients'][$client]['rate_limits']['max_requests'] ?? 60; // default 60 requests
 
         // Get current window
@@ -94,14 +93,15 @@ class RequestHandler
             $retryAfter = (int)(
                 $windowSize - now()->diffInSeconds(Carbon::parse($currentWindow->window_start))
             );
+
             throw (new RateLimitException("Rate limit exceeded for {$client}"))
                 ->setRetryAfter($retryAfter)
                 ->setContext([
-                    'client' => $client,
-                    'endpoint' => $endpoint,
-                    'window_start' => $currentWindow->window_start,
+                    'client'        => $client,
+                    'endpoint'      => $endpoint,
+                    'window_start'  => $currentWindow->window_start,
                     'current_count' => $currentWindow->window_request_count,
-                    'max_requests' => $maxRequests,
+                    'max_requests'  => $maxRequests,
                 ]);
         }
     }
@@ -109,7 +109,7 @@ class RequestHandler
     protected function getFromCache(string $client, string $url): ?array
     {
         $key = $this->generateCacheKey($client, $url);
-        
+
         $cached = DB::table('api_cache_responses')
             ->where('client', $client)
             ->where('key', $key)
@@ -121,11 +121,11 @@ class RequestHandler
 
         if ($cached) {
             return [
-                'status_code' => $cached->response_status_code,
-                'headers' => json_decode($cached->response_headers, true) ?? [],
-                'body' => $cached->response_body_raw,
+                'status_code'   => $cached->response_status_code,
+                'headers'       => json_decode($cached->response_headers, true) ?? [],
+                'body'          => $cached->response_body_raw,
                 'response_time' => $cached->response_time,
-                'from_cache' => true,
+                'from_cache'    => true,
             ];
         }
 
@@ -136,24 +136,24 @@ class RequestHandler
     {
         $key = $this->generateCacheKey($client, $url);
         $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600; // default 1 hour
-        
+
         DB::table('api_cache_responses')->insert([
-            'client' => $client,
-            'key' => $key,
-            'endpoint' => parse_url($url, PHP_URL_PATH),
-            'base_url' => parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST),
-            'full_url' => $url,
-            'method' => $options['method'] ?? 'GET',
-            'request_headers' => json_encode($options['headers'] ?? []),
-            'request_body' => $options['body'] ?? null,
+            'client'               => $client,
+            'key'                  => $key,
+            'endpoint'             => parse_url($url, PHP_URL_PATH),
+            'base_url'             => parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST),
+            'full_url'             => $url,
+            'method'               => $options['method'] ?? 'GET',
+            'request_headers'      => json_encode($options['headers'] ?? []),
+            'request_body'         => $options['body'] ?? null,
             'response_status_code' => $response['status_code'],
-            'response_headers' => json_encode($response['headers']),
-            'response_body_raw' => $response['body'],
-            'response_raw_size' => strlen($response['body']),
-            'response_time' => $response['response_time'],
-            'expires_at' => $ttl ? now()->addSeconds($ttl) : null,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'response_headers'     => json_encode($response['headers']),
+            'response_body_raw'    => $response['body'],
+            'response_raw_size'    => strlen($response['body']),
+            'response_time'        => $response['response_time'],
+            'expires_at'           => $ttl ? now()->addSeconds($ttl) : null,
+            'created_at'           => now(),
+            'updated_at'           => now(),
         ]);
     }
 
@@ -164,7 +164,7 @@ class RequestHandler
 
     protected function updateRateLimit(string $client, string $url): void
     {
-        $endpoint = parse_url($url, PHP_URL_PATH);
+        $endpoint   = parse_url($url, PHP_URL_PATH);
         $windowSize = $this->config['clients'][$client]['rate_limits']['window_size'] ?? 60;
 
         // First, try to update existing record
@@ -174,18 +174,18 @@ class RequestHandler
             ->where('window_start', now()->startOfMinute())
             ->update([
                 'window_request_count' => DB::raw('window_request_count + 1'),
-                'updated_at' => now(),
+                'updated_at'           => now(),
             ]);
 
         // If no record was updated, insert new one
         if (!$updated) {
             DB::table('api_cache_rate_limits')->insert([
-                'client' => $client,
-                'endpoint' => $endpoint,
-                'window_start' => now()->startOfMinute(),
+                'client'               => $client,
+                'endpoint'             => $endpoint,
+                'window_start'         => now()->startOfMinute(),
                 'window_request_count' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at'           => now(),
+                'updated_at'           => now(),
             ]);
         }
 
@@ -194,4 +194,4 @@ class RequestHandler
             ->where('window_start', '<', now()->subSeconds($windowSize * 2))
             ->delete();
     }
-} 
+}

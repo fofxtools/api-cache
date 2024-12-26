@@ -9,6 +9,7 @@ class RateLimitException extends ApiException
     public function setRetryAfter(int $seconds): self
     {
         $this->retryAfter = $seconds;
+
         return $this;
     }
 
@@ -16,4 +17,4 @@ class RateLimitException extends ApiException
     {
         return $this->retryAfter;
     }
-} 
+}

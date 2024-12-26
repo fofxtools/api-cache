@@ -4,7 +4,6 @@ namespace FOfX\ApiCache\Tests;
 
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 class TestCase extends Orchestra
@@ -12,12 +11,13 @@ class TestCase extends Orchestra
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         try {
             $this->artisan('migrate:fresh');
         } catch (\Exception $e) {
             // Only show debug info if migration fails
-            $this->printDebug("Tables before error:", $this->getTables());
+            $this->printDebug('Tables before error:', $this->getTables());
+
             throw $e;
         }
     }
@@ -46,4 +46,4 @@ class TestCase extends Orchestra
         fwrite(STDERR, print_r($data, true));
         fwrite(STDERR, "\n" . str_repeat('=', 50) . "\n\n");
     }
-} 
+}

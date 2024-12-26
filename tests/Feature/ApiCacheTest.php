@@ -14,9 +14,9 @@ class ApiCacheTest extends TestCase
             'timeout' => 30,
             'clients' => [
                 'openai' => [
-                    'cache_ttl' => 3600,
+                    'cache_ttl'   => 3600,
                     'rate_limits' => [
-                        'window_size' => 60,
+                        'window_size'  => 60,
                         'max_requests' => 60,
                     ],
                 ],
@@ -36,4 +36,4 @@ class ApiCacheTest extends TestCase
         $this->assertEquals('/v1/models', $cached->endpoint);
         $this->assertEquals('https://api.openai.com', $cached->base_url);
     }
-} 
+}

@@ -2,80 +2,95 @@
 
 namespace FOfX\ApiCache\Support;
 
-use FOfX\ApiCache\Exceptions\ApiException;
+use FOfX\ApiCache\ApiClients\BaseApiClient;
+use FOfX\ApiCache\ApiClients\TestClient;
 use FOfX\ApiCache\Exceptions\RateLimitException;
-use FOfX\GuzzleMiddleware\MiddlewareClient;
-use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
 
+/**
+ * Handles API request caching and rate limiting.
+ * Decorates API clients with caching and rate limiting functionality.
+ */
 class RequestHandler
 {
-    protected MiddlewareClient $client;
+    protected BaseApiClient $client;
     protected array $config;
     protected Logger $logger;
 
+    /**
+     * Create a new request handler instance.
+     *
+     * @param array $config Configuration for caching and rate limiting
+     */
     public function __construct(array $config)
     {
         $this->config = $config;
 
-        // Create a logger for the middleware
+        // Set up logging
         $this->logger = new Logger('api-cache');
-
-        // Handle both package and local testing scenarios
-        $logPath = defined('LARAVEL_START')
+        $logPath      = defined('LARAVEL_START')
             ? storage_path('logs/api-cache.log')
             : __DIR__ . '/../../storage/logs/api-cache.log';
 
-        $this->logger->pushHandler(new StreamHandler($logPath, Level::Info));
+        // Use debug level if enabled in config
+        $level = !empty($config['debug']) ? Level::Debug : Level::Info;
+        $this->logger->pushHandler(new StreamHandler($logPath, $level));
 
-        // Initialize the middleware client
-        $this->client = new MiddlewareClient(
-            [
-                'http_errors' => false,
-                'timeout'     => $config['timeout'] ?? 30,
-            ],
-            $this->logger
-        );
+        // Create client with logger
+        $this->client = new TestClient($this->logger);
     }
 
-    public function send(string $client, string $method, string $url, array $options = []): array
+    /**
+     * Send an API request with caching and rate limiting.
+     *
+     * @param string $clientName Name of the client (for config lookup)
+     * @param string $method     HTTP method
+     * @param string $endpoint   API endpoint
+     * @param array  $options    Additional request options
+     *
+     * @throws RateLimitException When rate limit is exceeded
+     *
+     * @return array API response
+     */
+    public function send(string $clientName, string $method, string $endpoint, array $options = []): array
     {
-        // Check rate limits first
-        $this->checkRateLimit($client, $url);
+        // Build full URL first
+        $fullUrl = $this->client->buildUrl($endpoint);
 
-        // Try to get from cache
-        if ($cached = $this->getFromCache($client, $url)) {
+        // Check rate limits
+        $this->checkRateLimit($clientName, $fullUrl);
+
+        // Try cache first
+        if ($cached = $this->getFromCache($clientName, $fullUrl, $method)) {
             return $cached;
         }
 
-        try {
-            $startTime = microtime(true);
-            $response  = $this->client->makeRequest($method, $url, $options);
-            $endTime   = microtime(true);
+        // Make the request
+        $response = $this->client->request($method, $endpoint, $options);
 
-            $result = [
-                'status_code'   => $response->getStatusCode(),
-                'headers'       => $response->getHeaders(),
-                'body'          => (string) $response->getBody(),
-                'response_time' => $endTime - $startTime,
-            ];
+        // Cache the response
+        $this->cacheResponse($clientName, $fullUrl, $method, $response, $options);
 
-            // Cache the response
-            $this->cacheResponse($client, $url, $result, $options);
+        // Update rate limit
+        $this->updateRateLimit($clientName, $fullUrl);
 
-            // Update rate limit
-            $this->updateRateLimit($client, $url);
-
-            return $result;
-        } catch (GuzzleException $e) {
-            throw new ApiException($e->getMessage(), $e->getCode(), $e);
-        }
+        return $response;
     }
 
+    /**
+     * Check if request would exceed rate limits.
+     *
+     * @param string $client Name of the client (for config lookup)
+     * @param string $url    Full URL for the request
+     *
+     * @throws RateLimitException
+     *
+     * @return void
+     */
     protected function checkRateLimit(string $client, string $url): void
     {
         $endpoint    = parse_url($url, PHP_URL_PATH);
@@ -106,9 +121,18 @@ class RequestHandler
         }
     }
 
-    protected function getFromCache(string $client, string $url): ?array
+    /**
+     * Try to get cached response for this request.
+     *
+     * @param string $client Name of the client (for config lookup)
+     * @param string $url    Full URL for the request
+     * @param string $method HTTP method
+     *
+     * @return array|null Cached response or null if not found
+     */
+    protected function getFromCache(string $client, string $url, string $method): ?array
     {
-        $key = $this->generateCacheKey($client, $url);
+        $key = $this->generateCacheKey($client, $url, $method);
 
         $cached = DB::table('api_cache_responses')
             ->where('client', $client)
@@ -132,18 +156,47 @@ class RequestHandler
         return null;
     }
 
-    protected function cacheResponse(string $client, string $url, array $response, array $options): void
+    /**
+     * Cache an API response.
+     *
+     * @param string $client   Name of the client (for config lookup)
+     * @param string $url      Full URL for the request
+     * @param string $method   HTTP method used
+     * @param array  $response API response
+     * @param array  $options  Request options
+     *
+     * @return void
+     */
+    protected function cacheResponse(string $client, string $url, string $method, array $response, array $options): void
     {
-        $key = $this->generateCacheKey($client, $url);
-        $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600; // default 1 hour
+        $key = $this->generateCacheKey($client, $url, $method);
+        $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
+
+        // Parse URL components
+        $parsedUrl = parse_url($url);
+        $baseUrl   = '';
+
+        // Build base URL including port if present
+        if (!empty($parsedUrl['scheme']) && !empty($parsedUrl['host'])) {
+            $baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+            if (!empty($parsedUrl['port'])) {
+                $baseUrl .= ':' . $parsedUrl['port'];
+            }
+        }
+
+        $this->logger->debug('URL Parsing:', [
+            'original_url' => $url,
+            'parsed_url'   => $parsedUrl,
+            'base_url'     => $baseUrl,
+        ]);
 
         DB::table('api_cache_responses')->insert([
             'client'               => $client,
             'key'                  => $key,
-            'endpoint'             => parse_url($url, PHP_URL_PATH),
-            'base_url'             => parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST),
+            'endpoint'             => $parsedUrl['path'] ?? $url,
+            'base_url'             => $baseUrl,
             'full_url'             => $url,
-            'method'               => $options['method'] ?? 'GET',
+            'method'               => $method,
             'request_headers'      => json_encode($options['headers'] ?? []),
             'request_body'         => $options['body'] ?? null,
             'response_status_code' => $response['status_code'],
@@ -157,11 +210,28 @@ class RequestHandler
         ]);
     }
 
-    protected function generateCacheKey(string $client, string $url): string
+    /**
+     * Generate cache key for a request.
+     *
+     * @param string $client Name of the client (for config lookup)
+     * @param string $url    Full URL for the request
+     * @param string $method HTTP method
+     *
+     * @return string Cache key
+     */
+    protected function generateCacheKey(string $client, string $url, string $method): string
     {
-        return md5($client . '|' . $url);
+        return md5($client . '|' . $method . '|' . $url);
     }
 
+    /**
+     * Update rate limit counters for an endpoint.
+     *
+     * @param string $client Name of the client (for config lookup)
+     * @param string $url    Full URL for the request
+     *
+     * @return void
+     */
     protected function updateRateLimit(string $client, string $url): void
     {
         $endpoint   = parse_url($url, PHP_URL_PATH);

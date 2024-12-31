@@ -7,21 +7,18 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::create('api_cache_rate_limits', function (Blueprint $table) {
+        Schema::create('api_cache_demo_api_rate_limits', function (Blueprint $table) {
             $table->id();
-            $table->string('client', 50)->index();  // openai, pixabay, etc.
+            $table->string('client', 50)->index();
             $table->string('endpoint');
             $table->timestamp('window_start')->index();
             $table->integer('window_request_count')->unsigned()->default(0);
             $table->timestamps();
-
-            // Composite index for faster rate limit checks
-            $table->index(['client', 'endpoint', 'window_start']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_rate_limits');
+        Schema::dropIfExists('api_cache_demo_api_rate_limits');
     }
 };

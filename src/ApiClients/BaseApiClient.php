@@ -47,38 +47,56 @@ abstract class BaseApiClient
      */
     public function buildUrl(string $endpoint): string
     {
-        $url = rtrim($this->getBaseUrl(), '/') . '/' . ltrim($endpoint, '/');
-
-        $this->logger->debug('Building URL:', [
-            'base_url'  => $this->getBaseUrl(),
-            'endpoint'  => $endpoint,
-            'final_url' => $url,
-        ]);
-
-        return $url;
+        return rtrim($this->getBaseUrl(), '/') . '/' . ltrim($endpoint, '/');
     }
 
     /**
-     * Make an HTTP request and return standardized response.
-     *
-     * @param string $method   HTTP method (GET, POST, etc.)
-     * @param string $endpoint API endpoint path
-     * @param array  $options  Request options for Guzzle
-     *
-     * @return array ['status_code' => int, 'headers' => array, 'body' => string]
+     * Make the actual HTTP request - to be implemented by child classes
+     */
+    abstract protected function executeRequest(string $method, string $url, array $options): array;
+
+    /**
+     * Make a request with standard logging and processing
      */
     public function request(string $method, string $endpoint, array $options = []): array
     {
         $url       = $this->buildUrl($endpoint);
         $startTime = microtime(true);
-        $response  = $this->client->makeRequest($method, $url, $options);
-        $endTime   = microtime(true);
 
-        return [
-            'status_code'   => $response->getStatusCode(),
-            'headers'       => $response->getHeaders(),
-            'body'          => (string) $response->getBody(),
-            'response_time' => $endTime - $startTime,
-        ];
+        // Child class implements the actual request
+        $response = $this->executeRequest($method, $url, $options);
+
+        $endTime                   = microtime(true);
+        $response['response_time'] = $endTime - $startTime;
+
+        return $response;
+    }
+
+    /**
+     * Get the client name for table prefixes.
+     */
+    abstract public function getClientName(): string;
+
+    /**
+     * Get client-specific fields and their types.
+     *
+     * @return array<string, string> Field name => field type
+     */
+    abstract public function getClientSpecificFields(): array;
+
+    /**
+     * Get the response table name for this client.
+     */
+    public function getResponseTableName(): string
+    {
+        return 'api_cache_' . $this->getClientName() . '_responses';
+    }
+
+    /**
+     * Get the rate limit table name for this client.
+     */
+    public function getRateLimitTableName(): string
+    {
+        return 'api_cache_' . $this->getClientName() . '_rate_limits';
     }
 }

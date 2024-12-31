@@ -5,12 +5,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::create('api_cache_responses', function (Blueprint $table) {
+        Schema::create('api_cache_demo_api_responses', function (Blueprint $table) {
             $table->id();
-            $table->string('client', 50)->index();  // openai, pixabay, etc.
-            $table->string('key')->index();         // cache key
+            $table->string('client', 50)->index();
+            $table->string('key')->index();
             $table->string('endpoint');
             $table->string('base_url');
             $table->text('full_url');
@@ -25,15 +28,21 @@ return new class () extends Migration {
             $table->integer('response_compressed_size')->unsigned()->nullable();
             $table->float('response_time')->nullable();
             $table->timestamp('expires_at')->nullable()->index();
-            $table->timestamps();
 
-            // Composite index for faster lookups
-            $table->index(['client', 'key', 'expires_at']);
+            // Client specific fields
+            $table->string('response_format', 10)->nullable();
+            $table->string('input_value')->nullable();
+            $table->string('input_type', 50)->nullable();
+
+            $table->timestamps();
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_responses');
+        Schema::dropIfExists('api_cache_demo_api_responses');
     }
 };

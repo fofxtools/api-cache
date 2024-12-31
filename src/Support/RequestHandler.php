@@ -3,7 +3,6 @@
 namespace FOfX\ApiCache\Support;
 
 use FOfX\ApiCache\ApiClients\BaseApiClient;
-use FOfX\ApiCache\ApiClients\TestClient;
 use FOfX\ApiCache\Exceptions\RateLimitException;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -24,10 +23,12 @@ class RequestHandler
     /**
      * Create a new request handler instance.
      *
-     * @param array $config Configuration for caching and rate limiting
+     * @param BaseApiClient $client The API client to handle requests for
+     * @param array         $config Configuration for caching and rate limiting
      */
-    public function __construct(array $config)
+    public function __construct(BaseApiClient $client, array $config)
     {
+        $this->client = $client;
         $this->config = $config;
 
         // Set up logging
@@ -36,12 +37,8 @@ class RequestHandler
             ? storage_path('logs/api-cache.log')
             : __DIR__ . '/../../storage/logs/api-cache.log';
 
-        // Use debug level if enabled in config
         $level = !empty($config['debug']) ? Level::Debug : Level::Info;
         $this->logger->pushHandler(new StreamHandler($logPath, $level));
-
-        // Create client with logger
-        $this->client = new TestClient($this->logger);
     }
 
     /**
@@ -65,12 +62,31 @@ class RequestHandler
         $this->checkRateLimit($clientName, $fullUrl);
 
         // Try cache first
-        if ($cached = $this->getFromCache($clientName, $fullUrl, $method)) {
+        if ($cached = $this->getFromCache($clientName, $fullUrl, $method, $options)) {
+            $this->logger->debug('Cache hit', [
+                'cached_response' => $cached,
+            ]);
+
             return $cached;
         }
 
         // Make the request
+        $this->logger->debug('Making request', [
+            'method'   => $method,
+            'endpoint' => $endpoint,
+            'options'  => $options,
+        ]);
         $response = $this->client->request($method, $endpoint, $options);
+        $this->logger->debug('Response received', [
+            'response' => $response,
+        ]);
+
+        // Debug
+        $this->logger->debug('Response details', [
+            'response_size'    => strlen($response['body']),
+            'response_preview' => substr($response['body'], 0, 100),
+            'has_test_data'    => isset(json_decode($response['body'], true)['test_data']),
+        ]);
 
         // Cache the response
         $this->cacheResponse($clientName, $fullUrl, $method, $response, $options);
@@ -94,28 +110,38 @@ class RequestHandler
     protected function checkRateLimit(string $client, string $url): void
     {
         $endpoint    = parse_url($url, PHP_URL_PATH);
-        $windowSize  = $this->config['clients'][$client]['rate_limits']['window_size'] ?? 60; // default 60 seconds
-        $maxRequests = $this->config['clients'][$client]['rate_limits']['max_requests'] ?? 60; // default 60 requests
+        $windowSize  = (int)($this->config['clients'][$client]['rate_limits']['window_size'] ?? 60);
+        $maxRequests = (int)($this->config['clients'][$client]['rate_limits']['max_requests'] ?? 60);
 
         // Get current window
-        $currentWindow = DB::table('api_cache_rate_limits')
+        $currentWindow = DB::table($this->client->getRateLimitTableName())
             ->where('client', $client)
             ->where('endpoint', $endpoint)
             ->where('window_start', '>', now()->subSeconds($windowSize))
             ->first();
 
-        if ($currentWindow && $currentWindow->window_request_count >= $maxRequests) {
-            $retryAfter = (int)(
-                $windowSize - now()->diffInSeconds(Carbon::parse($currentWindow->window_start))
-            );
+        // Get total count in window
+        $count = DB::table($this->client->getRateLimitTableName())
+            ->where('client', $client)
+            ->where('endpoint', $endpoint)
+            ->where('window_start', '>', now()->subSeconds($windowSize))
+            ->sum('window_request_count');
+
+        if ($count >= $maxRequests) {
+            $retryAfter = $windowSize;  // Simplified retry calculation
+            if ($currentWindow) {
+                $retryAfter = (int)(
+                    $windowSize - now()->diffInSeconds(Carbon::parse($currentWindow->window_start))
+                );
+            }
 
             throw (new RateLimitException("Rate limit exceeded for {$client}"))
                 ->setRetryAfter($retryAfter)
                 ->setContext([
                     'client'        => $client,
                     'endpoint'      => $endpoint,
-                    'window_start'  => $currentWindow->window_start,
-                    'current_count' => $currentWindow->window_request_count,
+                    'window_start'  => $currentWindow ? $currentWindow->window_start : null,
+                    'current_count' => $count,
                     'max_requests'  => $maxRequests,
                 ]);
         }
@@ -124,17 +150,18 @@ class RequestHandler
     /**
      * Try to get cached response for this request.
      *
-     * @param string $client Name of the client (for config lookup)
-     * @param string $url    Full URL for the request
-     * @param string $method HTTP method
+     * @param string $client  Name of the client (for config lookup)
+     * @param string $url     Full URL for the request
+     * @param string $method  HTTP method
+     * @param array  $options Request options
      *
      * @return array|null Cached response or null if not found
      */
-    protected function getFromCache(string $client, string $url, string $method): ?array
+    protected function getFromCache(string $client, string $url, string $method, array $options = []): ?array
     {
-        $key = $this->generateCacheKey($client, $url, $method);
+        $key = $this->generateCacheKey($client, $url, $method, $options);
 
-        $cached = DB::table('api_cache_responses')
+        $cached = DB::table($this->client->getResponseTableName())
             ->where('client', $client)
             ->where('key', $key)
             ->where(function ($query) {
@@ -144,12 +171,18 @@ class RequestHandler
             ->first();
 
         if ($cached) {
+            // Handle compressed vs raw response
+            $body = $cached->response_body_compressed
+                ? gzuncompress($cached->response_body_compressed)
+                : $cached->response_body_raw;
+
             return [
-                'status_code'   => $cached->response_status_code,
-                'headers'       => json_decode($cached->response_headers, true) ?? [],
-                'body'          => $cached->response_body_raw,
-                'response_time' => $cached->response_time,
-                'from_cache'    => true,
+                'status_code'    => $cached->response_status_code,
+                'headers'        => json_decode($cached->response_headers, true) ?? [],
+                'body'           => $body,
+                'response_time'  => $cached->response_time,
+                'from_cache'     => true,
+                'was_compressed' => !empty($cached->response_body_compressed),
             ];
         }
 
@@ -157,71 +190,93 @@ class RequestHandler
     }
 
     /**
-     * Cache an API response.
-     *
-     * @param string $client   Name of the client (for config lookup)
-     * @param string $url      Full URL for the request
-     * @param string $method   HTTP method used
-     * @param array  $response API response
-     * @param array  $options  Request options
-     *
-     * @return void
+     * Cache a successful API response.
      */
-    protected function cacheResponse(string $client, string $url, string $method, array $response, array $options): void
+    protected function cacheResponse(string $client, string $url, string $method, array $response, array $options = []): void
     {
-        $key = $this->generateCacheKey($client, $url, $method);
-        $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
-
-        // Parse URL components
-        $parsedUrl = parse_url($url);
-        $baseUrl   = '';
-
-        // Build base URL including port if present
-        if (!empty($parsedUrl['scheme']) && !empty($parsedUrl['host'])) {
-            $baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
-            if (!empty($parsedUrl['port'])) {
-                $baseUrl .= ':' . $parsedUrl['port'];
-            }
+        // Skip caching if response is a server error
+        if ($response['status_code'] >= 500) {
+            return;
         }
 
-        $this->logger->debug('URL Parsing:', [
-            'original_url' => $url,
-            'parsed_url'   => $parsedUrl,
-            'base_url'     => $baseUrl,
-        ]);
+        // Get cache TTL from config
+        $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
 
-        DB::table('api_cache_responses')->insert([
-            'client'               => $client,
-            'key'                  => $key,
-            'endpoint'             => $parsedUrl['path'] ?? $url,
-            'base_url'             => $baseUrl,
-            'full_url'             => $url,
-            'method'               => $method,
-            'request_headers'      => json_encode($options['headers'] ?? []),
-            'request_body'         => $options['body'] ?? null,
-            'response_status_code' => $response['status_code'],
-            'response_headers'     => json_encode($response['headers']),
-            'response_body_raw'    => $response['body'],
-            'response_raw_size'    => strlen($response['body']),
-            'response_time'        => $response['response_time'],
-            'expires_at'           => $ttl ? now()->addSeconds($ttl) : null,
-            'created_at'           => now(),
-            'updated_at'           => now(),
+        // Build cache key
+        $key = $this->generateCacheKey($client, $url, $method, $options);
+
+        // Store in cache
+        $this->storeInCache($client, $key, $url, $method, $options, $response);
+    }
+
+    /**
+     * Store response data in cache with proper endpoint handling.
+     */
+    protected function storeInCache(string $client, string $key, string $url, string $method, array $options, array $response): void
+    {
+        // Extract just the endpoint part from the full path
+        $parsedUrl = parse_url($url);
+        $path      = $parsedUrl['path'] ?? $url;
+        $endpoint  = preg_replace('#^/demo-api\.php/#', '/', $path);
+
+        // Get cache TTL from config
+        $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
+
+        // Store in database
+        DB::table($this->client->getResponseTableName())->insert([
+            'client'                   => $client,
+            'key'                      => $key,
+            'endpoint'                 => $endpoint,
+            'base_url'                 => rtrim($this->client->buildUrl(''), '/'),
+            'full_url'                 => $url,
+            'method'                   => $method,
+            'request_headers'          => json_encode($options['headers'] ?? []),
+            'request_body'             => $options['body'] ?? null,
+            'response_status_code'     => $response['status_code'],
+            'response_headers'         => json_encode($response['headers'] ?? []),
+            'response_body_raw'        => $response['body'],
+            'response_body_compressed' => null, // Compression handled separately
+            'response_raw_size'        => strlen($response['body']),
+            'response_compressed_size' => null,
+            'response_time'            => $response['response_time'] ?? null,
+            'expires_at'               => now()->addSeconds($ttl),
+
+            // Add client-specific fields
+            'response_format' => $options['response_format'] ?? null,
+            'input_value'     => $options['input_value'] ?? null,
+            'input_type'      => $options['input_type'] ?? null,
+
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
     /**
      * Generate cache key for a request.
      *
-     * @param string $client Name of the client (for config lookup)
-     * @param string $url    Full URL for the request
-     * @param string $method HTTP method
+     * @param string $client  Name of the client (for config lookup)
+     * @param string $url     Full URL for the request
+     * @param string $method  HTTP method
+     * @param array  $options Request options
      *
      * @return string Cache key
      */
-    protected function generateCacheKey(string $client, string $url, string $method): string
+    protected function generateCacheKey(string $client, string $url, string $method, array $options = []): string
     {
-        return md5($client . '|' . $method . '|' . $url);
+        // Get client-specific fields from options
+        $specificFields = array_intersect_key(
+            $options,
+            array_flip($this->client->getClientSpecificFields())
+        );
+
+        $keyParts = [
+            'client' => $client,
+            'method' => $method,
+            'url'    => $url,
+            'inputs' => $specificFields,
+        ];
+
+        return md5(json_encode($keyParts));
     }
 
     /**
@@ -238,7 +293,7 @@ class RequestHandler
         $windowSize = $this->config['clients'][$client]['rate_limits']['window_size'] ?? 60;
 
         // First, try to update existing record
-        $updated = DB::table('api_cache_rate_limits')
+        $updated = DB::table($this->client->getRateLimitTableName())
             ->where('client', $client)
             ->where('endpoint', $endpoint)
             ->where('window_start', now()->startOfMinute())
@@ -249,7 +304,7 @@ class RequestHandler
 
         // If no record was updated, insert new one
         if (!$updated) {
-            DB::table('api_cache_rate_limits')->insert([
+            DB::table($this->client->getRateLimitTableName())->insert([
                 'client'               => $client,
                 'endpoint'             => $endpoint,
                 'window_start'         => now()->startOfMinute(),
@@ -260,7 +315,7 @@ class RequestHandler
         }
 
         // Clean up old windows
-        DB::table('api_cache_rate_limits')
+        DB::table($this->client->getRateLimitTableName())
             ->where('window_start', '<', now()->subSeconds($windowSize * 2))
             ->delete();
     }

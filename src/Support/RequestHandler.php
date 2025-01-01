@@ -257,6 +257,9 @@ class RequestHandler
             ]);
         }
 
+        // Get client-specific fields from query params if present
+        $clientFields = isset($options['query']) ? $options['query'] : $options;
+
         // Store in database
         DB::table($this->client->getResponseTableName())->insert([
             'client'                   => $client,
@@ -277,9 +280,9 @@ class RequestHandler
             'expires_at'               => $expiresAt,
 
             // Add client-specific fields
-            'response_format' => $options['response_format'] ?? null,
-            'input_value'     => $options['input_value'] ?? null,
-            'input_type'      => $options['input_type'] ?? null,
+            'response_format' => $clientFields['response_format'] ?? null,
+            'input_value'     => $clientFields['input_value'] ?? null,
+            'input_type'      => $clientFields['input_type'] ?? null,
 
             'created_at' => now(),
             'updated_at' => now(),
@@ -299,8 +302,9 @@ class RequestHandler
     protected function generateCacheKey(string $client, string $url, string $method, array $options = []): string
     {
         // Get client-specific fields from options
+        $clientFields = isset($options['query']) ? $options['query'] : $options;
         $specificFields = array_intersect_key(
-            $options,
+            $clientFields,
             array_flip($this->client->getClientSpecificFields())
         );
 

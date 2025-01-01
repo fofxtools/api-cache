@@ -1,68 +1,27 @@
 flowchart TB
-    %% Define nodes
-    App[Application Code]
-    RH[RequestHandler]
-    BC[BaseApiClient]
-    DC[DemoApiClient]
-    DB[(Database)]
-    RateLimit[Rate Limit Tables]
-    Cache[Cache Tables]
-    DemoAPI[Demo API]
-    OpenAI[OpenAI API]
-    Pixabay[Pixabay API]
-
-    %% Group nodes
-    subgraph Client ["Client Application"]
-        App
+    subgraph ClientApp["Client Application"]
+        App[Application]
     end
-
-    subgraph Library ["API Cache Library"]
-        RH
-        BC
-        DC
-        
-        subgraph Storage ["Cache Layer"]
-            DB
-            RateLimit
-            Cache
+    subgraph Library["API Cache Library"]
+        RequestHandler
+        BaseApiClient
+        subgraph APIClients["API Clients"]
+            DemoApiClient
+            OtherApiClient["Other API Clients (e.g., OpenAI, Pixabay)"]
+        end
+        subgraph CacheLayer["Cache and Rate Limit Storage"]
+            CacheTable[Cache Table]
+            RateLimitTable[Rate Limit Table]
         end
     end
-
-    subgraph APIs ["External APIs"]
-        DemoAPI
-        OpenAI
-        Pixabay
+    subgraph APIs["APIs"]
+        LocalAPI["Local API (public\/demo-api.php)"]
+        ExternalAPI["External APIs (e.g., OpenAI, Pixabay)"]
     end
 
-    %% Define relationships
-    App -->|"1. send()"| RH
-    RH -->|"2. check rate limit"| RateLimit
-    RH -->|"3. check cache"| Cache
-    
-    Cache -->|"3a. Cache Hit"| RH
-    RH -->|"3b. Return cached"| App
-
-    RH -->|"4. Cache miss"| BC
-    BC -->|"5. request()"| DC
-    DC -->|"6. HTTP request"| DemoAPI
-    DemoAPI -->|"7. Response"| DC
-    DC -->|"8. Format response"| BC
-    BC -->|"9. Return response"| RH
-    RH -->|"10. Store cache"| Cache
-    RH -->|"11. Update rate limit"| RateLimit
-    RH -->|"12. Return response"| App
-
-    %% Database connections
-    DB --- RateLimit
-    DB --- Cache
-
-    %% Inheritance
-    BC -.->|"extends"| DC
-
-    %% Styling
-    classDef default fill:#f9f,stroke:#333,stroke-width:2px
-    classDef cache fill:#bbf,stroke:#333,stroke-width:2px
-    classDef api fill:#bfb,stroke:#333,stroke-width:2px
-    
-    class Cache,RateLimit cache
-    class DemoAPI,OpenAI,Pixabay api 
+    App --> RequestHandler
+    RequestHandler --> CacheLayer
+    RequestHandler --> BaseApiClient
+    BaseApiClient --> APIClients
+    DemoApiClient --> LocalAPI
+    OtherApiClient --> ExternalAPI

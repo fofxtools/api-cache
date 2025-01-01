@@ -13,6 +13,7 @@ return new class () extends Migration {
             $table->string('endpoint');
             $table->timestamp('window_start')->index();
             $table->integer('window_request_count')->unsigned()->default(0);
+            $table->enum('status', ['active', 'archived'])->default('active')->index();
             $table->timestamps();
         });
     }

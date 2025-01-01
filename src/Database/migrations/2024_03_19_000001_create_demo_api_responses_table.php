@@ -31,7 +31,7 @@ return new class () extends Migration {
 
             // Client specific fields
             $table->string('response_format', 10)->nullable();
-            $table->string('input_value')->nullable();
+            $table->text('input_value')->nullable();
             $table->string('input_type', 50)->nullable();
 
             $table->timestamps();

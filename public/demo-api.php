@@ -94,9 +94,12 @@ switch ($endpoint) {
         break;
 
     case 'rate-limit':
+        $retryAfter = 60;
+        header('HTTP/1.1 429 Too Many Requests');
+        header('Retry-After: ' . $retryAfter);
         $status                  = 429;
         $response['error']       = 'Rate limit exceeded';
-        $response['retry_after'] = 60;
+        $response['retry_after'] = $retryAfter;
 
         break;
 

@@ -36,7 +36,7 @@ abstract class BaseApiClient
      *
      * @return string
      */
-    abstract protected function getBaseUrl(): string;
+    abstract public function getBaseUrl(): string;
 
     /**
      * Build full URL from endpoint.
@@ -116,4 +116,12 @@ abstract class BaseApiClient
     {
         return 'api_cache_' . $this->getClientName() . '_rate_limits';
     }
+
+    /**
+     * Clean the endpoint path for storage
+     *
+     * @param string $path The full request path
+     * @return string The cleaned endpoint
+     */
+    abstract public function cleanEndpointPath(string $path): string;
 }

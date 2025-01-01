@@ -85,7 +85,6 @@ class RequestHandler
         $this->logger->debug('Response details', [
             'response_size'    => strlen($response['response']['body']),
             'response_preview' => substr($response['response']['body'], 0, 100),
-            'has_test_data'    => isset(json_decode($response['response']['body'], true)['test_data']),
         ]);
 
         // Cache the response
@@ -117,6 +116,7 @@ class RequestHandler
         $currentWindow = DB::table($this->client->getRateLimitTableName())
             ->where('client', $client)
             ->where('endpoint', $endpoint)
+            ->where('status', 'active')
             ->where('window_start', '>', now()->subSeconds($windowSize))
             ->first();
 
@@ -124,11 +124,12 @@ class RequestHandler
         $count = DB::table($this->client->getRateLimitTableName())
             ->where('client', $client)
             ->where('endpoint', $endpoint)
+            ->where('status', 'active')
             ->where('window_start', '>', now()->subSeconds($windowSize))
             ->sum('window_request_count');
 
         if ($count >= $maxRequests) {
-            $retryAfter = $windowSize;  // Simplified retry calculation
+            $retryAfter = $windowSize;
             if ($currentWindow) {
                 $retryAfter = (int)(
                     $windowSize - now()->diffInSeconds(Carbon::parse($currentWindow->window_start))
@@ -197,6 +198,14 @@ class RequestHandler
 
     /**
      * Cache a successful API response.
+     * 
+     * @param string $client Name of the client (for config lookup)
+     * @param string $url Full URL for the request
+     * @param string $method HTTP method
+     * @param array $response API response
+     * @param array $options Request options
+     * 
+     * @return void
      */
     protected function cacheResponse(string $client, string $url, string $method, array $response, array $options = []): void
     {
@@ -221,20 +230,30 @@ class RequestHandler
 
     /**
      * Store response data in cache with proper endpoint handling.
+     * 
+     * @param string $client Name of the client (for config lookup)
+     * @param string $key Cache key
+     * @param string $url Full URL for the request
+     * @param string $method HTTP method
+     * @param array $options Request options
+     * @param array $response API response
+     * 
+     * @return void
      */
     protected function storeInCache(string $client, string $key, string $url, string $method, array $options, array $response): void
     {
         // Extract just the endpoint part from the full path
         $parsedUrl = parse_url($url);
         $path      = $parsedUrl['path'] ?? $url;
-        $endpoint  = preg_replace('#^/demo-api\.php/#', '/', $path);
+        $endpoint  = $this->client->cleanEndpointPath($path);
 
         // Get cache TTL from config
         $ttl       = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
         $expiresAt = $ttl < 0 ? null : now()->addSeconds($ttl);
 
-        // Handle compression if enabled
-        $body = $response['response']['body'];
+        $body = is_array($response['response']['body']) 
+            ? json_encode($response['response']['body'])
+            : $response['response']['body'];
 
         // Calculate sizes before any modifications
         $originalSize = strlen($body);
@@ -243,6 +262,7 @@ class RequestHandler
             'preview' => substr($body, 0, 100),
         ]);
 
+        // Handle compression if enabled
         $compressed = null;
         if ($this->config['clients'][$client]['compression']['enabled'] ?? false) {
             $level          = $this->config['clients'][$client]['compression']['level'] ?? 6;
@@ -253,25 +273,67 @@ class RequestHandler
             $this->logger->debug('Compression details', [
                 'original_size'   => $originalSize,
                 'compressed_size' => $compressedSize,
-                'ratio'           => round(($compressedSize / $originalSize) * 100, 1) . '%',
+                'compression_ratio' => round(($compressedSize / $originalSize) * 100, 1) . '%',
             ]);
         }
 
-        // Get client-specific fields from query params if present
-        $clientFields = isset($options['query']) ? $options['query'] : $options;
+        // Extract client-specific fields from request
+        $clientFields = [];
+        $validFields = $this->client->getClientSpecificFields();
+        
+        // Check query parameters
+        if (isset($options['query'])) {
+            foreach ($validFields as $field => $type) {
+                if (isset($options['query'][$field])) {
+                    $clientFields[$field] = is_array($options['query'][$field])
+                        ? json_encode($options['query'][$field])
+                        : $options['query'][$field];
+                }
+            }
+        }
+        
+        // Check body for POST/PUT requests
+        if (isset($options['body']) && is_string($options['body'])) {
+            $body = json_decode($options['body'], true);
+            if ($body) {
+                foreach ($validFields as $field => $type) {
+                    if (isset($body[$field])) {
+                        $clientFields[$field] = $body[$field];
+                    }
+                }
+            }
+        }
+
+        // Handle request headers
+        $requestHeaders = $response['request']['headers'] ?? '{}';
+        if (is_array($requestHeaders)) {
+            $requestHeaders = json_encode($requestHeaders);
+        }
+
+        // Handle request body
+        $requestBody = $response['request']['body'] ?? null;
+        if (is_array($requestBody)) {
+            $requestBody = json_encode($requestBody);
+        }
+
+        // Handle response headers
+        $responseHeaders = $response['response']['headers'] ?? '{}';
+        if (is_array($responseHeaders)) {
+            $responseHeaders = json_encode($responseHeaders);
+        }
 
         // Store in database
         DB::table($this->client->getResponseTableName())->insert([
             'client'                   => $client,
             'key'                      => $key,
             'endpoint'                 => $endpoint,
-            'base_url'                 => rtrim($this->client->buildUrl(''), '/'),
+            'base_url'                 => $this->client->getBaseUrl(),
             'full_url'                 => $url,
             'method'                   => $method,
-            'request_headers'          => $response['request']['headers'] ?? '{}',
-            'request_body'             => $response['request']['body'] ?? null,
+            'request_headers'          => $requestHeaders,
+            'request_body'             => $requestBody,
             'response_status_code'     => $response['response']['statusCode'],
-            'response_headers'         => $response['response']['headers'] ?? '{}',
+            'response_headers'         => $responseHeaders,
             'response_body_raw'        => $body,
             'response_body_compressed' => $compressed,
             'response_raw_size'        => $originalSize,
@@ -281,7 +343,11 @@ class RequestHandler
 
             // Add client-specific fields
             'response_format' => $clientFields['response_format'] ?? null,
-            'input_value'     => $clientFields['input_value'] ?? null,
+            'input_value'     => isset($clientFields['input_value'])
+                ? (is_array($clientFields['input_value']) 
+                    ? json_encode($clientFields['input_value'])
+                    : $clientFields['input_value'])
+                : null,
             'input_type'      => $clientFields['input_type'] ?? null,
 
             'created_at' => now(),
@@ -301,12 +367,33 @@ class RequestHandler
      */
     protected function generateCacheKey(string $client, string $url, string $method, array $options = []): string
     {
-        // Get client-specific fields from options
-        $clientFields = isset($options['query']) ? $options['query'] : $options;
-        $specificFields = array_intersect_key(
-            $clientFields,
-            array_flip($this->client->getClientSpecificFields())
-        );
+        $specificFields = [];
+        $validFields = $this->client->getClientSpecificFields();
+
+        // Extract from query parameters
+        if (isset($options['query'])) {
+            foreach ($validFields as $field => $type) {
+                if (isset($options['query'][$field])) {
+                    $specificFields[$field] = is_array($options['query'][$field])
+                        ? json_encode($options['query'][$field])
+                        : $options['query'][$field];
+                }
+            }
+        }
+
+        // Extract from POST/PUT body
+        if (in_array($method, ['POST', 'PUT']) && isset($options['body'])) {
+            $body = is_string($options['body']) ? json_decode($options['body'], true) : $options['body'];
+            if ($body) {
+                foreach ($validFields as $field => $type) {
+                    if (isset($body[$field])) {
+                        $specificFields[$field] = is_array($body[$field])
+                            ? json_encode($body[$field])
+                            : $body[$field];
+                    }
+                }
+            }
+        }
 
         $keyParts = [
             'client' => $client,
@@ -328,13 +415,16 @@ class RequestHandler
      */
     protected function updateRateLimit(string $client, string $url): void
     {
-        $endpoint   = parse_url($url, PHP_URL_PATH);
+        $parsedUrl = parse_url($url);
+        $path      = $parsedUrl['path'] ?? $url;
+        $endpoint  = $this->client->cleanEndpointPath($path);
         $windowSize = $this->config['clients'][$client]['rate_limits']['window_size'] ?? 60;
 
         // First, try to update existing record
         $updated = DB::table($this->client->getRateLimitTableName())
             ->where('client', $client)
             ->where('endpoint', $endpoint)
+            ->where('status', 'active')
             ->where('window_start', now()->startOfMinute())
             ->update([
                 'window_request_count' => DB::raw('window_request_count + 1'),
@@ -348,14 +438,16 @@ class RequestHandler
                 'endpoint'             => $endpoint,
                 'window_start'         => now()->startOfMinute(),
                 'window_request_count' => 1,
+                'status'              => 'active',
                 'created_at'           => now(),
                 'updated_at'           => now(),
             ]);
         }
 
-        // Clean up old windows
+        // Archive old windows
         DB::table($this->client->getRateLimitTableName())
+            ->where('status', 'active')
             ->where('window_start', '<', now()->subSeconds($windowSize * 2))
-            ->delete();
+            ->update(['status' => 'archived']);
     }
 }

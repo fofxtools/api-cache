@@ -1,0 +1,20 @@
+flowchart TD
+    Start[Start: Incoming Request] --> RH[RequestHandler]
+    RH -->|Cache Check| Cache[Cache]
+    Cache -->|Hit: Return Cached Response| End[End: Response Returned]
+    Cache -->|Miss: No Cache Found| RateLimit[Rate Limit Check]
+    RateLimit -->|Within Limit| APIClient[Forward to API Client]
+    RateLimit -->|Exceeded| RateLimitError[Rate Limit Error: Block Request]
+    
+    subgraph APICall["API Call"]
+        direction TB
+        APIClient -->|Demo| LocalAPI["Local API (public\/demo-api.php)"]
+        APIClient -->|Other| ExternalAPI["External API (e.g., OpenAI, Pixabay)"]
+    end
+    
+    LocalAPI --> APIClient
+    ExternalAPI --> APIClient
+    
+    APIClient --> RH
+    RH -->|Store in Cache| Cache
+    RH --> End

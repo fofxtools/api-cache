@@ -1,0 +1,18 @@
+function handleRequest(request):
+    # Step 1: Check the cache
+    cachedResponse = cache.get(request.key)
+    if cachedResponse:
+        return cachedResponse  # Return cached response (Cache Hit)
+
+    # Step 2: Check the rate limit
+    if not rateLimit.isWithinLimit(request.client):
+        raise RateLimitException("Rate limit exceeded")  # Block if limit exceeded
+
+    # Step 3: Forward the request to the API client
+    apiResponse = apiClient.fetch(request)
+
+    # Step 4: Store the response in the cache
+    cache.store(request.key, apiResponse, ttl=request.ttl)
+
+    # Step 5: Return the API response
+    return apiResponse

@@ -13,7 +13,7 @@ class DemoApiClient extends BaseApiClient
      *
      * @return string
      */
-    protected function getBaseUrl(): string
+    public function getBaseUrl(): string
     {
         return env('DEMO_API_URL', 'http://localhost:8000/demo-api.php');
     }
@@ -48,5 +48,16 @@ class DemoApiClient extends BaseApiClient
 
         // Return the output
         return $this->client->getOutput();
+    }
+
+    /**
+     * Clean the endpoint path for storage
+     *
+     * @param string $path The full request path
+     * @return string The cleaned endpoint
+     */
+    public function cleanEndpointPath(string $path): string
+    {
+        return preg_replace('#^/demo-api\.php/#', '/', $path);
     }
 }

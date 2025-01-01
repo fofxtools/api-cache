@@ -1,0 +1,47 @@
+# Application sends a request
+application.sendRequest(request)
+
+# RequestHandler handles the request flow
+class RequestHandler:
+    def handle(request):
+        if cache.exists(request.key):
+            return cache.get(request.key)  # Cache Hit
+
+        if not rateLimit.check(request.client):
+            raise RateLimitException("Rate limit exceeded")
+
+        response = apiClient.handle(request)  # Forward request to API client
+        cache.store(request.key, response, ttl=request.ttl)  # Cache response
+        return response
+
+# API Client fetches data from APIs
+class BaseApiClient:
+    def fetch(request):
+        raise NotImplementedError("Subclasses must implement fetch")
+
+class DemoApiClient(BaseApiClient):
+    def fetch(request):
+        # Makes HTTP request to Local API
+        response = httpClient.send(request)
+        return response  # Return response to RequestHandler
+
+# Cache layer for storing data
+class Cache:
+    def exists(key):
+        # Check if the cache entry exists
+        return key in database.cacheTable
+
+    def get(key):
+        # Retrieve cache entry
+        return database.cacheTable.get(key)
+
+    def store(key, data, ttl):
+        # Store data with a time-to-live
+        database.cacheTable.insert(key, data, ttl)
+
+# Rate Limit management
+class RateLimit:
+    def check(client):
+        # Check if the client is within the rate limit
+        rateData = database.rateLimitTable.get(client)
+        return rateData.remainingRequests > 0

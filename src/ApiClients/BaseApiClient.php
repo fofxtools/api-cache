@@ -57,21 +57,21 @@ abstract class BaseApiClient
 
     /**
      * Make a request with standard logging and processing.
-     * 
+     *
      * The last transaction is used to get the response data. The response time is also added.
-     * 
-     * @param string $method HTTP method
+     *
+     * @param string $method   HTTP method
      * @param string $endpoint API endpoint
-     * @param array $options Request options
-     * 
+     * @param array  $options  Request options
+     *
      * @return array Response data
      */
     public function request(string $method, string $endpoint, array $options = []): array
     {
         $this->logger->debug('Making API request', [
-            'method' => $method,
+            'method'   => $method,
             'endpoint' => $endpoint,
-            'options' => $options
+            'options'  => $options,
         ]);
 
         $url       = $this->buildUrl($endpoint);
@@ -83,7 +83,7 @@ abstract class BaseApiClient
         // Use last transaction from middleware output
         $lastTransaction = $output[array_key_last($output)];
 
-        $endTime                   = microtime(true);
+        $endTime                          = microtime(true);
         $lastTransaction['response_time'] = $endTime - $startTime;
 
         return $lastTransaction;

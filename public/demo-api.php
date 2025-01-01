@@ -25,16 +25,19 @@ $method   = $_SERVER['REQUEST_METHOD'];
 $path     = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $endpoint = basename($path);
 
+// Default to 200 OK unless changed by endpoint handling
+$status = 200;
+
 // Get client-specific inputs from headers or query/body
 $responseFormat = $_SERVER['HTTP_ACCEPT'] ?? $_GET['response_format'] ?? 'json';
-$inputValue    = isset($_GET['input_value']) ? urldecode($_GET['input_value']) : null;
-$inputType     = $_GET['input_type'] ?? 'default';
+$inputValue     = isset($_GET['input_value']) ? urldecode($_GET['input_value']) : null;
+$inputType      = $_GET['input_type'] ?? 'default';
 
 // Log input details
 $logger->debug('Request input details', [
     'raw_input'     => $_GET['input_value'] ?? null,
     'decoded_input' => $inputValue,
-    'input_type'    => $inputType
+    'input_type'    => $inputType,
 ]);
 
 // Get request body for POST requests
@@ -61,8 +64,9 @@ $response = [
     'success'     => true,
     'endpoint'    => $endpoint,
     'method'      => $method,
-    'input_value' => $inputValue,
+    'input_value' => $inputValue ?? $body['input_value'] ?? null,
     'input_type'  => $inputType,
+    'status_code' => $status,
     'timestamp'   => time(),
 ];
 
@@ -76,6 +80,14 @@ switch ($endpoint) {
             $logger->debug('Test data added to response', [
                 'test_data_length' => strlen($body['test_data']),
                 'response_size'    => strlen(json_encode($response)),
+            ]);
+        }
+
+        // Include input data in success response
+        if ($inputValue) {
+            $logger->debug('Including input value in response', [
+                'input_length'  => strlen($inputValue),
+                'input_preview' => substr($inputValue, 0, 100),
             ]);
         }
 
@@ -102,6 +114,8 @@ switch ($endpoint) {
 }
 
 // Format response based on requested format
+http_response_code($status);
+
 switch ($responseFormat) {
     case 'xml':
         header('Content-Type: application/xml');
@@ -128,5 +142,3 @@ switch ($responseFormat) {
         header('Content-Type: application/json');
         echo json_encode($response, JSON_PRETTY_PRINT);
 }
-
-http_response_code($status);

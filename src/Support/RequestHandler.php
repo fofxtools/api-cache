@@ -179,12 +179,12 @@ class RequestHandler
             return [
                 'request' => [
                     'headers' => json_decode($cached->request_headers, true) ?? [],
-                    'body'    => $cached->request_body
+                    'body'    => $cached->request_body,
                 ],
                 'response' => [
                     'statusCode' => $cached->response_status_code,
                     'headers'    => $cached->response_headers,
-                    'body'       => $body
+                    'body'       => $body,
                 ],
                 'response_time'  => $cached->response_time,
                 'from_cache'     => true,
@@ -205,6 +205,7 @@ class RequestHandler
             $this->logger->error('Skipping caching of response due to server error', [
                 'response' => $response,
             ]);
+
             return;
         }
 
@@ -229,46 +230,46 @@ class RequestHandler
         $endpoint  = preg_replace('#^/demo-api\.php/#', '/', $path);
 
         // Get cache TTL from config
-        $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
+        $ttl       = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
         $expiresAt = $ttl < 0 ? null : now()->addSeconds($ttl);
 
         // Handle compression if enabled
         $body = $response['response']['body'];
-        
+
         // Calculate sizes before any modifications
         $originalSize = strlen($body);
         $this->logger->debug('Original response size', [
-            'size' => $originalSize,
-            'preview' => substr($body, 0, 100)
+            'size'    => $originalSize,
+            'preview' => substr($body, 0, 100),
         ]);
-        
+
         $compressed = null;
         if ($this->config['clients'][$client]['compression']['enabled'] ?? false) {
-            $level = $this->config['clients'][$client]['compression']['level'] ?? 6;
-            $compressed = gzcompress($body, $level);
+            $level          = $this->config['clients'][$client]['compression']['level'] ?? 6;
+            $compressed     = gzcompress($body, $level);
             $compressedSize = strlen($compressed);
-            $body = null;  // Don't store raw when compressed
-            
+            $body           = null;  // Don't store raw when compressed
+
             $this->logger->debug('Compression details', [
-                'original_size' => $originalSize,
+                'original_size'   => $originalSize,
                 'compressed_size' => $compressedSize,
-                'ratio' => round(($compressedSize / $originalSize) * 100, 1) . '%'
+                'ratio'           => round(($compressedSize / $originalSize) * 100, 1) . '%',
             ]);
         }
 
         // Store in database
         DB::table($this->client->getResponseTableName())->insert([
-            'client'         => $client,
-            'key'           => $key,
-            'endpoint'      => $endpoint,
-            'base_url'      => rtrim($this->client->buildUrl(''), '/'),
-            'full_url'      => $url,
-            'method'        => $method,
-            'request_headers' => $response['request']['headers'] ?? '{}',
-            'request_body'  => $response['request']['body'] ?? null,
-            'response_status_code' => $response['response']['statusCode'],
-            'response_headers' => $response['response']['headers'] ?? '{}',
-            'response_body_raw' => $body,
+            'client'                   => $client,
+            'key'                      => $key,
+            'endpoint'                 => $endpoint,
+            'base_url'                 => rtrim($this->client->buildUrl(''), '/'),
+            'full_url'                 => $url,
+            'method'                   => $method,
+            'request_headers'          => $response['request']['headers'] ?? '{}',
+            'request_body'             => $response['request']['body'] ?? null,
+            'response_status_code'     => $response['response']['statusCode'],
+            'response_headers'         => $response['response']['headers'] ?? '{}',
+            'response_body_raw'        => $body,
             'response_body_compressed' => $compressed,
             'response_raw_size'        => $originalSize,
             'response_compressed_size' => isset($compressed) ? $compressedSize : null,

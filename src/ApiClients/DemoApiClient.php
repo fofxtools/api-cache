@@ -45,6 +45,7 @@ class DemoApiClient extends BaseApiClient
 
         // Use Guzzle Middleware's makeRequest method
         $this->client->makeRequest($method, $url, $options);
+
         // Return the output
         return $this->client->getOutput();
     }

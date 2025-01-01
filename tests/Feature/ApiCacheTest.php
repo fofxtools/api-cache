@@ -93,7 +93,7 @@ class ApiCacheTest extends TestCase
 
         // Debug response
         $this->assertArrayHasKey('status_code', $response, 'Response should have status_code');
-        $this->assertEquals(200, $response['status_code'], 'Response should be successful');
+        $this->assertEquals(200, $response['response']['statusCode'], 'Response should be successful');
 
         // Check if it was cached in database
         $cached = DB::table('api_cache_demo_api_responses')

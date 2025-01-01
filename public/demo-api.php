@@ -17,7 +17,7 @@ header('Content-Type: application/json');
 
 // Set up logging
 $logger  = new Logger('api-cache');
-$logPath = __DIR__ . '/../storage/logs/api-cache.log';
+$logPath = __DIR__ . '/../storage/api-cache.log';
 $logger->pushHandler(new StreamHandler($logPath, Level::Debug));
 
 // Get request data
@@ -27,7 +27,15 @@ $endpoint = basename($path);
 
 // Get client-specific inputs from headers or query/body
 $responseFormat = $_SERVER['HTTP_ACCEPT'] ?? $_GET['response_format'] ?? 'json';
-$inputType      = $_GET['input_type'] ?? 'default';
+$inputValue    = isset($_GET['input_value']) ? urldecode($_GET['input_value']) : null;
+$inputType     = $_GET['input_type'] ?? 'default';
+
+// Log input details
+$logger->debug('Request input details', [
+    'raw_input'     => $_GET['input_value'] ?? null,
+    'decoded_input' => $inputValue,
+    'input_type'    => $inputType
+]);
 
 // Get request body for POST requests
 $body = null;
@@ -53,7 +61,7 @@ $response = [
     'success'     => true,
     'endpoint'    => $endpoint,
     'method'      => $method,
-    'input_value' => null,
+    'input_value' => $inputValue,
     'input_type'  => $inputType,
     'timestamp'   => time(),
 ];

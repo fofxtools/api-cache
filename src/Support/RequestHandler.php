@@ -34,8 +34,8 @@ class RequestHandler
         // Set up logging
         $this->logger = new Logger('api-cache');
         $logPath      = defined('LARAVEL_START')
-            ? storage_path('logs/api-cache.log')
-            : __DIR__ . '/../../storage/logs/api-cache.log';
+            ? storage_path('api-cache.log')
+            : __DIR__ . '/../../storage/api-cache.log';
 
         $level = !empty($config['debug']) ? Level::Debug : Level::Info;
         $this->logger->pushHandler(new StreamHandler($logPath, $level));
@@ -83,9 +83,9 @@ class RequestHandler
 
         // Debug
         $this->logger->debug('Response details', [
-            'response_size'    => strlen($response['body']),
-            'response_preview' => substr($response['body'], 0, 100),
-            'has_test_data'    => isset(json_decode($response['body'], true)['test_data']),
+            'response_size'    => strlen($response['response']['body']),
+            'response_preview' => substr($response['response']['body'], 0, 100),
+            'has_test_data'    => isset(json_decode($response['response']['body'], true)['test_data']),
         ]);
 
         // Cache the response
@@ -177,9 +177,15 @@ class RequestHandler
                 : $cached->response_body_raw;
 
             return [
-                'status_code'    => $cached->response_status_code,
-                'headers'        => json_decode($cached->response_headers, true) ?? [],
-                'body'           => $body,
+                'request' => [
+                    'headers' => json_decode($cached->request_headers, true) ?? [],
+                    'body'    => $cached->request_body
+                ],
+                'response' => [
+                    'statusCode' => $cached->response_status_code,
+                    'headers'    => $cached->response_headers,
+                    'body'       => $body
+                ],
                 'response_time'  => $cached->response_time,
                 'from_cache'     => true,
                 'was_compressed' => !empty($cached->response_body_compressed),
@@ -195,7 +201,10 @@ class RequestHandler
     protected function cacheResponse(string $client, string $url, string $method, array $response, array $options = []): void
     {
         // Skip caching if response is a server error
-        if ($response['status_code'] >= 500) {
+        if ($response['response']['statusCode'] >= 500) {
+            $this->logger->error('Skipping caching of response due to server error', [
+                'response' => $response,
+            ]);
             return;
         }
 
@@ -221,25 +230,50 @@ class RequestHandler
 
         // Get cache TTL from config
         $ttl = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
+        $expiresAt = $ttl < 0 ? null : now()->addSeconds($ttl);
+
+        // Handle compression if enabled
+        $body = $response['response']['body'];
+        
+        // Calculate sizes before any modifications
+        $originalSize = strlen($body);
+        $this->logger->debug('Original response size', [
+            'size' => $originalSize,
+            'preview' => substr($body, 0, 100)
+        ]);
+        
+        $compressed = null;
+        if ($this->config['clients'][$client]['compression']['enabled'] ?? false) {
+            $level = $this->config['clients'][$client]['compression']['level'] ?? 6;
+            $compressed = gzcompress($body, $level);
+            $compressedSize = strlen($compressed);
+            $body = null;  // Don't store raw when compressed
+            
+            $this->logger->debug('Compression details', [
+                'original_size' => $originalSize,
+                'compressed_size' => $compressedSize,
+                'ratio' => round(($compressedSize / $originalSize) * 100, 1) . '%'
+            ]);
+        }
 
         // Store in database
         DB::table($this->client->getResponseTableName())->insert([
-            'client'                   => $client,
-            'key'                      => $key,
-            'endpoint'                 => $endpoint,
-            'base_url'                 => rtrim($this->client->buildUrl(''), '/'),
-            'full_url'                 => $url,
-            'method'                   => $method,
-            'request_headers'          => json_encode($options['headers'] ?? []),
-            'request_body'             => $options['body'] ?? null,
-            'response_status_code'     => $response['status_code'],
-            'response_headers'         => json_encode($response['headers'] ?? []),
-            'response_body_raw'        => $response['body'],
-            'response_body_compressed' => null, // Compression handled separately
-            'response_raw_size'        => strlen($response['body']),
-            'response_compressed_size' => null,
+            'client'         => $client,
+            'key'           => $key,
+            'endpoint'      => $endpoint,
+            'base_url'      => rtrim($this->client->buildUrl(''), '/'),
+            'full_url'      => $url,
+            'method'        => $method,
+            'request_headers' => $response['request']['headers'] ?? '{}',
+            'request_body'  => $response['request']['body'] ?? null,
+            'response_status_code' => $response['response']['statusCode'],
+            'response_headers' => $response['response']['headers'] ?? '{}',
+            'response_body_raw' => $body,
+            'response_body_compressed' => $compressed,
+            'response_raw_size'        => $originalSize,
+            'response_compressed_size' => isset($compressed) ? $compressedSize : null,
             'response_time'            => $response['response_time'] ?? null,
-            'expires_at'               => now()->addSeconds($ttl),
+            'expires_at'               => $expiresAt,
 
             // Add client-specific fields
             'response_format' => $options['response_format'] ?? null,

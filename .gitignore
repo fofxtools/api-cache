@@ -61,5 +61,6 @@ auth.json
 /phpunit.txt
 /phpstan.txt
 
-# Storage Logs
-/storage/logs/
+# Storage Files
+/storage/*.log
+/storage/*.sql

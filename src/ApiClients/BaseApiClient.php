@@ -56,20 +56,37 @@ abstract class BaseApiClient
     abstract protected function executeRequest(string $method, string $url, array $options): array;
 
     /**
-     * Make a request with standard logging and processing
+     * Make a request with standard logging and processing.
+     * 
+     * The last transaction is used to get the response data. The response time is also added.
+     * 
+     * @param string $method HTTP method
+     * @param string $endpoint API endpoint
+     * @param array $options Request options
+     * 
+     * @return array Response data
      */
     public function request(string $method, string $endpoint, array $options = []): array
     {
+        $this->logger->debug('Making API request', [
+            'method' => $method,
+            'endpoint' => $endpoint,
+            'options' => $options
+        ]);
+
         $url       = $this->buildUrl($endpoint);
         $startTime = microtime(true);
 
         // Child class implements the actual request
-        $response = $this->executeRequest($method, $url, $options);
+        $output = $this->executeRequest($method, $url, $options);
+
+        // Use last transaction from middleware output
+        $lastTransaction = $output[array_key_last($output)];
 
         $endTime                   = microtime(true);
-        $response['response_time'] = $endTime - $startTime;
+        $lastTransaction['response_time'] = $endTime - $startTime;
 
-        return $response;
+        return $lastTransaction;
     }
 
     /**

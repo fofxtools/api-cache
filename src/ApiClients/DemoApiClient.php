@@ -54,6 +54,7 @@ class DemoApiClient extends BaseApiClient
      * Clean the endpoint path for storage
      *
      * @param string $path The full request path
+     *
      * @return string The cleaned endpoint
      */
     public function cleanEndpointPath(string $path): string

@@ -121,6 +121,7 @@ abstract class BaseApiClient
      * Clean the endpoint path for storage
      *
      * @param string $path The full request path
+     *
      * @return string The cleaned endpoint
      */
     abstract public function cleanEndpointPath(string $path): string;

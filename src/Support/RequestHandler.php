@@ -6,9 +6,7 @@ use FOfX\ApiCache\ApiClients\BaseApiClient;
 use FOfX\ApiCache\Exceptions\RateLimitException;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
-use Monolog\Level;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Handles API request caching and rate limiting.
@@ -18,7 +16,6 @@ class RequestHandler
 {
     protected BaseApiClient $client;
     protected array $config;
-    protected Logger $logger;
 
     /**
      * Create a new request handler instance.
@@ -30,15 +27,6 @@ class RequestHandler
     {
         $this->client = $client;
         $this->config = $config;
-
-        // Set up logging
-        $this->logger = new Logger('api-cache');
-        $logPath      = defined('LARAVEL_START')
-            ? storage_path('api-cache.log')
-            : __DIR__ . '/../../storage/api-cache.log';
-
-        $level = !empty($config['debug']) ? Level::Debug : Level::Info;
-        $this->logger->pushHandler(new StreamHandler($logPath, $level));
     }
 
     /**
@@ -63,7 +51,7 @@ class RequestHandler
 
         // Try cache first
         if ($cached = $this->getFromCache($clientName, $fullUrl, $method, $options)) {
-            $this->logger->debug('Cache hit', [
+            Log::debug('Cache hit', [
                 'cached_response' => $cached,
             ]);
 
@@ -71,18 +59,18 @@ class RequestHandler
         }
 
         // Make the request
-        $this->logger->debug('Making request', [
+        Log::debug('Making request', [
             'method'   => $method,
             'endpoint' => $endpoint,
             'options'  => $options,
         ]);
         $response = $this->client->request($method, $endpoint, $options);
-        $this->logger->debug('Response received', [
+        Log::debug('Response received', [
             'response' => $response,
         ]);
 
         // Debug
-        $this->logger->debug('Response details', [
+        Log::debug('Response details', [
             'response_size'    => strlen($response['response']['body']),
             'response_preview' => substr($response['response']['body'], 0, 100),
         ]);
@@ -198,20 +186,20 @@ class RequestHandler
 
     /**
      * Cache a successful API response.
-     * 
-     * @param string $client Name of the client (for config lookup)
-     * @param string $url Full URL for the request
-     * @param string $method HTTP method
-     * @param array $response API response
-     * @param array $options Request options
-     * 
+     *
+     * @param string $client   Name of the client (for config lookup)
+     * @param string $url      Full URL for the request
+     * @param string $method   HTTP method
+     * @param array  $response API response
+     * @param array  $options  Request options
+     *
      * @return void
      */
     protected function cacheResponse(string $client, string $url, string $method, array $response, array $options = []): void
     {
         // Skip caching if response is a server error
         if ($response['response']['statusCode'] >= 500) {
-            $this->logger->error('Skipping caching of response due to server error', [
+            Log::error('Skipping caching of response due to server error', [
                 'response' => $response,
             ]);
 
@@ -230,14 +218,14 @@ class RequestHandler
 
     /**
      * Store response data in cache with proper endpoint handling.
-     * 
-     * @param string $client Name of the client (for config lookup)
-     * @param string $key Cache key
-     * @param string $url Full URL for the request
-     * @param string $method HTTP method
-     * @param array $options Request options
-     * @param array $response API response
-     * 
+     *
+     * @param string $client   Name of the client (for config lookup)
+     * @param string $key      Cache key
+     * @param string $url      Full URL for the request
+     * @param string $method   HTTP method
+     * @param array  $options  Request options
+     * @param array  $response API response
+     *
      * @return void
      */
     protected function storeInCache(string $client, string $key, string $url, string $method, array $options, array $response): void
@@ -251,13 +239,13 @@ class RequestHandler
         $ttl       = $this->config['clients'][$client]['cache_ttl'] ?? 3600;
         $expiresAt = $ttl < 0 ? null : now()->addSeconds($ttl);
 
-        $body = is_array($response['response']['body']) 
+        $body = is_array($response['response']['body'])
             ? json_encode($response['response']['body'])
             : $response['response']['body'];
 
         // Calculate sizes before any modifications
         $originalSize = strlen($body);
-        $this->logger->debug('Original response size', [
+        Log::debug('Original response size', [
             'size'    => $originalSize,
             'preview' => substr($body, 0, 100),
         ]);
@@ -270,17 +258,17 @@ class RequestHandler
             $compressedSize = strlen($compressed);
             $body           = null;  // Don't store raw when compressed
 
-            $this->logger->debug('Compression details', [
-                'original_size'   => $originalSize,
-                'compressed_size' => $compressedSize,
+            Log::debug('Compression details', [
+                'original_size'     => $originalSize,
+                'compressed_size'   => $compressedSize,
                 'compression_ratio' => round(($compressedSize / $originalSize) * 100, 1) . '%',
             ]);
         }
 
         // Extract client-specific fields from request
         $clientFields = [];
-        $validFields = $this->client->getClientSpecificFields();
-        
+        $validFields  = $this->client->getClientSpecificFields();
+
         // Check query parameters
         if (isset($options['query'])) {
             foreach ($validFields as $field => $type) {
@@ -291,7 +279,7 @@ class RequestHandler
                 }
             }
         }
-        
+
         // Check body for POST/PUT requests
         if (isset($options['body']) && is_string($options['body'])) {
             $body = json_decode($options['body'], true);
@@ -344,11 +332,11 @@ class RequestHandler
             // Add client-specific fields
             'response_format' => $clientFields['response_format'] ?? null,
             'input_value'     => isset($clientFields['input_value'])
-                ? (is_array($clientFields['input_value']) 
+                ? (is_array($clientFields['input_value'])
                     ? json_encode($clientFields['input_value'])
                     : $clientFields['input_value'])
                 : null,
-            'input_type'      => $clientFields['input_type'] ?? null,
+            'input_type' => $clientFields['input_type'] ?? null,
 
             'created_at' => now(),
             'updated_at' => now(),
@@ -368,7 +356,7 @@ class RequestHandler
     protected function generateCacheKey(string $client, string $url, string $method, array $options = []): string
     {
         $specificFields = [];
-        $validFields = $this->client->getClientSpecificFields();
+        $validFields    = $this->client->getClientSpecificFields();
 
         // Extract from query parameters
         if (isset($options['query'])) {
@@ -415,9 +403,9 @@ class RequestHandler
      */
     protected function updateRateLimit(string $client, string $url): void
     {
-        $parsedUrl = parse_url($url);
-        $path      = $parsedUrl['path'] ?? $url;
-        $endpoint  = $this->client->cleanEndpointPath($path);
+        $parsedUrl  = parse_url($url);
+        $path       = $parsedUrl['path'] ?? $url;
+        $endpoint   = $this->client->cleanEndpointPath($path);
         $windowSize = $this->config['clients'][$client]['rate_limits']['window_size'] ?? 60;
 
         // First, try to update existing record
@@ -438,7 +426,7 @@ class RequestHandler
                 'endpoint'             => $endpoint,
                 'window_start'         => now()->startOfMinute(),
                 'window_request_count' => 1,
-                'status'              => 'active',
+                'status'               => 'active',
                 'created_at'           => now(),
                 'updated_at'           => now(),
             ]);

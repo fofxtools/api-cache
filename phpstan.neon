@@ -1,0 +1,10 @@
+parameters:
+    level: 5
+    paths:
+        - config
+        - examples
+        - local
+        - public
+        - src
+    excludePaths:
+        - vendor

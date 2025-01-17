@@ -1,0 +1,36 @@
+{
+    "name": "fofx/api-cache",
+    "description": "Laravel-based API response caching library",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Fofx\\ApiCache\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "FOfX\\ApiCache\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^11.38"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.68",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.5"
+    },
+    "scripts": {
+        "phpstan": "vendor/bin/phpstan analyse",
+        "analyse": "@phpstan",
+        "analyze": "@phpstan",
+        "phpunit": "vendor/bin/phpunit --color=always",
+        "test": "@phpunit",
+        "tests": "@phpunit",
+        "cs-fix": "vendor/bin/php-cs-fixer fix",
+        "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff",
+        "cs-list": "vendor/bin/php-cs-fixer list-files"
+    }
+}

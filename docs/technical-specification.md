@@ -12,7 +12,7 @@ The purpose of this library will be to be able to cache the responses from any s
 
 Create a Laravel-based PHP library for caching API responses, designed to work with various APIs (OpenAI, YouTube, Pixabay, SEMRush, etc.). The library will use:
 
-- Laravel (no front end for now)
+- Laravel (no front end)
 - Database for caching
 - Laravel HTTP client
 - Laravel built-in logging
@@ -49,7 +49,7 @@ Create a Laravel-based PHP library for caching API responses, designed to work w
 - `response_headers` (mediumtext)
 - `response_body` (mediumtext)
 - `response_size`
-- `response_time`
+- `response_time` (double)
 - `expires_at` (nullable, allows for permanent caching if `null`)
 - `created_at`
 - `updated_at`
@@ -70,7 +70,7 @@ Create a Laravel-based PHP library for caching API responses, designed to work w
 - `response_headers_compressed` (mediumblob)
 - `response_body_compressed` (mediumblob)
 - `response_size_compressed`
-- `response_time`
+- `response_time` (double)
 - `expires_at` (nullable, allows for permanent caching if `null`)
 - `created_at`
 - `updated_at`

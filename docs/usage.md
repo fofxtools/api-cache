@@ -7,8 +7,8 @@
 // config/api-cache.php
 return [
     'apis' => [
-        'simulated' => [
-            'base_url' => env('SIMULATED_API_BASE_URL', 'http://localhost/simulated-api/v1'),
+        'demo' => [
+            'base_url' => env('DEMO_API_BASE_URL', 'http://localhost:8000/demo-api/v1'),
             'api_key' => null,
             'cache_ttl' => null, // No cache expiration
             'rate_limit' => [
@@ -21,10 +21,10 @@ return [
 
 ### 2. Basic API Requests
 ```php
-use FOfX\ApiCache\SimulatedApiClient;
+use FOfX\ApiCache\DemoApiClient;
 
 // Create client (uses config by default)
-$client = new SimulatedApiClient();
+$client = new DemoApiClient();
 
 // Retrieve predictions (automatically cached)
 $predictions = $client->prediction(

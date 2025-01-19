@@ -33,7 +33,7 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 - Handles generic error catching
 - Provides interface for child clients
 
-#### API-Specific Clients (extends BaseApiClient, e.g. SimulatedApiClient)
+#### API-Specific Clients (extends BaseApiClient, e.g. DemoApiClient)
 
 - Manage API authentication
 - Handle API-specific endpoints

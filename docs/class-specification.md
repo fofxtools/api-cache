@@ -132,12 +132,12 @@ class CompressionService
 
 ## Sample API Client
 
-### SimulatedApiClient
+### DemoApiClient
 
 A sample implementation of BaseApiClient.
 
 ```php
-class SimulatedApiClient extends BaseApiClient
+class DemoApiClient extends BaseApiClient
 {
     // Returns the client identifier
     public function getClientName(): string;

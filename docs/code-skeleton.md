@@ -7,7 +7,7 @@
 │   └── api-cache.php
 ├── database/
 │   └── migrations/
-│       └── create_simulated_cache_tables.php
+│       └── create_demo_cache_tables.php
 ├── src/
 │   ├── ApiCacheHandler.php
 │   ├── BaseApiClient.php
@@ -15,7 +15,7 @@
 │   ├── CompressionService.php
 │   ├── RateLimitService.php
 │   ├── OpenAIApiClient.php
-│   └── SimulatedApiClient.php
+│   └── DemoApiClient.php
 └── tests/
     ├── Unit/
     │   ├── ApiCacheHandlerTest.php
@@ -64,14 +64,14 @@ In array_merge(), required parameters are passed after $additionalParams. This a
 in case of a conflict.
 
 ```php
-// SimulatedApiClient.php
+// DemoApiClient.php
 namespace FOfX\ApiCache;
 
-class SimulatedApiClient extends BaseApiClient
+class DemoApiClient extends BaseApiClient
 {
     public function getClientName(): string 
     {
-        return 'simulated';
+        return 'demo';
     }
     
     public function buildUrl(string $endpoint): string 
@@ -79,7 +79,7 @@ class SimulatedApiClient extends BaseApiClient
         return "{$this->baseUrl}/{$endpoint}";
     }
     
-    // Additional methods specific to simulated API
+    // Additional methods specific to demo API
     public function prediction(
         string $query,
         int $maxResults = 10,
@@ -316,7 +316,7 @@ class CacheRepository
 ### Database Migrations
 
 ```php
-// create_simulated_cache_tables.php
+// create_demo_cache_tables.php
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -326,7 +326,7 @@ return new class extends Migration
     public function up(): void
     {
         // Standard response table
-        Schema::create('api_cache_simulated_responses', function (Blueprint $table) {
+        Schema::create('api_cache_demo_responses', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
             $table->string('version')->nullable();
@@ -346,7 +346,7 @@ return new class extends Migration
         });
 
         // Compressed response table
-        Schema::create('api_cache_simulated_responses_compressed', function (Blueprint $table) {
+        Schema::create('api_cache_demo_responses_compressed', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
             $table->string('version')->nullable();
@@ -368,8 +368,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_simulated_responses');
-        Schema::dropIfExists('api_cache_simulated_responses_compressed');
+        Schema::dropIfExists('api_cache_demo_responses');
+        Schema::dropIfExists('api_cache_demo_responses_compressed');
     }
 };
 ```
@@ -391,10 +391,10 @@ return [
                 'enabled' => false,
             ],
         ],
-        'simulated' => [
-            'base_url' => env('SIMULATED_API_BASE_URL', 'http://localhost/simulated-api/v1'),
+        'demo' => [
+            'base_url' => env('DEMO_API_BASE_URL', 'http://localhost:8000/demo-api/v1'),
             'api_key' => null,
-            'cache_ttl' => env('SIMULATED_API_CACHE_TTL', null),
+            'cache_ttl' => env('DEMO_API_CACHE_TTL', null),
             'rate_limit' => [
                 'requests_per_minute' => 1000,
             ],

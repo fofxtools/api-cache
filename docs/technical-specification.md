@@ -84,8 +84,8 @@ Other classes may be added as necessary.
 - CacheRepository (handles database caching CRUD logic)
 - CompressionService (handles compression logic)
 - RateLimitService (handles rate limiting logic for each API/endpoint using Laravel's rate limiting)
-- SimulatedApiClient (extends the BaseApiClient class and makes requests to the local SimulatedApiController endpoints)
-- SimulatedApiController (a local mock demonstration API for development testing, with simulated endpoints including GET and POST)
+- DemoApiClient (extends the BaseApiClient class and makes requests to the local DemoApiController endpoints)
+- DemoApiController (a local mock demonstration API for development testing, with sample endpoints including GET and POST)
 
 ## Configuration and Installation
 
@@ -116,10 +116,10 @@ return [
         'pixabay' => [
             // ...
         ],
-        'simulated' => [
-            'base_url' => env('SIMULATED_API_BASE_URL', 'http://localhost/simulated-api/v1'),
-            'api_key' => null, // Simulated API typically does not require an API key
-            'cache_ttl' => env('SIMULATED_API_CACHE_TTL', null),
+        'demo' => [
+            'base_url' => env('DEMO_API_BASE_URL', 'http://localhost:8000/demo-api/v1'),
+            'api_key' => null, // Demo API typically does not require an API key
+            'cache_ttl' => env('DEMO_API_CACHE_TTL', null),
             'rate_limit' => [
                 'requests_per_minute' => 1000, // Higher limit to accommodate extensive testing
             ],

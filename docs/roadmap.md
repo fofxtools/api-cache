@@ -47,8 +47,8 @@
 
 ## Phase 4: Testing & Integration (Week 7-8)
 ### Mock API System
-- [ ] Create SimulatedApiController
-- [ ] Implement SimulatedApiClient
+- [ ] Create DemoApiController
+- [ ] Implement DemoApiClient
 - [ ] Add test endpoints
 - [ ] Create integration tests
 - [ ] Write documentation

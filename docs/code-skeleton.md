@@ -29,6 +29,14 @@
         └── RateLimitIntegrationTest.php
 ```
 
+## Exceptions
+
+```php
+class ApiCacheException extends Exception {}
+class RateLimitException extends ApiCacheException {}
+class CacheException extends ApiCacheException {}
+```
+
 ## Core Components
 
 ### Base API Client
@@ -203,8 +211,11 @@ class ApiCacheHandler
         // - Look for cached response
         // - If valid cached response exists, return it
         // - If no cache or expired:
-        //    - Check rate limits before proceeding
+        //    - Check rate limit ($this->rateLimiter->allowRequest())
+        //    - If rate limited, throw RateLimitException
         //    - Make API request
+        //    - If request fails, let request exceptions bubble up (HttpException, etc)
+        //    - Track request ($this->rateLimiter->incrementAttempts())
         //    - Store response in cache
         //    - Return response
         
@@ -254,16 +265,26 @@ class ApiCacheHandler
         // - Store in repository with compression if enabled
     }
     
-    protected function generateCacheKey(
+    public function generateCacheKey(
         string $client,
         string $endpoint,
         array $params,
         ?string $version = null
     ): string {
         // Algorithm:
-        // - Normalize params (sort, filter)
-        // - Combine client, endpoint, params, version
+        // - Get normalized params
+        // - Generate hash from normalized params
+        // - Combine components into key: "{client}.{endpoint}.{hash}.{version}"
         // - Generate hash that uniquely identifies this request
+    }
+
+    // Ensure deterministic serialization of nested structures
+    public function normalizeParams(array $params): array {
+        // Algorithm:
+        // - Filter out null/empty values
+        // - Sort array by keys
+        // - Convert remaining values to strings
+        // - Handle nested arrays via json_encode
     }
 }
 
@@ -274,10 +295,37 @@ class RateLimitService
 {
     protected RateLimiter $limiter;
     
-    public function __construct(RateLimiter $limiter);
-    public function allowRequest(string $key, int $maxAttempts): bool;
-    public function incrementAttempts(string $key): void;
-    public function remaining(string $key): int;
+    public function __construct(RateLimiter $limiter) 
+    {
+        $this->limiter = $limiter;
+    }
+    
+    public function allowRequest(string $clientName): bool 
+    {
+        return $this->getRemainingAttempts($clientName) > 0;
+    }
+    
+    public function incrementAttempts(string $clientName): void 
+    {
+        // Algorithm:
+        // - Add attempt for the client
+        // - Use configured decay time in seconds
+        
+        $decaySeconds = config("api-cache.apis.{$clientName}.rate_limit_decay_seconds");
+        $this->limiter->increment($clientName, $decaySeconds);
+    }
+    
+    public function getRemainingAttempts(string $clientName): int 
+    {
+        // Algorithm:
+        // - Get remaining attempts for client
+        // - Return attempts left within window
+        // - Return 0 if limit exceeded
+        
+        $requestsPerMinute = config("api-cache.apis.{$clientName}.rate_limit_requests_per_minute");
+        
+        return max(0, $this->limiter->remaining($clientName, $requestsPerMinute));
+    }
 }
 
 // CompressionService.php
@@ -343,6 +391,10 @@ return new class extends Migration
             $table->double('response_time');
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
+
+            // Indexes
+            $table->index(['endpoint', 'version']);
+            $table->index('expires_at');
         });
 
         // Compressed response table
@@ -363,6 +415,10 @@ return new class extends Migration
             $table->double('response_time');
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
+
+            // Indexes
+            $table->index(['endpoint', 'version']);
+            $table->index('expires_at');
         });
     }
 
@@ -380,27 +436,23 @@ return new class extends Migration
 // api-cache.php
 return [
     'apis' => [
-        'openai' => [
-            'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
-            'api_key' => env('OPENAI_API_KEY'),
-            'cache_ttl' => env('OPENAI_CACHE_TTL', null),
-            'rate_limit' => [
-                'requests_per_minute' => 60,
-            ],
-            'compression' => [
-                'enabled' => false,
-            ],
-        ],
         'demo' => [
-            'base_url' => env('DEMO_API_BASE_URL', 'http://localhost:8000/demo-api/v1'),
-            'api_key' => null,
-            'cache_ttl' => env('DEMO_API_CACHE_TTL', null),
-            'rate_limit' => [
-                'requests_per_minute' => 1000,
-            ],
-            'compression' => [
-                'enabled' => false,
-            ],
+            'api_key' => env('DEMO_API_KEY'),
+            'base_url' => env('DEMO_BASE_URL'),
+            'cache_ttl' => env('DEMO_CACHE_TTL', null),
+            'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
+            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'prediction'),
+            'rate_limit_requests_per_minute' => env('DEMO_RATE_LIMIT_REQUESTS_PER_MINUTE', 1000),
+            'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
+        ],
+        'openai' => [
+            'api_key' => env('OPENAI_API_KEY'),
+            'base_url' => env('OPENAI_BASE_URL'),
+            'cache_ttl' => env('OPENAI_CACHE_TTL', null),
+            'compression_enabled' => env('OPENAI_COMPRESSION_ENABLED', false),
+            'default_endpoint' => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),
+            'rate_limit_requests_per_minute' => env('OPENAI_RATE_LIMIT_REQUESTS_PER_MINUTE', 60),
+            'rate_limit_decay_seconds' => env('OPENAI_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
     ],
 ];

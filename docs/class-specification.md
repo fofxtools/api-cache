@@ -1,5 +1,13 @@
 # Class Specification
 
+## Exceptions
+
+```php
+class ApiCacheException extends Exception {}
+class RateLimitException extends ApiCacheException {}
+class CacheException extends ApiCacheException {}
+```
+
 ## Core Classes
 
 ### ApiCacheHandler
@@ -24,7 +32,10 @@ class ApiCacheHandler
     protected function cacheResponse(string $cacheKey, array $response, ?int $ttl = null): void;
     
     // Generate cache key from request parameters
-    protected function generateCacheKey(string $client, string $endpoint, array $params, ?string $version = null): string;
+    public function generateCacheKey(string $client, string $endpoint, array $params, ?string $version = null): string;
+
+    // Normalize parameters for consistent cache key generation
+    public function normalizeParams(array $params): array;
 }
 ```
 
@@ -97,14 +108,14 @@ class RateLimitService
     
     public function __construct(RateLimiter $limiter);
     
-    // Check if request is allowed
-    public function allowRequest(string $key, int $maxAttempts): bool;
+    // Check if client has remaining attempts
+    public function allowRequest(string $clientName): bool;
     
-    // Increment attempt count
-    public function incrementAttempts(string $key): void;
+    // Add attempt for the client
+    public function incrementAttempts(string $clientName): void;
     
-    // Get remaining attempts
-    public function remaining(string $key): int;
+    // Get remaining attempts for client
+    public function getRemainingAttempts(string $clientName): int;
 }
 ```
 
@@ -196,12 +207,4 @@ class OpenAIApiClient extends BaseApiClient
         array $additionalParams = []
     ): array;
 }
-```
-
-## Exceptions
-
-```php
-class ApiCacheException extends Exception {}
-class CacheException extends ApiCacheException {}
-class ApiException extends ApiCacheException {}
 ```

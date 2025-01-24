@@ -8,12 +8,13 @@
 return [
     'apis' => [
         'demo' => [
-            'base_url' => env('DEMO_API_BASE_URL', 'http://localhost:8000/demo-api/v1'),
-            'api_key' => null,
-            'cache_ttl' => null, // No cache expiration
-            'rate_limit' => [
-                'requests_per_minute' => 1000,
-            ],
+            'api_key' => env('DEMO_API_KEY'),
+            'base_url' => env('DEMO_BASE_URL'),
+            'cache_ttl' => env('DEMO_CACHE_TTL', null),
+            'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
+            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'prediction'),
+            'rate_limit_requests_per_minute' => env('DEMO_RATE_LIMIT_REQUESTS_PER_MINUTE', 1000),
+            'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
     ],
 ];

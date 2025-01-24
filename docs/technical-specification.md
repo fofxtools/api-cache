@@ -102,30 +102,26 @@ Other classes may be added as necessary.
 ```php
 return [
     'apis' => [
+        'demo' => [
+            'api_key' => env('DEMO_API_KEY'),
+            'base_url' => env('DEMO_BASE_URL'),
+            'cache_ttl' => env('DEMO_CACHE_TTL', null),
+            'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
+            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'prediction'),
+            'rate_limit_requests_per_minute' => env('DEMO_RATE_LIMIT_REQUESTS_PER_MINUTE', 1000),
+            'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
+        ],
         'openai' => [
-            'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
             'api_key' => env('OPENAI_API_KEY'),
+            'base_url' => env('OPENAI_BASE_URL'),
             'cache_ttl' => env('OPENAI_CACHE_TTL', null),
-            'rate_limit' => [
-                'requests_per_minute' => 60,
-            ],
-            'compression' => [
-                'enabled' => false,
-            ],
+            'compression_enabled' => env('OPENAI_COMPRESSION_ENABLED', false),
+            'default_endpoint' => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),
+            'rate_limit_requests_per_minute' => env('OPENAI_RATE_LIMIT_REQUESTS_PER_MINUTE', 60),
+            'rate_limit_decay_seconds' => env('OPENAI_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
         'pixabay' => [
             // ...
-        ],
-        'demo' => [
-            'base_url' => env('DEMO_API_BASE_URL', 'http://localhost:8000/demo-api/v1'),
-            'api_key' => null, // Demo API typically does not require an API key
-            'cache_ttl' => env('DEMO_API_CACHE_TTL', null),
-            'rate_limit' => [
-                'requests_per_minute' => 1000, // Higher limit to accommodate extensive testing
-            ],
-            'compression' => [
-                'enabled' => false,
-            ],
         ],
         // etc.
     ],

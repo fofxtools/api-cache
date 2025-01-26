@@ -57,17 +57,14 @@ abstract class BaseApiClient
         ?string $version = null
     );
     
-    // Send API request
-    public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array;
+    // Get client name (e.g., 'openai', 'youtube')
+    abstract public function getClientName(): string;
     
     // Build API-specific URL
     abstract public function buildUrl(string $endpoint): string;
     
-    // Get client name (e.g., 'openai', 'youtube')
-    abstract public function getClientName(): string;
-    
-    // Get rate limit key
-    public function getRateLimitKey(): string;
+    // Send API request
+    public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array;
 }
 ```
 

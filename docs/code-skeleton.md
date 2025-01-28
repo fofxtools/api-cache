@@ -176,6 +176,8 @@ abstract class BaseApiClient
      * - Track request timing
      * - Send HTTP request using Laravel HTTP client
      * - Return response with timing data
+     *
+     * @throws ApiCacheException When HTTP method is not supported
      */
     public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array
     {
@@ -313,7 +315,7 @@ class OpenAIApiClient extends BaseApiClient
     }
 
     /**
-     * Get completions based on prompt parameters
+     * Get legacy text completions based on prompt parameters
      */
     public function completions(
         string $prompt,
@@ -416,7 +418,6 @@ class ApiCacheHandler
      * @param array $params Request parameters
      * @return array API response data
      * @throws RateLimitException When rate limit exceeded
-     * @throws ApiCacheException When request fails
      */
     public function processRequest(BaseApiClient $client, string $endpoint, array $params = [], string $method = 'GET'): array
     {
@@ -622,6 +623,8 @@ class CompressionService
      * - If compression disabled, return data as-is
      * - Compress using gzcompress
      * - Return compressed string or throw CacheException
+     *
+     * @throws CacheException When compression fails
      */
     public function compress(string $data): string
     {
@@ -644,6 +647,8 @@ class CompressionService
      * - If compression disabled, return data as-is
      * - Decompress using gzuncompress
      * - Return decompressed string or throw CacheException
+     *
+     * @throws CacheException When decompression fails
      */
     public function decompress(string $data): string
     {
@@ -694,7 +699,7 @@ class CacheRepository
      * @param array|null $headers HTTP headers array
      * @return string|null JSON encoded and optionally compressed headers
      */
-    protected function prepareHeaders(?array $headers): ?string
+    public function prepareHeaders(?array $headers): ?string
     {
         if ($headers === null) {
             return null;
@@ -712,7 +717,7 @@ class CacheRepository
      * @param string|null $data Stored header data
      * @return array|null Decoded headers array
      */
-    protected function retrieveHeaders(?string $data): ?array
+    public function retrieveHeaders(?string $data): ?array
     {
         if ($data === null) {
             return null;
@@ -731,7 +736,7 @@ class CacheRepository
      * @param string|null $body Raw body content
      * @return string|null Optionally compressed body
      */
-    protected function prepareBody(?string $body): ?string
+    public function prepareBody(?string $body): ?string
     {
         if ($body === null) {
             return null;
@@ -892,7 +897,7 @@ class CacheRepository
     /**
      * Get the table name for the client
      */
-    protected function getTableName(string $client): string
+    public function getTableName(string $client): string
     {
         $suffix = $this->compression->isEnabled() ? '_compressed' : '';
         return "api_cache_{$client}_responses{$suffix}";
@@ -947,12 +952,12 @@ return new class extends Migration
             $table->string('base_url')->nullable();
             $table->string('full_url')->nullable();
             $table->string('method')->nullable();
-            $table->mediumBlob('request_headers_compressed')->nullable();
-            $table->mediumBlob('request_body_compressed')->nullable();
+            $table->mediumBlob('request_headers')->nullable();
+            $table->mediumBlob('request_body')->nullable();
             $table->integer('response_status_code')->nullable();
-            $table->mediumBlob('response_headers_compressed')->nullable();
-            $table->mediumBlob('response_body_compressed')->nullable();
-            $table->integer('response_size_compressed')->nullable();
+            $table->mediumBlob('response_headers')->nullable();
+            $table->mediumBlob('response_body')->nullable();
+            $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();

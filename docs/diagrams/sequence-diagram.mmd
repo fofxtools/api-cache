@@ -2,49 +2,60 @@ sequenceDiagram
     participant Client
     participant BaseApiClient
     participant ApiCacheHandler
-    participant RateLimitService
     participant CacheRepository
     participant CompressionService
+    participant RateLimitService
     participant ApiEndpoint
     
+    %% 1) Client calls BaseApiClient
     Client->>+BaseApiClient: sendCachedRequest(endpoint, params, method)
     BaseApiClient->>+ApiCacheHandler: processRequest(this, endpoint, params, method)
-    
+
     Note over ApiCacheHandler: generateCacheKey()
-    
+
+    %% 2) Check cache
     ApiCacheHandler->>+CacheRepository: get(client, key)
-    
+
     alt Cache Hit
+        %% 3A) Cache hit: decompress and return
         CacheRepository->>+CompressionService: decompress(data)
-        CompressionService-->>-CacheRepository: decompressed data
+        CompressionService-->>CacheRepository: decompressed data
         CacheRepository-->>ApiCacheHandler: cached response
         ApiCacheHandler-->>BaseApiClient: cached response
+        BaseApiClient-->>Client: return result
+
     else Cache Miss
+        %% 3B) Cache miss: no cache, check rate limit
         CacheRepository-->>ApiCacheHandler: not found
         ApiCacheHandler->>+RateLimitService: allowRequest(clientName)
-        
+
         alt Rate Limited
+            %% 4A) Rate limit triggered
             RateLimitService-->>ApiCacheHandler: false
             ApiCacheHandler-->>BaseApiClient: throw RateLimitException
+            BaseApiClient-->>Client: throw RateLimitException
+
         else Request Allowed
+            %% 4B) Rate limit OK: make a real API call
             RateLimitService-->>ApiCacheHandler: true
             
-            ApiCacheHandler->>+BaseApiClient: sendRequest(endpoint, params)
+            ApiCacheHandler->>BaseApiClient: sendRequest(endpoint, params)
             BaseApiClient->>ApiEndpoint: HTTP request
             ApiEndpoint-->>BaseApiClient: HTTP response
             BaseApiClient-->>ApiCacheHandler: API result
-            
-            ApiCacheHandler->>+RateLimitService: incrementAttempts(clientName)
-            Note over RateLimitService: Track this request for rate limiting.
+
+            %% 5) Track usage
+            ApiCacheHandler->>RateLimitService: incrementAttempts(clientName)
             RateLimitService-->>ApiCacheHandler: void
-            
+
+            %% 6) Cache the fresh response
             ApiCacheHandler->>+CacheRepository: store(client, key, metadata)
-            Note over CacheRepository: Save API response to the cache.
             CacheRepository->>+CompressionService: compress(data)
-            CompressionService-->>-CacheRepository: compressed data
+            CompressionService-->>CacheRepository: compressed data
             CacheRepository-->>ApiCacheHandler: void
-            
+
+            %% 7) Return to client
             ApiCacheHandler-->>BaseApiClient: API result
+            BaseApiClient-->>Client: return result
         end
     end
-    BaseApiClient-->>-Client: return result 

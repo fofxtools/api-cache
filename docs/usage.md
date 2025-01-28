@@ -3,6 +3,11 @@
 ## Basic Usage
 
 ### 1. Setup Configuration
+
+Cache TTL can be configured in two ways:
+- Set to `null` for no expiry (infinite cache)
+- Set to number of seconds (e.g. 3600 for 1 hour)
+
 ```php
 // config/api-cache.php
 return [

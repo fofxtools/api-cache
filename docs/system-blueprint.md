@@ -9,11 +9,9 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 ### 1. Request Pipeline
 
 ```
-[Application] -> [ApiCacheHandler] -> [CacheRepository]
-                        ↓                    ↑
-                  [BaseApiClient]     [Database Tables]
-                        ↓
-                   [API Server]
+[Application] -> [BaseApiClient] -> [ApiCacheHandler] -> [CacheRepository]
+                        ↓                                        ↑
+                  [API Endpoint] --------------------------> [Database Tables]
 ```
 
 ### 2. Component Responsibilities
@@ -25,6 +23,7 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 - Determines if cached response is valid
 - Manages cache invalidation
 - Coordinates with rate limiting service
+- Injected into BaseApiClient
 
 #### BaseApiClient
 
@@ -32,13 +31,17 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 - Provides common request/response handling
 - Handles generic error catching
 - Provides interface for child clients
+- Contains ApiCacheHandler instance
+- Provides both cached and uncached request methods
 
-#### API-Specific Clients (extends BaseApiClient, e.g. DemoApiClient)
+#### API-Specific Clients (extends BaseApiClient)
 
 - Manage API authentication
 - Handle API-specific endpoints
 - Process API-specific responses
 - Handle API-specific error cases
+- Use sendCachedRequest() by default
+- Can fallback to sendRequest() when needed
 
 #### CacheRepository
 
@@ -67,8 +70,8 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 ### 1. Request Flow
 
 ```
-1. Application makes API request
-2. ApiCacheHandler intercepts request
+1. Application makes API request to client
+2. BaseApiClient uses injected ApiCacheHandler
 3. Check cache for valid response
    └─ If found: Return cached response
    └─ If not found: Continue to step 4

@@ -51,6 +51,9 @@ class ApiCacheException extends \Exception
         $this->context = $context;
     }
 
+    /**
+     * Returns the context of the exception
+     */
     public function getContext(): array
     {
         return $this->context;
@@ -78,11 +81,17 @@ class RateLimitException extends ApiCacheException
         $this->availableInSeconds = $availableInSeconds;
     }
 
+    /**
+     * Returns the client name
+     */
     public function getClientName(): string
     {
         return $this->clientName;
     }
 
+    /**
+     * Returns the number of seconds until the rate limit is available again
+     */
     public function getAvailableInSeconds(): int
     {
         return $this->availableInSeconds;
@@ -108,6 +117,9 @@ class CacheException extends ApiCacheException
         $this->operation = $operation;
     }
 
+    /**
+     * Returns the operation that failed
+     */
     public function getOperation(): string
     {
         return $this->operation;
@@ -146,17 +158,27 @@ abstract class BaseApiClient
         ]);
     }
     
+    /**
+     * Returns the client name
+     */
     abstract public function getClientName(): string;
+    
+    /**
+     * Builds the full URL for an endpoint
+     */
     abstract public function buildUrl(string $endpoint): string;
     
+    /**
+     * Sends an API request
+     * 
+     * Algorithm:
+     * - Build full URL from endpoint
+     * - Track request timing
+     * - Send HTTP request using Laravel HTTP client
+     * - Return response with timing data
+     */
     public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array
     {
-        // Algorithm:
-        // - Build full URL from endpoint
-        // - Track request timing
-        // - Send HTTP request using Laravel HTTP client
-        // - Return response with timing data
-        
         $url = $this->buildUrl($endpoint);
         $startTime = microtime(true);
         $requestData = [];
@@ -220,17 +242,25 @@ namespace FOfX\ApiCache;
 
 class DemoApiClient extends BaseApiClient
 {
+    /**
+     * Returns the client name
+     */
     public function getClientName(): string 
     {
         return 'demo';
     }
     
+    /**
+     * Builds the full URL for an endpoint
+     */
     public function buildUrl(string $endpoint): string 
     {
         return "{$this->baseUrl}/{$endpoint}";
     }
     
-    // Additional methods specific to demo API
+    /**
+     * Get predictions based on query parameters
+     */
     public function prediction(
         string $query,
         int $maxResults = 10,
@@ -244,6 +274,9 @@ class DemoApiClient extends BaseApiClient
         return $this->sendCachedRequest('predictions', $params, 'GET');
     }
 
+    /**
+     * Get report based on type and source
+     */
     public function report(
         string $reportType,
         string $dataSource,
@@ -263,16 +296,25 @@ namespace FOfX\ApiCache;
 
 class OpenAIApiClient extends BaseApiClient
 {
+    /**
+     * Returns the client name
+     */
     public function getClientName(): string 
     {
         return 'openai';
     }
     
+    /**
+     * Builds the full URL for an endpoint
+     */
     public function buildUrl(string $endpoint): string 
     {
         return "{$this->baseUrl}/{$endpoint}";
     }
 
+    /**
+     * Get completions based on prompt parameters
+     */
     public function completions(
         string $prompt,
         string $model = 'gpt-3.5-turbo-instruct',
@@ -294,6 +336,9 @@ class OpenAIApiClient extends BaseApiClient
         return $this->sendCachedRequest('completions', $params, 'POST');
     }
 
+    /**
+     * Get chat completions based on messages parameters
+     */
     public function chatCompletions(
         array|string $messages,
         string $model = 'gpt-4o-mini',
@@ -331,38 +376,50 @@ class OpenAIApiClient extends BaseApiClient
 // ApiCacheHandler.php
 namespace FOfX\ApiCache;
 
+/**
+ * Main entry point for caching API responses.
+ * Orchestrates caching, rate limiting, and API requests.
+ */
 class ApiCacheHandler
 {
     protected CacheRepository $repository;
     protected RateLimitService $rateLimiter;
     
-    public function __construct(
-        CacheRepository $repository,
-        RateLimitService $rateLimiter
-    ) {
+    /**
+     * @param CacheRepository $repository For caching responses
+     * @param RateLimitService $rateLimiter For rate limit tracking
+     */
+    public function __construct(CacheRepository $repository, RateLimitService $rateLimiter)
+    {
         $this->repository = $repository;
         $this->rateLimiter = $rateLimiter;
     }
     
-    public function processRequest(
-        BaseApiClient $client,
-        string $endpoint,
-        array $params = [],
-        string $method = 'GET'
-    ): array {
-        // Algorithm:
-        // - Generate cache key from client name, endpoint, params, version
-        // - Look for cached response
-        // - If valid cached response exists, return it
-        // - If no cache or expired:
-        //    - Check rate limit ($this->rateLimiter->allowRequest())
-        //    - If rate limited, throw RateLimitException
-        //    - Make API request
-        //    - If request fails, let request exceptions bubble up (HttpException, etc)
-        //    - Track request in rate limiter ($this->rateLimiter->incrementAttempts())
-        //    - Store response in cache
-        //    - Return response
-        
+    /**
+     * Main method to handle API requests with caching and rate limiting
+     * 
+     * Algorithm:
+     * - Generate cache key from client name, endpoint, params, version
+     * - Look for cached response
+     * - If valid cached response exists, return it
+     * - If no cache or expired:
+     *    - Check rate limit ($this->rateLimiter->allowRequest())
+     *    - If rate limited, throw RateLimitException
+     *    - Make API request
+     *    - If request fails, let request exceptions bubble up (HttpException, etc)
+     *    - Track request in rate limiter ($this->rateLimiter->incrementAttempts())
+     *    - Cache the response
+     *    - Return response
+     * 
+     * @param BaseApiClient $client The API client making the request
+     * @param string $endpoint API endpoint to call
+     * @param array $params Request parameters
+     * @return array API response data
+     * @throws RateLimitException When rate limit exceeded
+     * @throws ApiCacheException When request fails
+     */
+    public function processRequest(BaseApiClient $client, string $endpoint, array $params = [], string $method = 'GET'): array
+    {
         $cacheKey = $this->generateCacheKey(
             $client->getClientName(),
             $endpoint,
@@ -392,6 +449,9 @@ class ApiCacheHandler
         return $apiResult;
     }
     
+    /**
+     * Get cached response
+     */
     protected function getCachedResponse(
         BaseApiClient $client,
         string $cacheKey
@@ -402,6 +462,18 @@ class ApiCacheHandler
         );
     }
     
+    /**
+     * Cache the response
+     * 
+     * Algorithm:
+     * - Prepare response metadata (based on Laravel HTTP client's response):
+     *   - response_status_code (from $apiResult['response']->status())
+     *   - response_headers (from $apiResult['response']->headers())
+     *   - response_body (from $apiResult['response']->body())
+     *   - response_size (calculated from response_body)
+     *   - response_time (from $apiResult['response_time'])
+     * - Store prepared response in repository
+     */
     protected function cacheResponse(
         BaseApiClient $client,
         string $cacheKey,
@@ -409,15 +481,6 @@ class ApiCacheHandler
         string $endpoint,
         ?int $ttl = null
     ): void {
-        // Algorithm:
-        // - Prepare response metadata (based on Laravel HTTP client's response):
-        //   - response_status_code (from $apiResult['response']->status())
-        //   - response_headers (from $apiResult['response']->headers())
-        //   - response_body (from $apiResult['response']->body())
-        //   - response_size (calculated from response_body)
-        //   - response_time (from $apiResult['response_time'])
-        // - Store prepared response in repository
-
         /** @var \Illuminate\Http\Client\Response $response */
         $response = $apiResult['response'];
         
@@ -444,26 +507,35 @@ class ApiCacheHandler
         );
     }
     
+    /**
+     * Generate cache key
+     * 
+     * Algorithm:
+     * - Get normalized params
+     * - Generate hash from normalized params
+     * - Combine components into key: "{client}.{endpoint}.{hash}.{version}"
+     * - Generate hash that uniquely identifies this request
+     */
     public function generateCacheKey(
         string $client,
         string $endpoint,
         array $params,
         ?string $version = null
     ): string {
-        // Algorithm:
-        // - Get normalized params
-        // - Generate hash from normalized params
-        // - Combine components into key: "{client}.{endpoint}.{hash}.{version}"
-        // - Generate hash that uniquely identifies this request
+        // To be implemented
     }
 
-    // Ensure deterministic serialization of nested structures
+    /**
+     * Ensure deterministic serialization of nested structures
+     * 
+     * Algorithm:
+     * - Filter out null/empty values
+     * - Sort array by keys
+     * - Convert remaining values to strings
+     * - Handle nested arrays via json_encode
+     */
     public function normalizeParams(array $params): array {
-        // Algorithm:
-        // - Filter out null/empty values
-        // - Sort array by keys
-        // - Convert remaining values to strings
-        // - Handle nested arrays via json_encode
+        // To be implemented
     }
 }
 
@@ -479,33 +551,45 @@ class RateLimitService
         $this->limiter = $limiter;
     }
     
+    /**
+     * Allow request if there are remaining attempts
+     */
     public function allowRequest(string $clientName): bool 
     {
         return $this->getRemainingAttempts($clientName) > 0;
     }
     
+    /**
+     * Increment attempts for the client
+     * 
+     * Algorithm:
+     * - Add attempt for the client
+     * - Use configured decay time in seconds
+     */
     public function incrementAttempts(string $clientName): void 
     {
-        // Algorithm:
-        // - Add attempt for the client
-        // - Use configured decay time in seconds
-        
         $decaySeconds = config("api-cache.apis.{$clientName}.rate_limit_decay_seconds");
         $this->limiter->increment($clientName, $decaySeconds);
     }
     
+    /**
+     * Get remaining attempts for the client
+     * 
+     * Algorithm:
+     * - Get remaining attempts for client
+     * - Return attempts left within window
+     * - Return 0 if limit exceeded
+     */
     public function getRemainingAttempts(string $clientName): int 
     {
-        // Algorithm:
-        // - Get remaining attempts for client
-        // - Return attempts left within window
-        // - Return 0 if limit exceeded
-        
         $requestsPerMinute = config("api-cache.apis.{$clientName}.rate_limit_requests_per_minute");
         
         return max(0, $this->limiter->remaining($clientName, $requestsPerMinute));
     }
 
+    /**
+     * Get Laravel RateLimiter availableIn() value
+     */
     public function getAvailableIn(string $clientName): int
     {
         // If not rate limited, return 0
@@ -531,13 +615,16 @@ class CompressionService
         $this->enabled = $enabled;
     }
     
+    /**
+     * Compress data
+     * 
+     * Algorithm:
+     * - If compression disabled, return data as-is
+     * - Compress using gzcompress
+     * - Return compressed string or throw CacheException
+     */
     public function compress(string $data): string
     {
-        // Algorithm:
-        // - If compression disabled, return data as-is
-        // - Compress using gzcompress
-        // - Return compressed string or throw CacheException
-        
         if (!$this->enabled) {
             return $data;
         }
@@ -550,13 +637,16 @@ class CompressionService
         return $compressed;
     }
     
+    /**
+     * Decompress data
+     * 
+     * Algorithm:
+     * - If compression disabled, return data as-is
+     * - Decompress using gzuncompress
+     * - Return decompressed string or throw CacheException
+     */
     public function decompress(string $data): string
     {
-        // Algorithm:
-        // - If compression disabled, return data as-is
-        // - Decompress using gzuncompress
-        // - Return decompressed string or throw CacheException
-        
         if (!$this->enabled) {
             return $data;
         }
@@ -569,6 +659,9 @@ class CompressionService
         return $decompressed;
     }
     
+    /**
+     * Check if compression is enabled
+     */
     public function isEnabled(): bool
     {
         return $this->enabled;
@@ -595,21 +688,101 @@ class CacheRepository
         $this->compression = $compression;
     }
     
+    /**
+     * Prepare headers for storage (always array)
+     * 
+     * @param array|null $headers HTTP headers array
+     * @return string|null JSON encoded and optionally compressed headers
+     */
+    protected function prepareHeaders(?array $headers): ?string
+    {
+        if ($headers === null) {
+            return null;
+        }
+        
+        $encoded = json_encode($headers);
+        return $this->compression->isEnabled()
+            ? $this->compression->compress($encoded)
+            : $encoded;
+    }
+
+    /**
+     * Retrieve headers from storage (always array)
+     * 
+     * @param string|null $data Stored header data
+     * @return array|null Decoded headers array
+     */
+    protected function retrieveHeaders(?string $data): ?array
+    {
+        if ($data === null) {
+            return null;
+        }
+        
+        $raw = $this->compression->isEnabled()
+            ? $this->compression->decompress($data)
+            : $data;
+            
+        return json_decode($raw, true);
+    }
+
+    /**
+     * Prepare body for storage (always string)
+     * 
+     * @param string|null $body Raw body content
+     * @return string|null Optionally compressed body
+     */
+    protected function prepareBody(?string $body): ?string
+    {
+        if ($body === null) {
+            return null;
+        }
+        
+        return $this->compression->isEnabled()
+            ? $this->compression->compress($body)
+            : $body;
+    }
+
+    /**
+     * Retrieve body from storage (always string)
+     * 
+     * @param string|null $data Stored body data
+     * @return string|null Raw body content
+     */
+    protected function retrieveBody(?string $data): ?string
+    {
+        if ($data === null) {
+            return null;
+        }
+        
+        return $this->compression->isEnabled()
+            ? $this->compression->decompress($data)
+            : $data;
+    }
+    
+    /**
+     * Store the response in the cache
+     * 
+     * Algorithm:
+     * - Determine table name based on compression
+     * - Calculate expires_at from ttl
+     * - Validate required fields
+     * - Expected data structure:
+     *   - response_status_code: HTTP status code
+     *   - response_headers: Array of headers
+     *   - response_body: Raw response body
+     *   - response_size: Body length in bytes
+     *   - response_time: Request duration in seconds
+     * - Prepare data for storage
+     * - Store in database
+     *
+     * @param string $client Client identifier
+     * @param string $key Cache key
+     * @param array $metadata Response metadata
+     * @param int|null $ttl Time to live in seconds
+     * @throws CacheException When required fields are missing
+     */
     public function store(string $client, string $key, array $metadata, ?int $ttl = null): void
     {
-        // Algorithm:
-        // - Determine table name based on compression
-        // - Calculate expires_at from ttl
-        // - Validate required fields
-        // - Expected data structure:
-        //   - response_status_code: HTTP status code
-        //   - response_headers: Array of headers
-        //   - response_body: Raw response body
-        //   - response_size: Body length in bytes
-        //   - response_time: Request duration in seconds
-        // - Prepare data for storage
-        // - Store in database
-        
         $table = $this->getTableName($client);
         $expiresAt = $ttl ? now()->addSeconds($ttl) : null;
         
@@ -640,11 +813,11 @@ class CacheRepository
             'base_url' => $metadata['base_url'],
             'full_url' => $metadata['full_url'],
             'method' => $metadata['method'],
-            'request_headers' => $this->prepareForStorage($metadata['request_headers']),
-            'request_body' => $this->prepareForStorage($metadata['request_body']),
+            'request_headers' => $this->prepareHeaders($metadata['request_headers']),
+            'request_body' => $this->prepareBody($metadata['request_body']),
             'response_status_code' => $metadata['response_status_code'],
-            'response_headers' => $this->prepareForStorage($metadata['response_headers']),
-            'response_body' => $this->prepareForStorage($metadata['response_body']),
+            'response_headers' => $this->prepareHeaders($metadata['response_headers']),
+            'response_body' => $this->prepareBody($metadata['response_body']),
             'response_size' => $metadata['response_size'],
             'response_time' => $metadata['response_time'],
             'expires_at' => $expiresAt,
@@ -653,15 +826,18 @@ class CacheRepository
         ]);
     }
     
+    /**
+     * Get the response from the cache
+     * 
+     * Algorithm:
+     * - Get from correct table
+     * - Check if expired
+     * - Return null if not found or expired
+     * - Decompress if needed
+     * - Return data
+     */
     public function get(string $client, string $key): ?array
     {
-        // Algorithm:
-        // - Get from correct table
-        // - Check if expired
-        // - Return null if not found or expired
-        // - Decompress if needed
-        // - Return data
-        
         $table = $this->getTableName($client);
         
         $data = $this->db->table($table)
@@ -682,23 +858,26 @@ class CacheRepository
             'base_url' => $data->base_url,
             'full_url' => $data->full_url,
             'method' => $data->method,
-            'request_headers' => $this->retrieveFromStorage($data->request_headers),
-            'request_body' => $this->retrieveFromStorage($data->request_body),
+            'request_headers' => $this->retrieveHeaders($data->request_headers),
+            'request_body' => $this->retrieveBody($data->request_body),
             'response_status_code' => $data->response_status_code,
-            'response_headers' => $this->retrieveFromStorage($data->response_headers),
-            'response_body' => $this->retrieveFromStorage($data->response_body),
+            'response_headers' => $this->retrieveHeaders($data->response_headers),
+            'response_body' => $this->retrieveBody($data->response_body),
             'response_size' => $data->response_size,
             'response_time' => $data->response_time,
             'expires_at' => $data->expires_at,
         ];
     }
     
+    /**
+     * Cleanup expired responses
+     * 
+     * Algorithm:
+     * - If client specified, clean only that client's tables
+     * - Otherwise clean all clients from config
+     */
     public function cleanup(?string $client = null): void
     {
-        // Algorithm:
-        // - If client specified, clean only that client's tables
-        // - Otherwise clean all clients from config
-        
         $clients = $client 
             ? [$client]
             : array_keys(config('api-cache.apis'));
@@ -710,27 +889,13 @@ class CacheRepository
         }
     }
     
+    /**
+     * Get the table name for the client
+     */
     protected function getTableName(string $client): string
     {
         $suffix = $this->compression->isEnabled() ? '_compressed' : '';
         return "api_cache_{$client}_responses{$suffix}";
-    }
-    
-    protected function prepareForStorage(string|array $data): string
-    {
-        $serialized = is_string($data) ? $data : json_encode($data);
-        return $this->compression->isEnabled() 
-            ? $this->compression->compress($serialized)
-            : $serialized;
-    }
-    
-    protected function retrieveFromStorage(string $data): mixed
-    {
-        $raw = $this->compression->isEnabled()
-            ? $this->compression->decompress($data)
-            : $data;
-            
-        return json_decode($raw, true) ?? $raw;
     }
 }
 ```

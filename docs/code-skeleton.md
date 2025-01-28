@@ -63,19 +63,19 @@ class ApiCacheException extends \Exception
 class RateLimitException extends ApiCacheException
 {
     protected string $clientName;
-    protected int $retryAfterSeconds;
+    protected int $availableInSeconds;
 
     public function __construct(
         string $clientName,
-        int $retryAfterSeconds,
+        int $availableInSeconds,
         array $context = [],
         ?\Throwable $previous = null
     ) {
-        $message = "Rate limit exceeded for client '{$clientName}'. Retry after {$retryAfterSeconds} seconds.";
+        $message = "Rate limit exceeded for client '{$clientName}'. Available in {$availableInSeconds} seconds.";
         parent::__construct($message, $context, 429, $previous);
         
         $this->clientName = $clientName;
-        $this->retryAfterSeconds = $retryAfterSeconds;
+        $this->availableInSeconds = $availableInSeconds;
     }
 
     public function getClientName(): string
@@ -83,9 +83,9 @@ class RateLimitException extends ApiCacheException
         return $this->clientName;
     }
 
-    public function getRetryAfterSeconds(): int
+    public function getAvailableInSeconds(): int
     {
-        return $this->retryAfterSeconds;
+        return $this->availableInSeconds;
     }
 }
 
@@ -128,15 +128,18 @@ abstract class BaseApiClient
     protected string $apiKey;
     protected ?string $version;
     protected HttpClient $client;
+    protected ApiCacheHandler $handler;
     
     public function __construct(
         string $baseUrl,
         string $apiKey,
-        ?string $version = null
+        ?string $version = null,
+        ?ApiCacheHandler $handler = null
     ) {
         $this->baseUrl = $baseUrl;
         $this->apiKey = $apiKey;
         $this->version = $version;
+        $this->handler = $handler ?? app(ApiCacheHandler::class);
         $this->client = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
             'Accept' => 'application/json',
@@ -193,6 +196,14 @@ abstract class BaseApiClient
             'response_time' => microtime(true) - $startTime
         ];
     }
+
+    /**
+     * Send request with caching and rate limiting
+     */
+    protected function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET'): array
+    {
+        return $this->handler->processRequest($this, $endpoint, $params, $method);
+    }
 }
 ```
 
@@ -230,7 +241,7 @@ class DemoApiClient extends BaseApiClient
             'max_results' => $maxResults,
         ]);
 
-        return $this->sendRequest('predictions', $params, 'GET');
+        return $this->sendCachedRequest('predictions', $params, 'GET');
     }
 
     public function report(
@@ -243,7 +254,7 @@ class DemoApiClient extends BaseApiClient
             'data_source' => $dataSource,
         ]);
 
-        return $this->sendRequest('reports', $params, 'POST');
+        return $this->sendCachedRequest('reports', $params, 'POST');
     }
 }
 
@@ -280,7 +291,7 @@ class OpenAIApiClient extends BaseApiClient
             'top_p'        => $topP,
         ]);
 
-        return $this->sendRequest('completions', $params, 'POST');
+        return $this->sendCachedRequest('completions', $params, 'POST');
     }
 
     public function chatCompletions(
@@ -309,7 +320,7 @@ class OpenAIApiClient extends BaseApiClient
             $params['max_completion_tokens'] = $maxCompletionTokens;
         }
 
-        return $this->sendRequest('chat/completions', $params, 'POST');
+        return $this->sendCachedRequest('chat/completions', $params, 'POST');
     }
 }
 ```
@@ -336,7 +347,8 @@ class ApiCacheHandler
     public function processRequest(
         BaseApiClient $client,
         string $endpoint,
-        array $params = []
+        array $params = [],
+        string $method = 'GET'
     ): array {
         // Algorithm:
         // - Generate cache key from client name, endpoint, params, version
@@ -359,7 +371,7 @@ class ApiCacheHandler
         );
         
         // Check cache first
-        if ($cached = $this->getCachedResponse($cacheKey)) {
+        if ($cached = $this->getCachedResponse($client, $cacheKey)) {
             return $cached;
         }
         
@@ -367,31 +379,33 @@ class ApiCacheHandler
         if (!$this->rateLimiter->allowRequest($client->getClientName())) {
             throw new RateLimitException(
                 $client->getClientName(),
-                $this->rateLimiter->getRetryAfterSeconds($client->getClientName())
+                $this->rateLimiter->getAvailableIn($client->getClientName())
             );
         }
         
-        $apiResult = $client->sendRequest($endpoint, $params);
+        $apiResult = $client->sendRequest($endpoint, $params, $method);
         $this->rateLimiter->incrementAttempts($client->getClientName());
         
         // Cache the response
-        $this->cacheResponse($cacheKey, $apiResult, $endpoint);
+        $this->cacheResponse($client, $cacheKey, $apiResult, $endpoint);
         
         return $apiResult;
     }
     
-    protected function getCachedResponse(string $cacheKey): ?array 
-    {
-        // Algorithm:
-        // - Get cached response from repository
-        // - Return null if not found
-        
-        return $this->repository->get($client->getClientName(), $cacheKey);
+    protected function getCachedResponse(
+        BaseApiClient $client,
+        string $cacheKey
+    ): ?array {
+        return $this->repository->get(
+            $client->getClientName(),
+            $cacheKey
+        );
     }
     
     protected function cacheResponse(
-        string $cacheKey, 
-        array $apiResult, 
+        BaseApiClient $client,
+        string $cacheKey,
+        array $apiResult,
         string $endpoint,
         ?int $ttl = null
     ): void {
@@ -490,6 +504,18 @@ class RateLimitService
         $requestsPerMinute = config("api-cache.apis.{$clientName}.rate_limit_requests_per_minute");
         
         return max(0, $this->limiter->remaining($clientName, $requestsPerMinute));
+    }
+
+    public function getAvailableIn(string $clientName): int
+    {
+        // If not rate limited, return 0
+        $maxAttempts = config("api-cache.apis.{$clientName}.rate_limit_requests_per_minute");
+        if (!$this->limiter->tooManyAttempts($clientName, $maxAttempts)) {
+            return 0;
+        }
+        
+        // Return seconds until rate limit resets
+        return $this->limiter->availableIn($clientName);
     }
 }
 
@@ -607,6 +633,7 @@ class CacheRepository
         ], $metadata);
         
         $this->db->table($table)->insert([
+            'client' => $client,
             'key' => $key,
             'version' => $metadata['version'],
             'endpoint' => $metadata['endpoint'],
@@ -724,6 +751,7 @@ return new class extends Migration
         Schema::create('api_cache_demo_responses', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
+            $table->string('client');
             $table->string('version')->nullable();
             $table->string('endpoint');
             $table->string('base_url')->nullable();
@@ -740,7 +768,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index(['endpoint', 'version']);
+            $table->index(['client', 'endpoint', 'version']);
             $table->index('expires_at');
         });
 
@@ -748,6 +776,7 @@ return new class extends Migration
         Schema::create('api_cache_demo_responses_compressed', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
+            $table->string('client');
             $table->string('version')->nullable();
             $table->string('endpoint');
             $table->string('base_url')->nullable();
@@ -764,7 +793,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index(['endpoint', 'version']);
+            $table->index(['client', 'endpoint', 'version']);
             $table->index('expires_at');
         });
     }

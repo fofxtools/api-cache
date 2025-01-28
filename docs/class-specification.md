@@ -50,11 +50,13 @@ abstract class BaseApiClient
     protected string $apiKey;
     protected ?string $version;
     protected HttpClient $client;
+    protected ApiCacheHandler $handler;
     
     public function __construct(
         string $baseUrl,
         string $apiKey,
-        ?string $version = null
+        ?string $version = null,
+        ?ApiCacheHandler $handler = null
     );
     
     // Get client name (e.g., 'openai', 'youtube')
@@ -63,8 +65,11 @@ abstract class BaseApiClient
     // Build API-specific URL
     abstract public function buildUrl(string $endpoint): string;
     
-    // Send API request
+    // Send uncached API request
     public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array;
+
+    // Send request with caching and rate limiting
+    protected function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET'): array;
 }
 ```
 

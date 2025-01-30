@@ -1053,7 +1053,7 @@ class CacheRepository
 ### Database Migrations
 
 ```php
-// create_demo_cache_tables.php
+// create_api_cache_demo_responses_table.php
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -1062,7 +1062,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Standard response table
         Schema::create('api_cache_demo_responses', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
@@ -1086,8 +1085,23 @@ return new class extends Migration
             $table->index(['client', 'endpoint', 'version']);
             $table->index('expires_at');
         });
+    }
 
-        // Compressed response table
+    public function down(): void
+    {
+        Schema::dropIfExists('api_cache_demo_responses');
+    }
+};
+
+// create_api_cache_demo_responses_compressed_table.php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('api_cache_demo_responses_compressed', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
@@ -1097,11 +1111,11 @@ return new class extends Migration
             $table->string('base_url')->nullable();
             $table->string('full_url')->nullable();
             $table->string('method')->nullable();
-            $table->mediumBlob('request_headers')->nullable();
-            $table->mediumBlob('request_body')->nullable();
+            $table->mediumText('request_headers')->charset('binary')->nullable();
+            $table->mediumText('request_body')->charset('binary')->nullable();
             $table->integer('response_status_code')->nullable();
-            $table->mediumBlob('response_headers')->nullable();
-            $table->mediumBlob('response_body')->nullable();
+            $table->mediumText('response_headers')->charset('binary')->nullable();
+            $table->mediumText('response_body')->charset('binary')->nullable();
             $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
@@ -1115,7 +1129,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_demo_responses');
         Schema::dropIfExists('api_cache_demo_responses_compressed');
     }
 };

@@ -11,7 +11,7 @@ sequenceDiagram
     Client->>+BaseApiClient: sendCachedRequest(endpoint, params, method)
     BaseApiClient->>+ApiCacheHandler: processRequest(this, endpoint, params, method)
 
-    Note over ApiCacheHandler: generateCacheKey(clientName, method, endpoint, params, version)
+    Note over ApiCacheHandler: generateCacheKey(clientName, endpoint, params, method, version)
 
     %% 2) Check cache
     ApiCacheHandler->>+CacheRepository: get(client, key)

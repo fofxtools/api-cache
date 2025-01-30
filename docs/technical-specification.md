@@ -64,12 +64,12 @@ Create a Laravel-based PHP library for caching API responses, designed to work w
 - `base_url`
 - `full_url`
 - `method`
-- `request_headers_compressed` (mediumblob)
-- `request_body_compressed` (mediumblob)
+- `request_headers` (mediumblob)
+- `request_body` (mediumblob)
 - `response_status_code`
-- `response_headers_compressed` (mediumblob)
-- `response_body_compressed` (mediumblob)
-- `response_size_compressed`
+- `response_headers` (mediumblob)
+- `response_body` (mediumblob)
+- `response_size`
 - `response_time` (double)
 - `expires_at` (nullable, allows for permanent caching if `null`)
 - `created_at`

@@ -34,7 +34,7 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 - Handles generic error catching
 - Provides interface for child clients
 - Manages version via getter method
-- Declares abstract getClientName() method
+- Manages client name via property
 - Contains ApiCacheHandler instance
 - Provides both cached and uncached request methods
 
@@ -44,7 +44,7 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 - Handle API-specific endpoints
 - Process API-specific responses
 - Handle API-specific error cases
-- Define CLIENT_NAME constant and implement getClientName()
+- Set client name in constructor
 - Use sendCachedRequest() by default
 - Can fallback to sendRequest() when needed
 
@@ -146,8 +146,10 @@ Uses Laravel's built-in rate limiting system via cache:
 {CLIENT}_API_KEY=
 {CLIENT}_BASE_URL=
 {CLIENT}_CACHE_TTL=
-{CLIENT}_RATE_LIMIT_RPM=
 {CLIENT}_COMPRESSION_ENABLED=
+{CLIENT}_DEFAULT_ENDPOINT=
+{CLIENT}_RATE_LIMIT_REQUESTS_PER_MINUTE=
+{CLIENT}_RATE_LIMIT_DECAY_SECONDS=
 ```
 
 ### Config File Structure

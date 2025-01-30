@@ -10,16 +10,17 @@ classDiagram
     }
     
     class BaseApiClient {
+        #string clientName
         #string baseUrl
         #string apiKey
         #string version
         #PendingRequest pendingRequest
         #ApiCacheHandler handler
-        +__construct(string, string, string, ApiCacheHandler)
+        +__construct(string, string, string, string, ApiCacheHandler)
         +sendRequest(string, array, string) array
         +sendCachedRequest(string, array, string) array
         +getVersion() string
-        +getClientName()* string
+        +getClientName() string
         +buildUrl(string)* string
     }
     
@@ -30,8 +31,10 @@ classDiagram
         +get(string, string) array
         +cleanup(string) void
         -getTableName(string) string
-        -prepareForStorage(string|array) string
-        -retrieveFromStorage(string) mixed
+        -prepareHeaders(array) string
+        -retrieveHeaders(string) array
+        -prepareBody(string) string
+        -retrieveBody(string) string
     }
     
     class RateLimitService {
@@ -49,16 +52,12 @@ classDiagram
     }
     
     class DemoApiClient {
-        #const CLIENT_NAME
-        +getClientName() string
         +buildUrl(string) string
         +prediction(string, int, array) array
         +report(string, string, array) array
     }
     
     class OpenAIApiClient {
-        #const CLIENT_NAME
-        +getClientName() string
         +buildUrl(string) string
         +completions(string, string, int, int, float, float, array) array
         +chatCompletions(array|string, string, int, int, float, float, array) array
@@ -71,9 +70,9 @@ classDiagram
     
     class RateLimitException {
         #string clientName
-        #int retryAfterSeconds
+        #int availableInSeconds
         +getClientName() string
-        +getRetryAfterSeconds() int
+        +getAvailableInSeconds() int
     }
     
     class CacheException {

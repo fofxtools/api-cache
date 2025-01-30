@@ -134,10 +134,12 @@ class CacheException extends ApiCacheException
 ```php
 namespace FOfX\ApiCache;
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\PendingRequest;
 
 abstract class BaseApiClient
 {
+    protected string $clientName;
     protected string $baseUrl;
     protected string $apiKey;
     protected ?string $version;
@@ -146,11 +148,13 @@ abstract class BaseApiClient
     protected ApiCacheHandler $handler;
     
     public function __construct(
+        string $clientName,
         string $baseUrl,
         string $apiKey,
         ?string $version = null,
         ?ApiCacheHandler $handler = null
     ) {
+        $this->clientName = $clientName;
         $this->baseUrl = $baseUrl;
         $this->apiKey = $apiKey;
         $this->version = $version;
@@ -160,16 +164,15 @@ abstract class BaseApiClient
             'Accept' => 'application/json',
         ]);
     }
-    
-    /**
-     * Returns the client name
-     */
-    abstract public function getClientName(): string;
-    
+
     /**
      * Builds the full URL for an endpoint
      */
     abstract public function buildUrl(string $endpoint): string;
+    
+    public function getClientName(): string {
+        return $this->clientName;
+    }
     
     /**
      * Get the API version
@@ -255,10 +258,15 @@ namespace FOfX\ApiCache;
 
 class DemoApiClient extends BaseApiClient
 {
-    protected const CLIENT_NAME = 'demo';
-    
-    public function getClientName(): string {
-        return static::CLIENT_NAME;
+    public function __construct(?ApiCacheHandler $handler = null)
+    {
+        parent::__construct(
+            'demo',
+            config('api-cache.apis.demo.base_url'),
+            config('api-cache.apis.demo.api_key'),
+            'v1',
+            $handler
+        );
     }
     
     /**
@@ -307,14 +315,27 @@ namespace FOfX\ApiCache;
 
 class OpenAIApiClient extends BaseApiClient
 {
-    protected const CLIENT_NAME = 'openai';
-    
-    public function getClientName(): string {
-        return static::CLIENT_NAME;
+    /**
+     * Constructor for OpenAIApiClient
+     * 
+     * @param ApiCacheHandler $handler Optional handler for caching and rate limiting
+     */
+    public function __construct(?ApiCacheHandler $handler = null)
+    {
+        parent::__construct(
+            'openai',
+            config('api-cache.apis.openai.base_url'),
+            config('api-cache.apis.openai.api_key'),
+            'v1',
+            $handler
+        );
     }
     
     /**
      * Builds the full URL for an endpoint
+     * 
+     * @param string $endpoint The API endpoint to build the URL for
+     * @return string The full URL for the endpoint
      */
     public function buildUrl(string $endpoint): string 
     {
@@ -323,6 +344,13 @@ class OpenAIApiClient extends BaseApiClient
 
     /**
      * Get legacy text completions based on prompt parameters
+     * 
+     * @param string $prompt The prompt to use for the completions
+     * @param string $model The model to use for the completions
+     * @param int $maxTokens The maximum number of tokens to generate
+     * @param int $n The number of completions to generate
+     * @param array $additionalParams Additional parameters to include in the request
+     * @return array The API response data
      */
     public function completions(
         string $prompt,
@@ -347,6 +375,16 @@ class OpenAIApiClient extends BaseApiClient
 
     /**
      * Get chat completions based on messages parameters
+     * 
+     * @param array|string $messages The messages to use for the completions
+     * @param string $model The model to use for the completions
+     * @param int|null $maxCompletionTokens The maximum number of tokens to generate
+     * @param int $n The number of completions to generate
+     * @param float $temperature The temperature to use for the completions
+     * @param float $topP The top P value to use for the completions
+     * @param array $additionalParams Additional parameters to include in the request
+     * @return array The API response data
+     * @throws \InvalidArgumentException When messages are not properly formatted
      */
     public function chatCompletions(
         array|string $messages,
@@ -357,9 +395,16 @@ class OpenAIApiClient extends BaseApiClient
         float $topP = 1.0,
         array $additionalParams = []
     ): array {
-        // If messages is a string, assume it is a prompt and wrap it in an array
+        // If messages is a string, assume it is a prompt and wrap it in an array of messages
         if (is_string($messages)) {
-            $messages = ['role' => 'user', 'content' => $messages];
+            $messages = [['role' => 'user', 'content' => $messages]];
+        }
+
+        // Ensure all elements in messages are properly formatted with role and content
+        foreach ($messages as $message) {
+            if (!isset($message['role']) || !isset($message['content'])) {
+                throw new \InvalidArgumentException("Invalid message format: each message must have 'role' and 'content' keys");
+            }
         }
 
         $params = array_merge($additionalParams, [
@@ -432,8 +477,8 @@ class ApiCacheHandler
             $client->getClientName(),
             $endpoint,
             $params,
-            $client->getVersion(),
-            $method
+            $method,
+            $client->getVersion()
         );
         
         // Check cache first
@@ -490,6 +535,11 @@ class ApiCacheHandler
         string $endpoint,
         ?int $ttl = null
     ): void {
+        // If TTL is not provided, use default from config
+        if ($ttl === null) {
+            $ttl = config("api-cache.apis.{$client->getClientName()}.cache_ttl");
+        }
+        
         /** @var \Illuminate\Http\Client\Response $response */
         $response = $apiResult['response'];
         
@@ -525,7 +575,7 @@ class ApiCacheHandler
      * - Normalize parameters for consistent ordering
      * - Encode normalized parameters to JSON
      * - Generate SHA1 hash of the JSON parameters
-     * - Build cache key components with uppercased method
+     * - Build cache key components with lowercased method
      * - Append version if provided
      * - Concatenate components with dots
      *
@@ -541,8 +591,8 @@ class ApiCacheHandler
         string $clientName,
         string $endpoint,
         array $params,
-        ?string $version = null,
-        string $method = 'GET'
+        string $method = 'GET',
+        ?string $version = null
     ): string {
         // Normalize parameters for stable ordering, no nulls, etc.
         $normalizedParams = $this->normalizeParams($params);
@@ -560,7 +610,7 @@ class ApiCacheHandler
         // Build the cache key components with uppercased method
         $components = [
             $clientName,
-            strtoupper($method),
+            strtolower($method),
             $endpoint,
             $paramsHash
         ];
@@ -635,6 +685,8 @@ class ApiCacheHandler
 
 // RateLimitService.php
 namespace FOfX\ApiCache;
+
+use Illuminate\Cache\RateLimiter;
 
 class RateLimitService
 {

@@ -11,7 +11,7 @@ sequenceDiagram
     Client->>+BaseApiClient: sendCachedRequest(endpoint, params, method)
     BaseApiClient->>+ApiCacheHandler: processRequest(this, endpoint, params, method)
 
-    Note over ApiCacheHandler: generateCacheKey()
+    Note over ApiCacheHandler: generateCacheKey(clientName, method, endpoint, params, version)
 
     %% 2) Check cache
     ApiCacheHandler->>+CacheRepository: get(client, key)
@@ -25,7 +25,7 @@ sequenceDiagram
         BaseApiClient-->>Client: return result
 
     else Cache Miss
-        %% 3B) Cache miss: no cache, check rate limit
+        %% 3B) Cache miss: check rate limit
         CacheRepository-->>ApiCacheHandler: not found
         ApiCacheHandler->>+RateLimitService: allowRequest(clientName)
 
@@ -36,15 +36,14 @@ sequenceDiagram
             BaseApiClient-->>Client: throw RateLimitException
 
         else Request Allowed
-            %% 4B) Rate limit OK: make a real API call
+            %% 4B) Rate limit OK: make real API call
             RateLimitService-->>ApiCacheHandler: true
-            
-            ApiCacheHandler->>BaseApiClient: sendRequest(endpoint, params)
+            ApiCacheHandler->>BaseApiClient: sendRequest(endpoint, params, method)
             BaseApiClient->>ApiEndpoint: HTTP request
             ApiEndpoint-->>BaseApiClient: HTTP response
             BaseApiClient-->>ApiCacheHandler: API result
 
-            %% 5) Track usage
+            %% 5) Track rate limit usage
             ApiCacheHandler->>RateLimitService: incrementAttempts(clientName)
             RateLimitService-->>ApiCacheHandler: void
 

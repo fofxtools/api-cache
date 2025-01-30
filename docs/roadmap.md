@@ -18,9 +18,10 @@
 ## Phase 2: Core Features (Week 3-4)
 ### API Client Framework
 - [ ] Implement BaseApiClient
-- [ ] Create HTTP client wrapper
+- [ ] Set up Laravel HTTP client integration
 - [ ] Add request/response handling
 - [ ] Implement error handling
+- [ ] Add version and client name handling
 - [ ] Write client tests
 
 ### Cache Handler

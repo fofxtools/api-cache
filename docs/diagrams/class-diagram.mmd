@@ -5,19 +5,20 @@ classDiagram
         +processRequest(BaseApiClient, string, array) array
         -getCachedResponse(string) array
         -cacheResponse(string, array, string, int) void
-        +generateCacheKey(string, string, array, string) string
-        +normalizeParams(array) array
+        +generateCacheKey(string, string, array, string, string) string
+        +normalizeParams(array, int) array
     }
     
     class BaseApiClient {
         #string baseUrl
         #string apiKey
         #string version
-        #HttpClient client
+        #PendingRequest pendingRequest
         #ApiCacheHandler handler
-        +__construct(string, string, string)
+        +__construct(string, string, string, ApiCacheHandler)
         +sendRequest(string, array, string) array
         +sendCachedRequest(string, array, string) array
+        +getVersion() string
         +getClientName()* string
         +buildUrl(string)* string
     }
@@ -48,6 +49,7 @@ classDiagram
     }
     
     class DemoApiClient {
+        #const CLIENT_NAME
         +getClientName() string
         +buildUrl(string) string
         +prediction(string, int, array) array
@@ -55,6 +57,7 @@ classDiagram
     }
     
     class OpenAIApiClient {
+        #const CLIENT_NAME
         +getClientName() string
         +buildUrl(string) string
         +completions(string, string, int, int, float, float, array) array

@@ -31,6 +31,7 @@
 - Focus Areas:
   - processRequest() - Main orchestration
   - Cache key generation
+  - Parameter normalization
   - Response validation
 
 #### RateLimitService
@@ -98,7 +99,7 @@
 
 ### High Risk Areas
 - Request/response type safety in BaseApiClient
-- Cache key generation in ApiCacheHandler
+- Cache key generation and parameter normalization in ApiCacheHandler
 - Race conditions in CacheRepository
 - Rate limit accuracy in RateLimitService
 

@@ -80,11 +80,11 @@ Create a Laravel-based PHP library for caching API responses, designed to work w
 Other classes may be added as necessary.
 
 - ApiCacheHandler (manager for API request caching logic)
-- BaseApiClient (to be extended by each client API like the OpenAI API, YouTube API, etc.)
+- BaseApiClient (abstract class to be extended by each client API like the OpenAI API, YouTube API, etc.)
 - CacheRepository (handles database caching CRUD logic)
 - CompressionService (handles compression logic)
 - RateLimitService (handles rate limiting logic for each API/endpoint using Laravel's rate limiting)
-- DemoApiClient (extends the BaseApiClient class and makes requests to the local DemoApiController endpoints)
+- DemoApiClient (child class that extends the BaseApiClient class and makes requests to the local DemoApiController endpoints)
 - DemoApiController (a local mock demonstration API for development testing, with sample endpoints including GET and POST)
 
 ## Configuration and Installation

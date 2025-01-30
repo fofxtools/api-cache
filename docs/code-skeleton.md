@@ -134,12 +134,15 @@ class CacheException extends ApiCacheException
 ```php
 namespace FOfX\ApiCache;
 
+use Illuminate\Http\Client\PendingRequest;
+
 abstract class BaseApiClient
 {
     protected string $baseUrl;
     protected string $apiKey;
     protected ?string $version;
-    protected HttpClient $client;
+    /** @var PendingRequest */
+    protected $pendingRequest;
     protected ApiCacheHandler $handler;
     
     public function __construct(
@@ -152,7 +155,7 @@ abstract class BaseApiClient
         $this->apiKey = $apiKey;
         $this->version = $version;
         $this->handler = $handler ?? app(ApiCacheHandler::class);
-        $this->client = Http::withHeaders([
+        $this->pendingRequest = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
             'Accept' => 'application/json',
         ]);
@@ -169,12 +172,20 @@ abstract class BaseApiClient
     abstract public function buildUrl(string $endpoint): string;
     
     /**
+     * Get the API version
+     */
+    public function getVersion(): ?string
+    {
+        return $this->version;
+    }
+    
+    /**
      * Sends an API request
      * 
      * Algorithm:
      * - Build full URL from endpoint
      * - Track request timing
-     * - Send HTTP request using Laravel HTTP client
+     * - Send HTTP request using Laravel's HTTP client
      * - Return response with timing data
      *
      * @throws ApiCacheException When HTTP method is not supported
@@ -185,8 +196,8 @@ abstract class BaseApiClient
         $startTime = microtime(true);
         $requestData = [];
         
-        // Create new client instance with Laravel HTTP client request capture middleware
-        $client = $this->client->withMiddleware(
+        // Add request capture middleware to pending request
+        $request = $this->pendingRequest->withMiddleware(
             function ($request, $next) use (&$requestData) {
                 // Capture full request details
                 $requestData['method'] = $request->getMethod();
@@ -199,12 +210,12 @@ abstract class BaseApiClient
         
         /** @var \Illuminate\Http\Client\Response $response */
         $response = match($method) {
-            'HEAD' => $client->head($url, $params),
-            'GET' => $client->get($url, $params),
-            'POST' => $client->post($url, $params),
-            'PUT' => $client->put($url, $params),
-            'PATCH' => $client->patch($url, $params),
-            'DELETE' => $client->delete($url, $params),
+            'HEAD' => $request->head($url, $params),
+            'GET' => $request->get($url, $params),
+            'POST' => $request->post($url, $params),
+            'PUT' => $request->put($url, $params),
+            'PATCH' => $request->patch($url, $params),
+            'DELETE' => $request->delete($url, $params),
             default => throw new ApiCacheException("Unsupported HTTP method: {$method}")
         };
         
@@ -244,12 +255,10 @@ namespace FOfX\ApiCache;
 
 class DemoApiClient extends BaseApiClient
 {
-    /**
-     * Returns the client name
-     */
-    public function getClientName(): string 
-    {
-        return 'demo';
+    protected const CLIENT_NAME = 'demo';
+    
+    public function getClientName(): string {
+        return static::CLIENT_NAME;
     }
     
     /**
@@ -298,12 +307,10 @@ namespace FOfX\ApiCache;
 
 class OpenAIApiClient extends BaseApiClient
 {
-    /**
-     * Returns the client name
-     */
-    public function getClientName(): string 
-    {
-        return 'openai';
+    protected const CLIENT_NAME = 'openai';
+    
+    public function getClientName(): string {
+        return static::CLIENT_NAME;
     }
     
     /**
@@ -425,7 +432,8 @@ class ApiCacheHandler
             $client->getClientName(),
             $endpoint,
             $params,
-            $client->version
+            $client->getVersion(),
+            $method
         );
         
         // Check cache first
@@ -487,7 +495,7 @@ class ApiCacheHandler
         
         $metadata = [
             'endpoint' => $endpoint,
-            'version' => $client->version,
+            'version' => $client->getVersion(),
             'base_url' => $apiResult['request']['base_url'],
             'full_url' => $apiResult['request']['full_url'],
             'method' => $apiResult['request']['method'],
@@ -509,34 +517,119 @@ class ApiCacheHandler
     }
     
     /**
-     * Generate cache key
+     * Generate a unique cache key for the request.
      * 
+     * Format: "{client}.{method}.{endpoint}.{params_hash}.{version}"
+     *
      * Algorithm:
-     * - Get normalized params
-     * - Generate hash from normalized params
-     * - Combine components into key: "{client}.{endpoint}.{hash}.{version}"
-     * - Generate hash that uniquely identifies this request
+     * - Normalize parameters for consistent ordering
+     * - Encode normalized parameters to JSON
+     * - Generate SHA1 hash of the JSON parameters
+     * - Build cache key components with uppercased method
+     * - Append version if provided
+     * - Concatenate components with dots
+     *
+     * @param string $clientName API client identifier
+     * @param string $endpoint API endpoint
+     * @param array $params Request parameters
+     * @param string|null $version API version
+     * @param string $method HTTP method
+     * @return string Cache key
+     * @throws CacheException When parameter normalization or JSON encoding fails
      */
     public function generateCacheKey(
-        string $client,
+        string $clientName,
         string $endpoint,
         array $params,
-        ?string $version = null
+        ?string $version = null,
+        string $method = 'GET'
     ): string {
-        // To be implemented
+        // Normalize parameters for stable ordering, no nulls, etc.
+        $normalizedParams = $this->normalizeParams($params);
+
+        // Encode normalized parameters to JSON
+        $jsonParams = json_encode($normalizedParams);
+
+        if ($jsonParams === false) {
+            throw new CacheException('generateCacheKey', 'Failed to encode parameters to JSON');
+        }
+
+        // Generate SHA1 hash of the JSON parameters
+        $paramsHash = sha1($jsonParams);
+
+        // Build the cache key components with uppercased method
+        $components = [
+            $clientName,
+            strtoupper($method),
+            $endpoint,
+            $paramsHash
+        ];
+
+        // Append version if provided
+        if ($version !== null) {
+            $components[] = $version;
+        }
+
+        // Concatenate components with dots
+        $cacheKey = implode('.', $components);
+
+        return $cacheKey;
     }
 
     /**
-     * Ensure deterministic serialization of nested structures
+     * Normalize parameters for consistent cache keys.
+     *
+     * Rules:
+     *  - Remove null values
+     *  - Recursively handle arrays (keeping empty arrays in case they matter)
+     *  - Sort keys for consistent ordering
+     *  - Forbid objects/resources (throw exception), as they rarely make sense for external APIs
+     *  - Include a depth check to prevent infinite recursion or excessive nesting
+     *
+     * This approach is minimal, avoids special transformations of booleans/strings, 
+     * and suits typical JSON-based APIs.
      * 
-     * Algorithm:
-     * - Filter out null/empty values
-     * - Sort array by keys
-     * - Convert remaining values to strings
-     * - Handle nested arrays via json_encode
+     * @param array $params Parameters to normalize
+     * @param int $depth Current recursion depth
+     * @return array Normalized parameters
+     * @throws CacheException When encountering unsupported types or exceeding max depth
      */
-    public function normalizeParams(array $params): array {
-        // To be implemented
+    protected function normalizeParams(array $params, int $depth = 0): array 
+    {
+        // Define a reasonable maximum depth to prevent infinite recursion
+        $maxDepth = 20;
+
+        if ($depth > $maxDepth) {
+            throw new CacheException('normalizeParams', "Maximum recursion depth ({$maxDepth}) exceeded in parameters: {$depth}");
+        }
+
+        // Filter out nulls first
+        $filtered = [];
+        foreach ($params as $key => $value) {
+            if ($value !== null) {
+                $filtered[$key] = $value;
+            }
+        }
+
+        // Sort keys for stable ordering
+        ksort($filtered);
+
+        $normalized = [];
+        foreach ($filtered as $key => $value) {
+            if (is_array($value)) {
+                // Recurse, keeping empty arrays intact
+                $normalized[$key] = $this->normalizeParams($value, $depth + 1);
+            } elseif (is_scalar($value)) {
+                // Keep scalars as-is: bool, int, float, string
+                $normalized[$key] = $value;
+            } else {
+                // Throw on objects, resources, closures, etc.
+                $type = gettype($value);
+                throw new CacheException('normalizeParams', "Unsupported parameter type: {$type}");
+            }
+        }
+
+        return $normalized;
     }
 }
 

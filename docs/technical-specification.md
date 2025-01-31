@@ -4,9 +4,12 @@ The purpose of this library will be to be able to cache the responses from any s
 
 ## Project Philosophies
 
-- KISS (Keep It Simple)
+- KISS (Keep It Simple Stupid)
 - YAGNI (You Aren't Gonna Need It)
-- Minimalism (MVP approach)
+- MVP (Minimal Viable Product)
+- POLS (Principle of Least Surprise)
+- COC (Convention Over Configuration)
+- DRY (Don't Repeat Yourself)
 
 ## Project Overview
 
@@ -127,3 +130,25 @@ return [
     ],
 ];
 ```
+
+## Demo API Server
+For testing and development, a simple demo API server is included. 
+
+### Setup
+1. Start the PHP development server:
+```bash
+php -S localhost:8000 -t public
+```
+
+2. The demo server will be available at:
+```
+http://localhost:8000/demo-api-server.php/v1
+```
+
+### Endpoints
+- GET /predictions
+  - Parameters: query (string), max_results (int)
+  - Returns: Array of prediction results
+- POST /reports
+  - Parameters: report_type (string), data_source (string)
+  - Returns: Report data

@@ -7,7 +7,10 @@
 │   └── api-cache.php
 ├── database/
 │   └── migrations/
-│       └── create_demo_cache_tables.php
+│       ├── create_api_cache_demo_responses_table.php
+│       └── create_api_cache_demo_responses_compressed_table.php
+├── public/
+│   └── demo-api-server.php
 ├── src/
 │   ├── ApiCacheHandler.php
 │   ├── BaseApiClient.php
@@ -642,7 +645,7 @@ class ApiCacheHandler
      * @param array $params Parameters to normalize
      * @param int $depth Current recursion depth
      * @return array Normalized parameters
-     * @throws CacheException When encountering unsupported types or exceeding max depth
+     * @throws \InvalidArgumentException When encountering unsupported types or exceeding max depth
      */
     protected function normalizeParams(array $params, int $depth = 0): array 
     {
@@ -650,7 +653,9 @@ class ApiCacheHandler
         $maxDepth = 20;
 
         if ($depth > $maxDepth) {
-            throw new CacheException('normalizeParams', "Maximum recursion depth ({$maxDepth}) exceeded in parameters: {$depth}");
+            throw new \InvalidArgumentException(
+                "Maximum recursion depth ({$maxDepth}) exceeded in parameters: {$depth}"
+            );
         }
 
         // Filter out nulls first
@@ -675,7 +680,7 @@ class ApiCacheHandler
             } else {
                 // Throw on objects, resources, closures, etc.
                 $type = gettype($value);
-                throw new CacheException('normalizeParams', "Unsupported parameter type: {$type}");
+                throw new \InvalidArgumentException("Unsupported parameter type: {$type}");
             }
         }
 
@@ -1160,4 +1165,73 @@ return [
         ],
     ],
 ];
+```
+
+### Demo API Server
+
+```php
+// demo-api-server.php
+<?php
+
+declare(strict_types=1);
+
+// Simple router based on path and method
+$path = $_SERVER['PATH_INFO'] ?? '/';
+$method = $_SERVER['REQUEST_METHOD'];
+
+// Set JSON content type
+header('Content-Type: application/json');
+
+// Validate API key
+function validateApiKey(): bool {
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!preg_match('/^Bearer\s+(.+)$/', $authHeader, $matches)) {
+        return false;
+    }
+    $providedKey = $matches[1];
+    return $providedKey === 'demo-key';  // Hardcoded for demo purposes
+}
+
+// Check API key before processing
+if (!validateApiKey()) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Invalid API key']);
+    exit;
+}
+
+// API version check
+if (!str_starts_with($path, '/v1/')) {
+    http_response_code(404);
+    echo json_encode(['error' => 'API version not found']);
+    exit;
+}
+
+// Remove version prefix
+$path = substr($path, 3);
+
+// Route handling
+match(true) {
+    // GET /predictions
+    $method === 'GET' && $path === '/predictions' => handlePredictions(),
+    
+    // POST /reports
+    $method === 'POST' && $path === '/reports' => handleReports(),
+    
+    // 404 for everything else
+    default => handle404(),
+};
+
+// Handler functions
+function handlePredictions() {
+    // Implementation will go here
+}
+
+function handleReports() {
+    // Implementation will go here
+}
+
+function handle404() {
+    http_response_code(404);
+    echo json_encode(['error' => 'Not found']);
+}
 ```

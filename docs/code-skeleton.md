@@ -35,38 +35,10 @@
 ## Exceptions
 
 ```php
-namespace FOfX\ApiCache;
-
-/**
- * Base exception for API cache errors
- */
-class ApiCacheException extends \Exception
-{
-    protected array $context = [];
-
-    public function __construct(
-        string $message,
-        array $context = [],
-        int $code = 0,
-        ?\Throwable $previous = null
-    ) {
-        parent::__construct($message, $code, $previous);
-        $this->context = $context;
-    }
-
-    /**
-     * Returns the context of the exception
-     */
-    public function getContext(): array
-    {
-        return $this->context;
-    }
-}
-
 /**
  * Thrown when rate limit is exceeded
  */
-class RateLimitException extends ApiCacheException
+class RateLimitException extends \Exception
 {
     protected string $clientName;
     protected int $availableInSeconds;
@@ -74,11 +46,11 @@ class RateLimitException extends ApiCacheException
     public function __construct(
         string $clientName,
         int $availableInSeconds,
-        array $context = [],
+        string $message = '',
         ?\Throwable $previous = null
     ) {
-        $message = "Rate limit exceeded for client '{$clientName}'. Available in {$availableInSeconds} seconds.";
-        parent::__construct($message, $context, 429, $previous);
+        $message = $message ?: "Rate limit exceeded for client '{$clientName}'. Available in {$availableInSeconds} seconds.";
+        parent::__construct($message, 429, $previous);
         
         $this->clientName = $clientName;
         $this->availableInSeconds = $availableInSeconds;
@@ -98,34 +70,6 @@ class RateLimitException extends ApiCacheException
     public function getAvailableInSeconds(): int
     {
         return $this->availableInSeconds;
-    }
-}
-
-/**
- * Thrown when cache operations fail
- */
-class CacheException extends ApiCacheException
-{
-    protected string $operation;
-
-    public function __construct(
-        string $operation,
-        string $message,
-        array $context = [],
-        ?\Throwable $previous = null
-    ) {
-        $fullMessage = "Cache {$operation} failed: {$message}";
-        parent::__construct($fullMessage, $context, 0, $previous);
-        
-        $this->operation = $operation;
-    }
-
-    /**
-     * Returns the operation that failed
-     */
-    public function getOperation(): string
-    {
-        return $this->operation;
     }
 }
 ```
@@ -194,7 +138,7 @@ abstract class BaseApiClient
      * - Send HTTP request using Laravel's HTTP client
      * - Return response with timing data
      *
-     * @throws ApiCacheException When HTTP method is not supported
+     * @throws \InvalidArgumentException When HTTP method is not supported
      */
     public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array
     {
@@ -222,7 +166,7 @@ abstract class BaseApiClient
             'PUT' => $request->put($url, $params),
             'PATCH' => $request->patch($url, $params),
             'DELETE' => $request->delete($url, $params),
-            default => throw new ApiCacheException("Unsupported HTTP method: {$method}")
+            default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}")
         };
         
         return [
@@ -588,7 +532,7 @@ class ApiCacheHandler
      * @param string|null $version API version
      * @param string $method HTTP method
      * @return string Cache key
-     * @throws CacheException When parameter normalization or JSON encoding fails
+     * @throws \JsonException When parameter normalization or JSON encoding fails
      */
     public function generateCacheKey(
         string $clientName,
@@ -604,13 +548,13 @@ class ApiCacheHandler
         $jsonParams = json_encode($normalizedParams);
 
         if ($jsonParams === false) {
-            throw new CacheException('generateCacheKey', 'Failed to encode parameters to JSON');
+            throw new \JsonException('Failed to encode parameters to JSON');
         }
 
         // Generate SHA1 hash of the JSON parameters
         $paramsHash = sha1($jsonParams);
 
-        // Build the cache key components with uppercased method
+        // Build the cache key components with lowercased method
         $components = [
             $clientName,
             strtolower($method),
@@ -772,9 +716,11 @@ class CompressionService
      * Algorithm:
      * - If compression disabled, return data as-is
      * - Compress using gzcompress
-     * - Return compressed string or throw CacheException
+     * - Return compressed string or throw exception
      *
-     * @throws CacheException When compression fails
+     * @param string $data Raw data to compress
+     * @return string Compressed data if enabled, original data if not
+     * @throws \RuntimeException When compression fails
      */
     public function compress(string $data): string
     {
@@ -784,7 +730,7 @@ class CompressionService
         
         $compressed = gzcompress($data);
         if ($compressed === false) {
-            throw new CacheException('compress', 'Failed to compress data');
+            throw new \RuntimeException('Failed to compress data');
         }
         
         return $compressed;
@@ -796,9 +742,11 @@ class CompressionService
      * Algorithm:
      * - If compression disabled, return data as-is
      * - Decompress using gzuncompress
-     * - Return decompressed string or throw CacheException
+     * - Return decompressed string or throw exception
      *
-     * @throws CacheException When decompression fails
+     * @param string $data Raw data to decompress
+     * @return string Decompressed data if enabled, original data if not
+     * @throws \RuntimeException When decompression fails
      */
     public function decompress(string $data): string
     {
@@ -808,9 +756,9 @@ class CompressionService
         
         $decompressed = gzuncompress($data);
         if ($decompressed === false) {
-            throw new CacheException('decompress', 'Failed to decompress data');
-        }
-        
+            throw new \RuntimeException('Failed to decompress data');
+        }        
+
         return $decompressed;
     }
     
@@ -934,7 +882,7 @@ class CacheRepository
      * @param string $key Cache key
      * @param array $metadata Response metadata
      * @param int|null $ttl Time to live in seconds
-     * @throws CacheException When required fields are missing
+     * @throws \InvalidArgumentException When required fields are missing
      */
     public function store(string $client, string $key, array $metadata, ?int $ttl = null): void
     {
@@ -943,9 +891,10 @@ class CacheRepository
         
         // Ensure required fields exist
         if (empty($metadata['endpoint']) || empty($metadata['response_body'])) {
-            throw new CacheException('store', 'Missing required fields');
+            throw new \InvalidArgumentException('Missing required fields, endpoint and response_body are required');
         }
         
+
         // Set defaults for optional fields
         $metadata = array_merge([
             'version' => null,

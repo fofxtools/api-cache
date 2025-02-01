@@ -63,11 +63,6 @@ classDiagram
         +chatCompletions(array|string, string, int, int, float, float, array) array
     }
     
-    class ApiCacheException {
-        #array context
-        +getContext() array
-    }
-    
     class RateLimitException {
         #string clientName
         #int availableInSeconds
@@ -75,15 +70,9 @@ classDiagram
         +getAvailableInSeconds() int
     }
     
-    class CacheException {
-        #string operation
-        +getOperation() string
-    }
-    
     ApiCacheHandler --> CacheRepository : uses
     ApiCacheHandler --> RateLimitService : uses
     CacheRepository --> CompressionService : uses
     BaseApiClient <|-- DemoApiClient : extends
     BaseApiClient <|-- OpenAIApiClient : extends
-    ApiCacheException <|-- RateLimitException : extends
-    ApiCacheException <|-- CacheException : extends 
+    Exception <|-- RateLimitException : extends

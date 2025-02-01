@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace FOfX\ApiCache;
 
+use Illuminate\Support\Facades\Log;
+
 class CompressionService
 {
     /**
@@ -36,13 +38,25 @@ class CompressionService
     public function compress(string $data): string
     {
         if (!$this->enabled) {
+            Log::debug('Compression disabled, returning original data');
+
             return $data;
         }
 
         $compressed = gzcompress($data);
         if ($compressed === false) {
+            Log::error('Failed to compress data', [
+                'data_length' => strlen($data),
+            ]);
+
             throw new \RuntimeException('Failed to compress data');
         }
+
+        Log::debug('Data compressed successfully', [
+            'original_size'   => strlen($data),
+            'compressed_size' => strlen($compressed),
+            'ratio'           => round(strlen($compressed) / strlen($data), 2),
+        ]);
 
         return $compressed;
     }
@@ -59,14 +73,25 @@ class CompressionService
     public function decompress(string $data): string
     {
         if (!$this->enabled) {
+            Log::debug('Compression disabled, returning original data');
+
             return $data;
         }
 
         // Suppress warning since we handle the error
         $decompressed = @gzuncompress($data);
         if ($decompressed === false) {
+            Log::error('Failed to decompress data', [
+                'data_length' => strlen($data),
+            ]);
+
             throw new \RuntimeException('Failed to decompress data');
         }
+
+        Log::debug('Data decompressed successfully', [
+            'compressed_size' => strlen($data),
+            'original_size'   => strlen($decompressed),
+        ]);
 
         return $decompressed;
     }

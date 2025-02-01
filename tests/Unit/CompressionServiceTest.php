@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\CompressionService;
-use PHPUnit\Framework\TestCase;
+use Orchestra\Testbench\TestCase;
 
 class CompressionServiceTest extends TestCase
 {

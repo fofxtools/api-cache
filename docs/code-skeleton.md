@@ -677,9 +677,9 @@ class RateLimitService
      */
     public function getRemainingAttempts(string $clientName): int 
     {
-        $requestsPerMinute = config("api-cache.apis.{$clientName}.rate_limit_requests_per_minute");
+        $maxAttempts = config("api-cache.apis.{$clientName}.rate_limit_max_attempts");
         
-        return max(0, $this->limiter->remaining($clientName, $requestsPerMinute));
+        return max(0, $this->limiter->remaining($clientName, $maxAttempts));
     }
 
     /**
@@ -688,7 +688,7 @@ class RateLimitService
     public function getAvailableIn(string $clientName): int
     {
         // If not rate limited, return 0
-        $maxAttempts = config("api-cache.apis.{$clientName}.rate_limit_requests_per_minute");
+        $maxAttempts = config("api-cache.apis.{$clientName}.rate_limit_max_attempts");
         if (!$this->limiter->tooManyAttempts($clientName, $maxAttempts)) {
             return 0;
         }
@@ -1100,7 +1100,7 @@ return [
             'cache_ttl' => env('DEMO_CACHE_TTL', null),
             'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
             'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'prediction'),
-            'rate_limit_requests_per_minute' => env('DEMO_RATE_LIMIT_REQUESTS_PER_MINUTE', 1000),
+            'rate_limit_max_attempts' => env('DEMO_RATE_LIMIT_MAX_ATTEMPTS', 1000),
             'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
         'openai' => [
@@ -1109,7 +1109,7 @@ return [
             'cache_ttl' => env('OPENAI_CACHE_TTL', null),
             'compression_enabled' => env('OPENAI_COMPRESSION_ENABLED', false),
             'default_endpoint' => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),
-            'rate_limit_requests_per_minute' => env('OPENAI_RATE_LIMIT_REQUESTS_PER_MINUTE', 60),
+            'rate_limit_max_attempts' => env('OPENAI_RATE_LIMIT_MAX_ATTEMPTS', 60),
             'rate_limit_decay_seconds' => env('OPENAI_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
     ],

@@ -131,7 +131,7 @@ $client   = 'test-client';
 $key      = 'test-key';
 $metadata = [
     'endpoint'         => '/api/test',
-    'response_body'    => 'This the response body for the test. It may or may not be stored compressed.',
+    'response_body'    => 'This is the response body for the test. It may or may not be stored compressed.',
     'response_headers' => ['Content-Type' => 'application/json'],
     'method'           => 'GET',
 ];

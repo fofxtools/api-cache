@@ -32,13 +32,32 @@ class CacheRepository
         // Replace hyphens with underscores for SQL compatibility
         $sanitized = str_replace('-', '_', $sanitized);
 
+        $prefix_string     = 'api_cache_';
+        $responses_string  = '_responses';
+        $compressed_string = '_compressed';
+
+        // Check if the table name is too long
+        $used_characters_count = strlen($prefix_string . $responses_string . $compressed_string);
+        $max_length            = 64 - $used_characters_count;
+
+        // If the table name is too long, truncate it
+        if (strlen($sanitized) > $max_length) {
+            $sanitized = substr($sanitized, 0, $max_length);
+        }
+
+        // If compression is enabled, add the compressed suffix
         if ($this->compression->isEnabled()) {
-            $suffix = '_compressed';
+            $suffix = $compressed_string;
         } else {
             $suffix = '';
         }
 
-        return "api_cache_{$sanitized}_responses{$suffix}";
+        $table_name = $prefix_string . $sanitized . $responses_string . $suffix;
+
+        // Replace multiple underscores with a single underscore
+        $table_name = preg_replace('/_+/', '_', $table_name);
+
+        return $table_name;
     }
 
     /**

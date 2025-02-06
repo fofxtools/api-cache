@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use FOfX\ApiCache\CompressionService;
@@ -38,7 +40,8 @@ $data = "Hello, this is a test string that we'll compress and decompress";
 try {
     echo "Original data: {$data}\n";
 
-    $compressed = $service->compress($data);
+    // Test with context
+    $compressed = $service->compress($data, 'test-data');
     echo 'Compressed (base64): ' . base64_encode($compressed) . "\n";
 
     $decompressed = $service->decompress($compressed);

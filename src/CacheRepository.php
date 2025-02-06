@@ -1,0 +1,328 @@
+<?php
+
+declare(strict_types=1);
+
+namespace FOfX\ApiCache;
+
+use Illuminate\Database\Connection;
+use Illuminate\Support\Facades\Log;
+
+class CacheRepository
+{
+    protected Connection $db;
+    protected CompressionService $compression;
+
+    public function __construct(Connection $db, CompressionService $compression)
+    {
+        $this->db          = $db;
+        $this->compression = $compression;
+    }
+
+    /**
+     * Get the table name for the client
+     *
+     * @param string $client Client name
+     *
+     * @return string Valid table name with appropriate prefix and suffix
+     */
+    public function getTableName(string $client): string
+    {
+        // Replace any non-alphanumeric characters (except hyphen and underscore) with underscore
+        $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '_', $client);
+        // Replace hyphens with underscores for SQL compatibility
+        $sanitized = str_replace('-', '_', $sanitized);
+
+        if ($this->compression->isEnabled()) {
+            $suffix = '_compressed';
+        } else {
+            $suffix = '';
+        }
+
+        return "api_cache_{$sanitized}_responses{$suffix}";
+    }
+
+    /**
+     * Prepare headers for storage (headers are always an array)
+     *
+     * @param array|null $headers HTTP headers array
+     *
+     * @throws \JsonException When JSON encoding fails
+     *
+     * @return string|null JSON encoded and optionally compressed headers
+     */
+    protected function prepareHeaders(?array $headers): ?string
+    {
+        if ($headers === null) {
+            return null;
+        }
+
+        try {
+            $encoded = json_encode($headers, flags: JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            Log::error('Failed to encode headers', [
+                'error'   => $e->getMessage(),
+                'headers' => $headers,
+            ]);
+
+            // Re-throw after logging
+            throw $e;
+        }
+
+        if ($this->compression->isEnabled()) {
+            return $this->compression->compress($encoded, 'headers');
+        } else {
+            return $encoded;
+        }
+    }
+
+    /**
+     * Retrieve headers from storage (headers are always an array)
+     *
+     * @param string|null $data Stored HTTP headers data
+     *
+     * @throws \JsonException    When JSON decoding fails
+     * @throws \RuntimeException When decoded value is not an array
+     *
+     * @return array|null Decoded headers array
+     */
+    protected function retrieveHeaders(?string $data): ?array
+    {
+        if ($data === null) {
+            return null;
+        }
+
+        if ($this->compression->isEnabled()) {
+            $raw = $this->compression->decompress($data);
+        } else {
+            $raw = $data;
+        }
+
+        try {
+            $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+
+            // Since headers must be an array, we need to handle the case
+            // where valid JSON decodes to null or a non-array
+            if (!is_array($decoded)) {
+                Log::error('Decoded headers must be an array', [
+                    'type'    => gettype($decoded),
+                    'decoded' => $decoded,
+                    'raw'     => $raw,
+                ]);
+
+                throw new \RuntimeException('Decoded headers must be an array');
+            }
+
+            return $decoded;
+        } catch (\JsonException $e) {
+            Log::error('Failed to decode headers', [
+                'error' => $e->getMessage(),
+                'raw'   => $raw,
+            ]);
+
+            // Re-throw after logging
+            throw $e;
+        }
+    }
+
+    /**
+     * Prepare body for storage (body is always a string)
+     *
+     * @param string|null $body Raw body content
+     *
+     * @return string|null Optionally compressed body
+     */
+    protected function prepareBody(?string $body): ?string
+    {
+        if ($body === null) {
+            return null;
+        }
+
+        if ($this->compression->isEnabled()) {
+            return $this->compression->compress($body, 'body');
+        } else {
+            return $body;
+        }
+    }
+
+    /**
+     * Retrieve body from storage (body is always a string)
+     *
+     * @param string|null $data Stored body data
+     *
+     * @return string|null Raw body content
+     */
+    protected function retrieveBody(?string $data): ?string
+    {
+        if ($data === null) {
+            return null;
+        }
+
+        if ($this->compression->isEnabled()) {
+            return $this->compression->decompress($data);
+        } else {
+            return $data;
+        }
+    }
+
+    /**
+     * Cleanup expired responses
+     *
+     * Algorithm:
+     * - If client specified, clean only that client's tables
+     * - Otherwise clean all clients from config
+     */
+    public function cleanup(?string $client = null): void
+    {
+        if ($client) {
+            $clients = [$client];
+        } else {
+            $clients = array_keys(config('api-cache.apis'));
+        }
+
+        foreach ($clients as $client) {
+            $table   = $this->getTableName($client);
+            $deleted = $this->db->table($table)
+                ->where('expires_at', '<=', now())
+                ->delete();
+
+            Log::info('Cleaned up expired responses', [
+                'client'        => $client,
+                'table'         => $table,
+                'deleted_count' => $deleted,
+            ]);
+        }
+    }
+
+    /**
+     * Get the response from the cache
+     *
+     * Algorithm:
+     * - Get from correct table
+     * - Check if expired
+     * - Return null if not found or expired
+     * - Decompress if needed
+     * - Return data
+     */
+    public function get(string $client, string $key): ?array
+    {
+        $table = $this->getTableName($client);
+
+        $data = $this->db->table($table)
+            ->where('key', $key)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        if (!$data) {
+            Log::debug('Cache miss', [
+                'client' => $client,
+                'key'    => $key,
+                'table'  => $table,
+            ]);
+
+            return null;
+        }
+
+        Log::debug('Cache hit', [
+            'client'     => $client,
+            'key'        => $key,
+            'table'      => $table,
+            'expires_at' => $data->expires_at,
+        ]);
+
+        return [
+            'version'              => $data->version,
+            'endpoint'             => $data->endpoint,
+            'base_url'             => $data->base_url,
+            'full_url'             => $data->full_url,
+            'method'               => $data->method,
+            'request_headers'      => $this->retrieveHeaders($data->request_headers),
+            'request_body'         => $this->retrieveBody($data->request_body),
+            'response_status_code' => $data->response_status_code,
+            'response_headers'     => $this->retrieveHeaders($data->response_headers),
+            'response_body'        => $this->retrieveBody($data->response_body),
+            'response_size'        => $data->response_size,
+            'response_time'        => $data->response_time,
+            'expires_at'           => $data->expires_at,
+        ];
+    }
+
+    /**
+     * Store the response in the cache
+     *
+     * Algorithm:
+     * - Determine table name based on compression
+     * - Calculate expires_at from ttl
+     * - Validate required fields (endpoint and response_body are required)
+     * - Prepare data for storage
+     * - Store in database
+     *
+     * @param string   $client   Client name
+     * @param string   $key      Cache key
+     * @param array    $metadata Response metadata
+     * @param int|null $ttl      Time to live in seconds
+     *
+     * @throws \InvalidArgumentException When required fields are missing
+     */
+    public function store(string $client, string $key, array $metadata, ?int $ttl = null): void
+    {
+        $table     = $this->getTableName($client);
+        $expiresAt = $ttl ? now()->addSeconds($ttl) : null;
+
+        // Ensure required fields exist
+        if (empty($metadata['endpoint']) || empty($metadata['response_body'])) {
+            Log::error('Missing required fields for cache storage', [
+                'client'            => $client,
+                'key'               => $key,
+                'has_endpoint'      => isset($metadata['endpoint']),
+                'has_response_body' => isset($metadata['response_body']),
+            ]);
+
+            throw new \InvalidArgumentException('Missing required fields, endpoint and response_body are required');
+        }
+
+        // Set defaults for optional fields
+        $metadata = array_merge([
+            'version'              => null,
+            'base_url'             => null,
+            'full_url'             => null,
+            'method'               => null,
+            'request_headers'      => null,
+            'request_body'         => null,
+            'response_status_code' => null,
+            'response_headers'     => null,
+            'response_size'        => strlen($metadata['response_body']),
+            'response_time'        => null,
+        ], $metadata);
+
+        $this->db->table($table)->insert([
+            'client'               => $client,
+            'key'                  => $key,
+            'version'              => $metadata['version'],
+            'endpoint'             => $metadata['endpoint'],
+            'base_url'             => $metadata['base_url'],
+            'full_url'             => $metadata['full_url'],
+            'method'               => $metadata['method'],
+            'request_headers'      => $this->prepareHeaders($metadata['request_headers']),
+            'request_body'         => $this->prepareBody($metadata['request_body']),
+            'response_status_code' => $metadata['response_status_code'],
+            'response_headers'     => $this->prepareHeaders($metadata['response_headers']),
+            'response_body'        => $this->prepareBody($metadata['response_body']),
+            'response_size'        => $metadata['response_size'],
+            'response_time'        => $metadata['response_time'],
+            'expires_at'           => $expiresAt,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        Log::info('Stored response in cache', [
+            'client'        => $client,
+            'key'           => $key,
+            'table'         => $table,
+            'expires_at'    => $expiresAt,
+            'response_size' => $metadata['response_size'],
+        ]);
+    }
+}

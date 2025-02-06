@@ -29,13 +29,14 @@ class CompressionService
     /**
      * Compress data if compression is enabled
      *
-     * @param string $data Raw data to compress
+     * @param string $data    Raw data to compress
+     * @param string $context Context of what's being compressed (e.g., 'headers', 'body')
      *
      * @throws \RuntimeException If compression fails
      *
      * @return string Compressed data if enabled, original data if not
      */
-    public function compress(string $data): string
+    public function compress(string $data, string $context = ''): string
     {
         if (!$this->enabled) {
             Log::debug('Compression disabled, returning original data');
@@ -46,6 +47,7 @@ class CompressionService
         $compressed = gzcompress($data);
         if ($compressed === false) {
             Log::error('Failed to compress data', [
+                'context'     => $context,
                 'data_length' => strlen($data),
             ]);
 
@@ -53,6 +55,7 @@ class CompressionService
         }
 
         Log::debug('Data compressed successfully', [
+            'context'         => $context,
             'original_size'   => strlen($data),
             'compressed_size' => strlen($compressed),
             'ratio'           => round(strlen($compressed) / strlen($data), 2),

@@ -60,4 +60,49 @@ class CompressionServiceTest extends TestCase
         // With compression enabled, trying to decompress a raw string should throw an exception
         $service->decompress('invalid data');
     }
+
+    public function test_compress_includes_context_in_logs(): void
+    {
+        $service = new CompressionService(true);
+        $data    = 'test data';
+        $context = 'test-context';
+
+        // Capture logs
+        $logs = [];
+        $this->app->make('log')->listen(function ($event) use (&$logs) {
+            $logs[] = $event;
+        });
+
+        // Compress with context
+        $service->compress($data, $context);
+
+        // Assert log contains context
+        $this->assertTrue(collect($logs)->contains(function ($event) use ($context) {
+            return $event->message === 'Data compressed successfully'
+                && isset($event->context['context'])
+                && $event->context['context'] === $context;
+        }));
+    }
+
+    public function test_compress_works_without_context(): void
+    {
+        $service = new CompressionService(true);
+        $data    = 'test data';
+
+        // Capture logs
+        $logs = [];
+        $this->app->make('log')->listen(function ($event) use (&$logs) {
+            $logs[] = $event;
+        });
+
+        // Compress without context
+        $service->compress($data);
+
+        // Assert log contains empty context
+        $this->assertTrue(collect($logs)->contains(function ($event) {
+            return $event->message === 'Data compressed successfully'
+                && isset($event->context['context'])
+                && $event->context['context'] === '';
+        }));
+    }
 }

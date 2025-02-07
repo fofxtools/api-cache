@@ -44,7 +44,7 @@ $cached = $client->prediction(
     query: 'weather forecast',
     maxResults: 5
 );
-print_r($cached); // Same as $predictions
+print_r($cached); // Should be same as $predictions
 
 // Different parameters generate new request
 $morePredictions = $client->prediction(
@@ -68,28 +68,22 @@ use FOfX\ApiCache\OpenAIApiClient;
 
 $openai = new OpenAIApiClient();
 
-try {
-    // Simple completion
-    $response = $openai->chatCompletions('What is energy?', 'gpt-4o-mini');
+// Simple completion
+$response = $openai->chatCompletions('What is energy?', 'gpt-4o-mini');
 
-    echo $response['choices'][0]['message']['content'];
+echo $response['choices'][0]['message']['content'];
     
-    // Advanced completion
-    $response_advanced = $openai->chatCompletions(
-        messages: [
-            ['role' => 'system', 'content' => 'You are a physicist'],
-            ['role' => 'user', 'content' => 'What is energy?']
-        ],
-        model: 'gpt-4o-mini',
-        temperature: 0.7
-    );
+// Advanced completion
+$response_advanced = $openai->chatCompletions(
+    messages: [
+        ['role' => 'system', 'content' => 'You are a physicist'],
+        ['role' => 'user', 'content' => 'What is energy?']
+    ],
+    model: 'gpt-4o-mini',
+    temperature: 0.7
+);
 
-    echo $response_advanced['choices'][0]['message']['content'];
-} catch (ApiCacheException $e) {
-    Log::error('OpenAI request failed', [
-        'message' => $e->getMessage()
-    ]);
-}
+echo $response_advanced['choices'][0]['message']['content'];
 ```
 
 ## Raw uncached request
@@ -115,7 +109,7 @@ use FOfX\ApiCache\DemoApiClient;
 use FOfX\ApiCache\OpenAIApiClient;
 use FOfX\ApiCache\ApiCacheManager;
 
-$handler = app(ApiCacheManager::class);
-$demo = new DemoApiClient(handler: $handler);
-$openai = new OpenAIApiClient(handler: $handler);
+$manager = app(ApiCacheManager::class);
+$demo = new DemoApiClient(cacheManager: $manager);
+$openai = new OpenAIApiClient(cacheManager: $manager);
 ```

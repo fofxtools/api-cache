@@ -21,14 +21,14 @@ class CacheRepository
     /**
      * Get the table name for the client
      *
-     * @param string $client Client name
+     * @param string $clientName Client name
      *
      * @return string Valid table name with appropriate prefix and suffix
      */
-    public function getTableName(string $client): string
+    public function getTableName(string $clientName): string
     {
         // Replace any non-alphanumeric characters (except hyphen and underscore) with underscore
-        $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '_', $client);
+        $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '_', $clientName);
         // Replace hyphens with underscores for SQL compatibility
         $sanitized = str_replace('-', '_', $sanitized);
 
@@ -69,7 +69,7 @@ class CacheRepository
      *
      * @return string|null JSON encoded and optionally compressed headers
      */
-    protected function prepareHeaders(?array $headers): ?string
+    public function prepareHeaders(?array $headers): ?string
     {
         if ($headers === null) {
             return null;
@@ -104,7 +104,7 @@ class CacheRepository
      *
      * @return array|null Decoded headers array
      */
-    protected function retrieveHeaders(?string $data): ?array
+    public function retrieveHeaders(?string $data): ?array
     {
         if ($data === null) {
             return null;
@@ -150,7 +150,7 @@ class CacheRepository
      *
      * @return string|null Optionally compressed body
      */
-    protected function prepareBody(?string $body): ?string
+    public function prepareBody(?string $body): ?string
     {
         if ($body === null) {
             return null;
@@ -170,7 +170,7 @@ class CacheRepository
      *
      * @return string|null Raw body content
      */
-    protected function retrieveBody(?string $data): ?string
+    public function retrieveBody(?string $data): ?string
     {
         if ($data === null) {
             return null;
@@ -184,91 +184,6 @@ class CacheRepository
     }
 
     /**
-     * Cleanup expired responses
-     *
-     * Algorithm:
-     * - If client specified, clean only that client's tables
-     * - Otherwise clean all clients from config
-     */
-    public function cleanup(?string $client = null): void
-    {
-        if ($client) {
-            $clients = [$client];
-        } else {
-            $clients = array_keys(config('api-cache.apis'));
-        }
-
-        foreach ($clients as $client) {
-            $table   = $this->getTableName($client);
-            $deleted = $this->db->table($table)
-                ->where('expires_at', '<=', now())
-                ->delete();
-
-            Log::info('Cleaned up expired responses', [
-                'client'        => $client,
-                'table'         => $table,
-                'deleted_count' => $deleted,
-            ]);
-        }
-    }
-
-    /**
-     * Get the response from the cache
-     *
-     * Algorithm:
-     * - Get from correct table
-     * - Check if expired
-     * - Return null if not found or expired
-     * - Decompress if needed
-     * - Return data
-     */
-    public function get(string $client, string $key): ?array
-    {
-        $table = $this->getTableName($client);
-
-        $data = $this->db->table($table)
-            ->where('key', $key)
-            ->where(function ($query) {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->first();
-
-        if (!$data) {
-            Log::debug('Cache miss', [
-                'client' => $client,
-                'key'    => $key,
-                'table'  => $table,
-            ]);
-
-            return null;
-        }
-
-        Log::debug('Cache hit', [
-            'client'     => $client,
-            'key'        => $key,
-            'table'      => $table,
-            'expires_at' => $data->expires_at,
-        ]);
-
-        return [
-            'version'              => $data->version,
-            'endpoint'             => $data->endpoint,
-            'base_url'             => $data->base_url,
-            'full_url'             => $data->full_url,
-            'method'               => $data->method,
-            'request_headers'      => $this->retrieveHeaders($data->request_headers),
-            'request_body'         => $this->retrieveBody($data->request_body),
-            'response_status_code' => $data->response_status_code,
-            'response_headers'     => $this->retrieveHeaders($data->response_headers),
-            'response_body'        => $this->retrieveBody($data->response_body),
-            'response_size'        => $data->response_size,
-            'response_time'        => $data->response_time,
-            'expires_at'           => $data->expires_at,
-        ];
-    }
-
-    /**
      * Store the response in the cache
      *
      * Algorithm:
@@ -278,22 +193,22 @@ class CacheRepository
      * - Prepare data for storage
      * - Store in database
      *
-     * @param string   $client   Client name
-     * @param string   $key      Cache key
-     * @param array    $metadata Response metadata
-     * @param int|null $ttl      Time to live in seconds
+     * @param string   $clientName Client name
+     * @param string   $key        Cache key
+     * @param array    $metadata   Response metadata
+     * @param int|null $ttl        Time to live in seconds
      *
      * @throws \InvalidArgumentException When required fields are missing
      */
-    public function store(string $client, string $key, array $metadata, ?int $ttl = null): void
+    public function store(string $clientName, string $key, array $metadata, ?int $ttl = null): void
     {
-        $table     = $this->getTableName($client);
+        $table     = $this->getTableName($clientName);
         $expiresAt = $ttl ? now()->addSeconds($ttl) : null;
 
         // Ensure required fields exist
         if (empty($metadata['endpoint']) || empty($metadata['response_body'])) {
             Log::error('Missing required fields for cache storage', [
-                'client'            => $client,
+                'client'            => $clientName,
                 'key'               => $key,
                 'has_endpoint'      => isset($metadata['endpoint']),
                 'has_response_body' => isset($metadata['response_body']),
@@ -317,7 +232,7 @@ class CacheRepository
         ], $metadata);
 
         $this->db->table($table)->insert([
-            'client'               => $client,
+            'client'               => $clientName,
             'key'                  => $key,
             'version'              => $metadata['version'],
             'endpoint'             => $metadata['endpoint'],
@@ -337,11 +252,103 @@ class CacheRepository
         ]);
 
         Log::info('Stored response in cache', [
-            'client'        => $client,
+            'client'        => $clientName,
             'key'           => $key,
             'table'         => $table,
             'expires_at'    => $expiresAt,
             'response_size' => $metadata['response_size'],
         ]);
+    }
+
+    /**
+     * Get the response from the cache
+     *
+     * Algorithm:
+     * - Get from correct table
+     * - Check if expired
+     * - Return null if not found or expired
+     * - Decompress if needed
+     * - Return data
+     *
+     * @param string $clientName Client name
+     * @param string $key        Cache key
+     *
+     * @return array|null Response data
+     */
+    public function get(string $clientName, string $key): ?array
+    {
+        $table = $this->getTableName($clientName);
+
+        $data = $this->db->table($table)
+            ->where('key', $key)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        if (!$data) {
+            Log::debug('Cache miss', [
+                'client' => $clientName,
+                'key'    => $key,
+                'table'  => $table,
+            ]);
+
+            return null;
+        }
+
+        Log::debug('Cache hit', [
+            'client'     => $clientName,
+            'key'        => $key,
+            'table'      => $table,
+            'expires_at' => $data->expires_at,
+        ]);
+
+        return [
+            'version'              => $data->version,
+            'endpoint'             => $data->endpoint,
+            'base_url'             => $data->base_url,
+            'full_url'             => $data->full_url,
+            'method'               => $data->method,
+            'request_headers'      => $this->retrieveHeaders($data->request_headers),
+            'request_body'         => $this->retrieveBody($data->request_body),
+            'response_status_code' => $data->response_status_code,
+            'response_headers'     => $this->retrieveHeaders($data->response_headers),
+            'response_body'        => $this->retrieveBody($data->response_body),
+            'response_size'        => $data->response_size,
+            'response_time'        => $data->response_time,
+            'expires_at'           => $data->expires_at,
+        ];
+    }
+
+    /**
+     * Cleanup expired responses
+     *
+     * Algorithm:
+     * - If client specified, clean only that client's tables
+     * - Otherwise clean all clients from config
+     *
+     * @param string|null $clientName Client name
+     */
+    public function cleanup(?string $clientName = null): void
+    {
+        if ($clientName) {
+            $clientsArray = [$clientName];
+        } else {
+            $clientsArray = array_keys(config('api-cache.apis'));
+        }
+
+        foreach ($clientsArray as $clientElement) {
+            $table   = $this->getTableName($clientElement);
+            $deleted = $this->db->table($table)
+                ->where('expires_at', '<=', now())
+                ->delete();
+
+            Log::info('Cleaned up expired responses', [
+                'client'        => $clientElement,
+                'table'         => $table,
+                'deleted_count' => $deleted,
+            ]);
+        }
     }
 }

@@ -16,8 +16,8 @@ class CacheRepositoryTest extends TestCase
     protected CompressionService $compressedService;
     protected CacheRepository $uncompressedCache;
     protected CacheRepository $compressedCache;
-    protected string $client = 'test-client';
-    protected string $key    = 'test-key';
+    protected string $clientName = 'test-client';
+    protected string $key        = 'test-key';
     protected array $testData;
 
     protected function setUp(): void
@@ -42,8 +42,8 @@ class CacheRepositoryTest extends TestCase
         $this->compressedCache   = new CacheRepository($this->db, $this->compressedService);
 
         // Create both tables
-        $this->createTestTable($this->uncompressedCache->getTableName($this->client));
-        $this->createTestTable($this->compressedCache->getTableName($this->client));
+        $this->createTestTable($this->uncompressedCache->getTableName($this->clientName));
+        $this->createTestTable($this->compressedCache->getTableName($this->clientName));
 
         // Test data
         $this->testData = [
@@ -94,72 +94,6 @@ class CacheRepositoryTest extends TestCase
         );
     }
 
-    public function test_store_and_get_without_compression(): void
-    {
-        $this->uncompressedCache->store($this->client, $this->key, $this->testData);
-        $retrieved = $this->uncompressedCache->get($this->client, $this->key);
-
-        $this->assertNotNull($retrieved);
-        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
-        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
-        $this->assertEquals($this->testData['method'], $retrieved['method']);
-    }
-
-    public function test_store_and_get_with_compression(): void
-    {
-        $this->compressedCache->store($this->client, $this->key, $this->testData);
-        $retrieved = $this->compressedCache->get($this->client, $this->key);
-
-        $this->assertNotNull($retrieved);
-        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
-        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
-        $this->assertEquals($this->testData['method'], $retrieved['method']);
-    }
-
-    public function test_get_respects_ttl_without_compression(): void
-    {
-        $this->uncompressedCache->store($this->client, $this->key, $this->testData, 1);
-
-        $this->assertNotNull($this->uncompressedCache->get($this->client, $this->key));
-
-        sleep(2);
-
-        $this->assertNull($this->uncompressedCache->get($this->client, $this->key));
-    }
-
-    public function test_get_respects_ttl_with_compression(): void
-    {
-        $this->compressedCache->store($this->client, $this->key, $this->testData, 1);
-
-        $this->assertNotNull($this->compressedCache->get($this->client, $this->key));
-
-        sleep(2);
-
-        $this->assertNull($this->compressedCache->get($this->client, $this->key));
-    }
-
-    public function test_cleanup_removes_expired_data_without_compression(): void
-    {
-        $this->uncompressedCache->store($this->client, $this->key, $this->testData, 1);
-
-        sleep(2);
-
-        $this->uncompressedCache->cleanup($this->client);
-
-        $this->assertNull($this->uncompressedCache->get($this->client, $this->key));
-    }
-
-    public function test_cleanup_removes_expired_data_with_compression(): void
-    {
-        $this->compressedCache->store($this->client, $this->key, $this->testData, 1);
-
-        sleep(2);
-
-        $this->compressedCache->cleanup($this->client);
-
-        $this->assertNull($this->compressedCache->get($this->client, $this->key));
-    }
-
     public function test_store_validates_required_fields(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -169,6 +103,72 @@ class CacheRepositoryTest extends TestCase
             // Deliberately missing required fields 'endpoint' and 'response_body' to test validation
         ];
 
-        $this->uncompressedCache->store($this->client, $this->key, $invalidData);
+        $this->uncompressedCache->store($this->clientName, $this->key, $invalidData);
+    }
+
+    public function test_store_and_get_without_compression(): void
+    {
+        $this->uncompressedCache->store($this->clientName, $this->key, $this->testData);
+        $retrieved = $this->uncompressedCache->get($this->clientName, $this->key);
+
+        $this->assertNotNull($retrieved);
+        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
+        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
+        $this->assertEquals($this->testData['method'], $retrieved['method']);
+    }
+
+    public function test_store_and_get_with_compression(): void
+    {
+        $this->compressedCache->store($this->clientName, $this->key, $this->testData);
+        $retrieved = $this->compressedCache->get($this->clientName, $this->key);
+
+        $this->assertNotNull($retrieved);
+        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
+        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
+        $this->assertEquals($this->testData['method'], $retrieved['method']);
+    }
+
+    public function test_get_respects_ttl_without_compression(): void
+    {
+        $this->uncompressedCache->store($this->clientName, $this->key, $this->testData, 1);
+
+        $this->assertNotNull($this->uncompressedCache->get($this->clientName, $this->key));
+
+        sleep(2);
+
+        $this->assertNull($this->uncompressedCache->get($this->clientName, $this->key));
+    }
+
+    public function test_get_respects_ttl_with_compression(): void
+    {
+        $this->compressedCache->store($this->clientName, $this->key, $this->testData, 1);
+
+        $this->assertNotNull($this->compressedCache->get($this->clientName, $this->key));
+
+        sleep(2);
+
+        $this->assertNull($this->compressedCache->get($this->clientName, $this->key));
+    }
+
+    public function test_cleanup_removes_expired_data_without_compression(): void
+    {
+        $this->uncompressedCache->store($this->clientName, $this->key, $this->testData, 1);
+
+        sleep(2);
+
+        $this->uncompressedCache->cleanup($this->clientName);
+
+        $this->assertNull($this->uncompressedCache->get($this->clientName, $this->key));
+    }
+
+    public function test_cleanup_removes_expired_data_with_compression(): void
+    {
+        $this->compressedCache->store($this->clientName, $this->key, $this->testData, 1);
+
+        sleep(2);
+
+        $this->compressedCache->cleanup($this->clientName);
+
+        $this->assertNull($this->compressedCache->get($this->clientName, $this->key));
     }
 }

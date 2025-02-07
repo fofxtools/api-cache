@@ -2,21 +2,16 @@ flowchart TD
     Start([Client Request]) --> GenKey[Generate Cache Key]
     GenKey --> CheckCache{Check Cache}
     
-    CheckCache -->|Hit| Decompress[Decompress if needed]
-    Decompress --> ReturnCache[Return Cached Response]
+    CheckCache -->|Hit| ReturnCache[Return Cached Response]
     ReturnCache --> End([End])
     
     CheckCache -->|Miss| CheckLimit{Check Rate Limit}
     
-    CheckLimit -->|Limited| ThrowLimit[Throw Rate Limit Exception]
+    CheckLimit -->|Rate Limited| ThrowLimit[Throw RateLimitException]
     ThrowLimit --> End
     
     CheckLimit -->|Allowed| MakeRequest[Make API Request]
     MakeRequest --> TrackLimit[Track Rate Limit Usage]
-    TrackLimit --> ProcessResp[Process Response]
-    
-    ProcessResp --> PrepStore[Prepare for Storage]
-    PrepStore --> Compress[Compress if enabled]
-    Compress --> Store[Store in Cache]
+    TrackLimit --> Store[Store in Cache]
     Store --> ReturnNew[Return New Response]
-    ReturnNew --> End 
+    ReturnNew --> End

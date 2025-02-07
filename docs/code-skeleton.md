@@ -12,7 +12,7 @@
 ├── public/
 │   └── demo-api-server.php
 ├── src/
-│   ├── ApiCacheHandler.php
+│   ├── ApiCacheManager.php
 │   ├── BaseApiClient.php
 │   ├── CacheRepository.php
 │   ├── CompressionService.php
@@ -21,7 +21,7 @@
 │   └── DemoApiClient.php
 └── tests/
     ├── Unit/
-    │   ├── ApiCacheHandlerTest.php
+    │   ├── ApiCacheManagerTest.php
     │   ├── BaseApiClientTest.php
     │   ├── CacheRepositoryTest.php
     │   ├── CompressionServiceTest.php
@@ -90,22 +90,30 @@ abstract class BaseApiClient
     protected string $baseUrl;
     protected string $apiKey;
     protected ?string $version;
-    /** @var PendingRequest */
-    protected $pendingRequest;
-    protected ApiCacheHandler $handler;
+    protected PendingRequest $pendingRequest;
+    protected ApiCacheManager $cacheManager;
     
+    /**
+     * Create a new API client instance
+     *
+     * @param string $clientName Client identifier
+     * @param string $baseUrl Base URL for API requests
+     * @param string $apiKey API authentication key
+     * @param string|null $version API version
+     * @param ApiCacheManager|null $cacheManager Optional cache manager instance
+     */
     public function __construct(
         string $clientName,
         string $baseUrl,
         string $apiKey,
         ?string $version = null,
-        ?ApiCacheHandler $handler = null
+        ?ApiCacheManager $cacheManager = null
     ) {
         $this->clientName = $clientName;
         $this->baseUrl = $baseUrl;
         $this->apiKey = $apiKey;
         $this->version = $version;
-        $this->handler = $handler ?? app(ApiCacheHandler::class);
+        $this->cacheManager = $cacheManager ?? app(ApiCacheManager::class);
         $this->pendingRequest = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
             'Accept' => 'application/json',
@@ -114,6 +122,9 @@ abstract class BaseApiClient
 
     /**
      * Builds the full URL for an endpoint
+     *
+     * @param string $endpoint The API endpoint
+     * @return string The complete URL
      */
     abstract public function buildUrl(string $endpoint): string;
     
@@ -184,10 +195,66 @@ abstract class BaseApiClient
 
     /**
      * Send request with caching and rate limiting
+     *
+     * Algorithm:
+     * 1. Generate cache key
+     * 2. Check cache
+     * 3. Check rate limit
+     * 4. Make request if needed
+     * 5. Track rate limit usage
+     * 6. Store in cache
+     * 7. Return response
+     *
+     * @param string $endpoint API endpoint to call
+     * @param array $params Request parameters
+     * @param string $method HTTP method (GET, POST, etc.)
+     * 
+     * @throws RateLimitException When rate limit is exceeded
+     * @throws \JsonException When cache key generation fails
+     * @throws \InvalidArgumentException When HTTP method is not supported
+     * 
+     * @return array API response data
      */
-    protected function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET'): array
+    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET'): array
     {
-        return $this->handler->processRequest($this, $endpoint, $params, $method);
+        // Generate cache key
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $params,
+            $method,
+            $this->version
+        );
+        
+        // Check cache
+        if ($cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey)) {
+            return $cached;
+        }
+        
+        // Check rate limit
+        if (!$this->cacheManager->allowRequest($this->clientName)) {
+            throw new RateLimitException(
+                $this->clientName,
+                $this->cacheManager->getAvailableIn($this->clientName)
+            );
+        }
+        
+        // Make the request
+        $apiResult = $this->sendRequest($endpoint, $params, $method);
+        
+        // Increment attempts for the client to track rate limit usage
+        $this->cacheManager->incrementAttempts($this->clientName);
+        
+        // Store in cache
+        $this->cacheManager->storeResponse(
+            $this->clientName,
+            $cacheKey,
+            $apiResult,
+            $endpoint,
+            $this->version
+        );
+        
+        return $apiResult;
     }
 }
 ```
@@ -205,14 +272,14 @@ namespace FOfX\ApiCache;
 
 class DemoApiClient extends BaseApiClient
 {
-    public function __construct(?ApiCacheHandler $handler = null)
+    public function __construct(?ApiCacheManager $cacheManager = null)
     {
         parent::__construct(
             'demo',
             config('api-cache.apis.demo.base_url'),
             config('api-cache.apis.demo.api_key'),
             'v1',
-            $handler
+            $cacheManager
         );
     }
     
@@ -265,16 +332,16 @@ class OpenAIApiClient extends BaseApiClient
     /**
      * Constructor for OpenAIApiClient
      * 
-     * @param ApiCacheHandler $handler Optional handler for caching and rate limiting
+     * @param ApiCacheManager $cacheManager Optional manager for caching and rate limiting
      */
-    public function __construct(?ApiCacheHandler $handler = null)
+    public function __construct(?ApiCacheManager $cacheManager = null)
     {
         parent::__construct(
             'openai',
             config('api-cache.apis.openai.base_url'),
             config('api-cache.apis.openai.api_key'),
             'v1',
-            $handler
+            $cacheManager
         );
     }
     
@@ -374,14 +441,14 @@ class OpenAIApiClient extends BaseApiClient
 ### Services
 
 ```php
-// ApiCacheHandler.php
+// ApiCacheManager.php
 namespace FOfX\ApiCache;
 
 /**
- * Main entry point for caching API responses.
- * Orchestrates caching, rate limiting, and API requests.
+ * Manages caching and rate limiting for API responses.
+ * Provides focused methods for cache operations and rate limiting.
  */
-class ApiCacheHandler
+class ApiCacheManager
 {
     protected CacheRepository $repository;
     protected RateLimitService $rateLimiter;
@@ -395,74 +462,39 @@ class ApiCacheHandler
         $this->repository = $repository;
         $this->rateLimiter = $rateLimiter;
     }
-    
+
     /**
-     * Main method to handle API requests with caching and rate limiting
-     * 
-     * Algorithm:
-     * - Generate cache key from client name, endpoint, params, version
-     * - Look for cached response
-     * - If valid cached response exists, return it
-     * - If no cache or expired:
-     *    - Check rate limit ($this->rateLimiter->allowRequest())
-     *    - If rate limited, throw RateLimitException
-     *    - Make API request
-     *    - If request fails, let request exceptions bubble up (HttpException, etc)
-     *    - Track request in rate limiter ($this->rateLimiter->incrementAttempts())
-     *    - Cache the response
-     *    - Return response
-     * 
-     * @param BaseApiClient $client The API client making the request
-     * @param string $endpoint API endpoint to call
-     * @param array $params Request parameters
-     * @return array API response data
-     * @throws RateLimitException When rate limit exceeded
+     * Check if request is allowed by rate limiter
+     *
+     * @param string $clientName Client identifier
+     * @return bool True if request is allowed
      */
-    public function processRequest(BaseApiClient $client, string $endpoint, array $params = [], string $method = 'GET'): array
+    public function allowRequest(string $clientName): bool
     {
-        $cacheKey = $this->generateCacheKey(
-            $client->getClientName(),
-            $endpoint,
-            $params,
-            $method,
-            $client->getVersion()
-        );
-        
-        // Check cache first
-        if ($cached = $this->getCachedResponse($client, $cacheKey)) {
-            return $cached;
-        }
-        
-        // Make live request if no cache
-        if (!$this->rateLimiter->allowRequest($client->getClientName())) {
-            throw new RateLimitException(
-                $client->getClientName(),
-                $this->rateLimiter->getAvailableIn($client->getClientName())
-            );
-        }
-        
-        $apiResult = $client->sendRequest($endpoint, $params, $method);
-        $this->rateLimiter->incrementAttempts($client->getClientName());
-        
-        // Cache the response
-        $this->cacheResponse($client, $cacheKey, $apiResult, $endpoint);
-        
-        return $apiResult;
+        return $this->rateLimiter->allowRequest($clientName);
     }
-    
+
     /**
-     * Get cached response
+     * Get seconds until rate limit resets
+     *
+     * @param string $clientName Client identifier
+     * @return int Seconds until available
      */
-    protected function getCachedResponse(
-        BaseApiClient $client,
-        string $cacheKey
-    ): ?array {
-        return $this->repository->get(
-            $client->getClientName(),
-            $cacheKey
-        );
+    public function getAvailableIn(string $clientName): int
+    {
+        return $this->rateLimiter->getAvailableIn($clientName);
     }
-    
+
+    /**
+     * Increment attempts for the client
+     *
+     * @param string $clientName Client identifier
+     */
+    public function incrementAttempts(string $clientName): void
+    {
+        $this->rateLimiter->incrementAttempts($clientName);
+    }
+
     /**
      * Cache the response
      * 
@@ -474,17 +506,26 @@ class ApiCacheHandler
      *   - response_size (calculated from response_body)
      *   - response_time (from $apiResult['response_time'])
      * - Store prepared response in repository
+     *
+     * @param string $clientName Client identifier
+     * @param string $cacheKey Cache key
+     * @param array $apiResult API response data
+     * @param string $endpoint The API endpoint
+     * @param string|null $version API version
+     * @param int|null $ttl Cache TTL in seconds (null for default from config)
+     * @throws \Exception When storage fails
      */
-    protected function cacheResponse(
-        BaseApiClient $client,
+    public function storeResponse(
+        string $clientName,
         string $cacheKey,
         array $apiResult,
         string $endpoint,
+        ?string $version = null,
         ?int $ttl = null
     ): void {
         // If TTL is not provided, use default from config
         if ($ttl === null) {
-            $ttl = config("api-cache.apis.{$client->getClientName()}.cache_ttl");
+            $ttl = config("api-cache.apis.{$clientName}.cache_ttl");
         }
         
         /** @var \Illuminate\Http\Client\Response $response */
@@ -492,7 +533,7 @@ class ApiCacheHandler
         
         $metadata = [
             'endpoint' => $endpoint,
-            'version' => $client->getVersion(),
+            'version' => $version,
             'base_url' => $apiResult['request']['base_url'],
             'full_url' => $apiResult['request']['full_url'],
             'method' => $apiResult['request']['method'],
@@ -505,72 +546,19 @@ class ApiCacheHandler
             'response_time' => $apiResult['response_time'],
         ];
         
-        $this->repository->store(
-            $client->getClientName(),
-            $cacheKey,
-            $metadata,
-            $ttl
-        );
+        $this->repository->store($clientName, $cacheKey, $metadata, $ttl);
     }
     
     /**
-     * Generate a unique cache key for the request.
-     * 
-     * Format: "{client}.{method}.{endpoint}.{params_hash}.{version}"
+     * Get cached response if available
      *
-     * Algorithm:
-     * - Normalize parameters for consistent ordering
-     * - Encode normalized parameters to JSON
-     * - Generate SHA1 hash of the JSON parameters
-     * - Build cache key components with lowercased method
-     * - Append version if provided
-     * - Concatenate components with dots
-     *
-     * @param string $clientName API client identifier
-     * @param string $endpoint API endpoint
-     * @param array $params Request parameters
-     * @param string|null $version API version
-     * @param string $method HTTP method
-     * @return string Cache key
-     * @throws \JsonException When parameter normalization or JSON encoding fails
+     * @param string $clientName Client identifier
+     * @param string $cacheKey Cache key to look up
+     * @return array|null Cached response or null if not found
      */
-    public function generateCacheKey(
-        string $clientName,
-        string $endpoint,
-        array $params,
-        string $method = 'GET',
-        ?string $version = null
-    ): string {
-        // Normalize parameters for stable ordering, no nulls, etc.
-        $normalizedParams = $this->normalizeParams($params);
-
-        // Encode normalized parameters to JSON
-        $jsonParams = json_encode($normalizedParams);
-
-        if ($jsonParams === false) {
-            throw new \JsonException('Failed to encode parameters to JSON');
-        }
-
-        // Generate SHA1 hash of the JSON parameters
-        $paramsHash = sha1($jsonParams);
-
-        // Build the cache key components with lowercased method
-        $components = [
-            $clientName,
-            strtolower($method),
-            $endpoint,
-            $paramsHash
-        ];
-
-        // Append version if provided
-        if ($version !== null) {
-            $components[] = $version;
-        }
-
-        // Concatenate components with dots
-        $cacheKey = implode('.', $components);
-
-        return $cacheKey;
+    public function getCachedResponse(string $clientName, string $cacheKey): ?array
+    {
+        return $this->repository->get($clientName, $cacheKey);
     }
 
     /**
@@ -588,10 +576,12 @@ class ApiCacheHandler
      * 
      * @param array $params Parameters to normalize
      * @param int $depth Current recursion depth
-     * @return array Normalized parameters
+     * 
      * @throws \InvalidArgumentException When encountering unsupported types or exceeding max depth
+     * 
+     * @return array Normalized parameters
      */
-    protected function normalizeParams(array $params, int $depth = 0): array 
+    public function normalizeParams(array $params, int $depth = 0): array 
     {
         // Define a reasonable maximum depth to prevent infinite recursion
         $maxDepth = 20;
@@ -629,6 +619,62 @@ class ApiCacheHandler
         }
 
         return $normalized;
+    }
+    
+    /**
+     * Generate a unique cache key for the request.
+     * 
+     * Format: "{client}.{method}.{endpoint}.{params_hash}.{version}"
+     *
+     * Algorithm:
+     * - Normalize parameters for consistent ordering
+     * - Encode normalized parameters to JSON
+     * - Generate SHA1 hash of the JSON parameters
+     * - Build cache key components with lowercased method
+     * - Append version if provided
+     * - Concatenate components with dots
+     *
+     * @param string $clientName API client identifier
+     * @param string $endpoint API endpoint
+     * @param array $params Request parameters
+     * @param string $method HTTP method
+     * @param string|null $version API version
+     * 
+     * @throws \JsonException When parameter normalization or JSON encoding fails
+     * 
+     * @return string Cache key
+     */
+    public function generateCacheKey(
+        string $clientName,
+        string $endpoint,
+        array $params,
+        string $method = 'GET',
+        ?string $version = null
+    ): string {
+        try {
+            // Normalize parameters for stable ordering
+            $normalizedParams = $this->normalizeParams($params);
+
+            // Encode normalized parameters to JSON
+            $jsonParams = json_encode($normalizedParams, JSON_THROW_ON_ERROR);
+            $paramsHash = sha1($jsonParams);
+
+            // Build the cache key components
+            $components = [
+                $clientName,
+                strtolower($method),
+                ltrim($endpoint, '/'),
+                $paramsHash
+            ];
+
+            if ($version !== null) {
+                $components[] = $version;
+            }
+
+            return implode('.', $components);
+        } catch (\JsonException $e) {
+            throw $e;
+        }
     }
 }
 
@@ -790,6 +836,15 @@ class CacheRepository
         $this->db = $db;
         $this->compression = $compression;
     }
+
+    /**
+     * Get the table name for the client
+     */
+    public function getTableName(string $clientName): string
+    {
+        $suffix = $this->compression->isEnabled() ? '_compressed' : '';
+        return "api_cache_{$clientName}_responses{$suffix}";
+    }
     
     /**
      * Prepare headers for storage (always array)
@@ -884,9 +939,9 @@ class CacheRepository
      * @param int|null $ttl Time to live in seconds
      * @throws \InvalidArgumentException When required fields are missing
      */
-    public function store(string $client, string $key, array $metadata, ?int $ttl = null): void
+    public function store(string $clientName, string $key, array $metadata, ?int $ttl = null): void
     {
-        $table = $this->getTableName($client);
+        $table = $this->getTableName($clientName);
         $expiresAt = $ttl ? now()->addSeconds($ttl) : null;
         
         // Ensure required fields exist
@@ -910,7 +965,7 @@ class CacheRepository
         ], $metadata);
         
         $this->db->table($table)->insert([
-            'client' => $client,
+            'client' => $clientName,
             'key' => $key,
             'version' => $metadata['version'],
             'endpoint' => $metadata['endpoint'],
@@ -940,9 +995,9 @@ class CacheRepository
      * - Decompress if needed
      * - Return data
      */
-    public function get(string $client, string $key): ?array
+    public function get(string $clientName, string $key): ?array
     {
-        $table = $this->getTableName($client);
+        $table = $this->getTableName($clientName);
         
         $data = $this->db->table($table)
             ->where('key', $key)
@@ -980,26 +1035,17 @@ class CacheRepository
      * - If client specified, clean only that client's tables
      * - Otherwise clean all clients from config
      */
-    public function cleanup(?string $client = null): void
+    public function cleanup(?string $clientName = null): void
     {
-        $clients = $client 
-            ? [$client]
+        $clientsArray = $clientName
+            ? [$clientName]
             : array_keys(config('api-cache.apis'));
         
-        foreach ($clients as $client) {
-            $this->db->table($this->getTableName($client))
+        foreach ($clientsArray as $clientElement) {
+            $this->db->table($this->getTableName($clientElement))
                 ->where('expires_at', '<=', now())
                 ->delete();
         }
-    }
-    
-    /**
-     * Get the table name for the client
-     */
-    public function getTableName(string $client): string
-    {
-        $suffix = $this->compression->isEnabled() ? '_compressed' : '';
-        return "api_cache_{$client}_responses{$suffix}";
     }
 }
 ```

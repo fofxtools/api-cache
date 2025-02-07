@@ -1,12 +1,49 @@
 classDiagram
-    class ApiCacheHandler {
+    class RateLimitException {
+        #string clientName
+        #int availableInSeconds
+        +getClientName() string
+        +getAvailableInSeconds() int
+    }
+
+    class RateLimitService {
+        -RateLimiter limiter
+        +allowRequest(string) bool
+        +incrementAttempts(string) void
+        +getRemainingAttempts(string) int
+        +getAvailableIn(string) int
+    }
+    
+    class CompressionService {
+        -bool enabled
+        +compress(string) string
+        +decompress(string) string
+        +isEnabled() bool
+    }
+
+    class CacheRepository {
+        -Connection db
+        -CompressionService compression
+        +getTableName(string) string
+        +prepareHeaders(array) string
+        +retrieveHeaders(string) array
+        +prepareBody(string) string
+        +retrieveBody(string) string
+        +store(string, string, array, int) void
+        +get(string, string) array
+        +cleanup(string) void
+    }
+
+    class ApiCacheManager {
         -CacheRepository repository
         -RateLimitService rateLimiter
-        +processRequest(BaseApiClient, string, array) array
-        -getCachedResponse(string) array
-        -cacheResponse(string, array, string, int) void
-        +generateCacheKey(string, string, array, string, string) string
+        +allowRequest(string) bool
+        +getAvailableIn(string) int
+        +incrementAttempts(string) void
+        +storeResponse(string, string, array, string, string, int) void
+        +getCachedResponse(string, string) array
         +normalizeParams(array, int) array
+        +generateCacheKey(string, string, array, string, string) string
     }
     
     class BaseApiClient {
@@ -15,40 +52,13 @@ classDiagram
         #string apiKey
         #string version
         #PendingRequest pendingRequest
-        #ApiCacheHandler handler
-        +__construct(string, string, string, string, ApiCacheHandler)
+        #ApiCacheManager cacheManager
+        +__construct(string, string, string, string, ApiCacheManager)
+        +buildUrl(string)* string
+        +getClientName() string
+        +getVersion() string
         +sendRequest(string, array, string) array
         +sendCachedRequest(string, array, string) array
-        +getVersion() string
-        +getClientName() string
-        +buildUrl(string)* string
-    }
-    
-    class CacheRepository {
-        -Connection db
-        -CompressionService compression
-        +store(string, string, array, int) void
-        +get(string, string) array
-        +cleanup(string) void
-        -getTableName(string) string
-        -prepareHeaders(array) string
-        -retrieveHeaders(string) array
-        -prepareBody(string) string
-        -retrieveBody(string) string
-    }
-    
-    class RateLimitService {
-        -RateLimiter limiter
-        +allowRequest(string) bool
-        +incrementAttempts(string) void
-        +getRemainingAttempts(string) int
-    }
-    
-    class CompressionService {
-        -bool enabled
-        +compress(string) string
-        +decompress(string) string
-        +isEnabled() bool
     }
     
     class DemoApiClient {
@@ -63,15 +73,8 @@ classDiagram
         +chatCompletions(array|string, string, int, int, float, float, array) array
     }
     
-    class RateLimitException {
-        #string clientName
-        #int availableInSeconds
-        +getClientName() string
-        +getAvailableInSeconds() int
-    }
-    
-    ApiCacheHandler --> CacheRepository : uses
-    ApiCacheHandler --> RateLimitService : uses
+    ApiCacheManager --> CacheRepository : uses
+    ApiCacheManager --> RateLimitService : uses
     CacheRepository --> CompressionService : uses
     BaseApiClient <|-- DemoApiClient : extends
     BaseApiClient <|-- OpenAIApiClient : extends

@@ -106,16 +106,16 @@ $params = [
 $raw_response = $openai->sendRequest('chat/completions', $params, 'POST');
 ```
 
-## Injecting a custom handler
+## Injecting a custom manager
 
-You can inject a handler to the client. This way, multiple clients can share the same handler.
+You can inject a manager to the client. This way, multiple clients can share the same manager.
 
 ```php
 use FOfX\ApiCache\DemoApiClient;
 use FOfX\ApiCache\OpenAIApiClient;
-use FOfX\ApiCache\ApiCacheHandler;
+use FOfX\ApiCache\ApiCacheManager;
 
-$handler = app(ApiCacheHandler::class);
+$handler = app(ApiCacheManager::class);
 $demo = new DemoApiClient(handler: $handler);
 $openai = new OpenAIApiClient(handler: $handler);
 ```

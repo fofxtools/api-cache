@@ -9,14 +9,14 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 ### 1. Request Pipeline
 
 ```
-[Application] -> [BaseApiClient] -> [ApiCacheHandler] -> [CacheRepository]
+[Application] -> [BaseApiClient] -> [ApiCacheManager] -> [CacheRepository]
                         ↓                                        ↑
                   [API Endpoint] --------------------------> [Database Tables]
 ```
 
 ### 2. Component Responsibilities
 
-#### ApiCacheHandler
+#### ApiCacheManager
 
 - Entry point for all API requests
 - Orchestrates the caching flow
@@ -35,7 +35,7 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 - Provides interface for child clients
 - Manages version via getter method
 - Manages client name via property
-- Contains ApiCacheHandler instance
+- Contains ApiCacheManager instance
 - Provides both cached and uncached request methods
 
 #### API-Specific Clients (extends BaseApiClient)
@@ -75,7 +75,7 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
 
 ```
 1. Application makes API request to client
-2. BaseApiClient uses injected ApiCacheHandler
+2. BaseApiClient uses injected ApiCacheManager
 3. Check cache for valid response
    └─ If found: Return cached response
    └─ If not found: Continue to step 4
@@ -90,6 +90,7 @@ The API Cache Library is a Laravel-based system that provides caching capabiliti
    ├─ If 4xx: Cache response (except 401/403)
    ├─ If 5xx: Don't cache
    └─ If other: Don't cache (unexpected)
+   └─ Track rate limit usage
 7. Return response to application
 ```
 
@@ -170,20 +171,13 @@ api-cache.php
 ### Error Categories
 
 1. Cache Errors
-   - Invalid cache data
-   - Storage failures
-   - Retrieval failures
+   - Storage/retrieval errors
 
 2. API Errors
-   - Connection failures
-   - Authentication errors
    - Rate limit exceeded
-   - Invalid responses
 
 3. Compression Errors
-   - Compression failures
-   - Decompression failures
-   - Data integrity issues
+   - Compression/decompression errors
 
 ### Error Response Flow
 

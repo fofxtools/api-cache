@@ -1,7 +1,7 @@
 sequenceDiagram
     participant Client
     participant BaseApiClient
-    participant ApiCacheHandler
+    participant ApiCacheManager
     participant CacheRepository
     participant CompressionService
     participant RateLimitService
@@ -9,52 +9,53 @@ sequenceDiagram
     
     %% 1) Client calls BaseApiClient
     Client->>+BaseApiClient: sendCachedRequest(endpoint, params, method)
-    BaseApiClient->>+ApiCacheHandler: processRequest(this, endpoint, params, method)
 
-    Note over ApiCacheHandler: generateCacheKey(clientName, endpoint, params, method, version)
+    %% 2) Generate cache key
+    BaseApiClient->>+ApiCacheManager: generateCacheKey(clientName, endpoint, params, method, version)
+    ApiCacheManager-->>BaseApiClient: cacheKey
 
-    %% 2) Check cache
-    ApiCacheHandler->>+CacheRepository: get(client, key)
+    %% 3) Check cache
+    BaseApiClient->>+ApiCacheManager: getCachedResponse(clientName, cacheKey)
+    ApiCacheManager->>+CacheRepository: get(clientName, cacheKey)
+    CacheRepository->>+CompressionService: decompress() (if needed)
+    CompressionService-->>CacheRepository: decompressed data
+    CacheRepository-->>ApiCacheManager: cached result
+    ApiCacheManager-->>BaseApiClient: cached result
 
     alt Cache Hit
-        %% 3A) Cache hit: decompress and return
-        CacheRepository->>+CompressionService: decompress(data)
-        CompressionService-->>CacheRepository: decompressed data
-        CacheRepository-->>ApiCacheHandler: cached response
-        ApiCacheHandler-->>BaseApiClient: cached response
-        BaseApiClient-->>Client: return result
-
+        %% 3A) Cache hit: return cached immediately
+        BaseApiClient-->>Client: return cached response
     else Cache Miss
-        %% 3B) Cache miss: check rate limit
-        CacheRepository-->>ApiCacheHandler: not found
-        ApiCacheHandler->>+RateLimitService: allowRequest(clientName)
+        %% 3B) Check rate limit
+        BaseApiClient->>+ApiCacheManager: allowRequest(clientName)
+        ApiCacheManager->>RateLimitService: allowRequest(clientName)
+        RateLimitService-->>ApiCacheManager: boolean
+        ApiCacheManager-->>BaseApiClient: boolean
 
         alt Rate Limited
             %% 4A) Rate limit triggered
-            RateLimitService-->>ApiCacheHandler: false
-            ApiCacheHandler-->>BaseApiClient: throw RateLimitException
+            BaseApiClient->>ApiCacheManager: getAvailableIn(clientName)
+            ApiCacheManager-->>BaseApiClient: seconds
             BaseApiClient-->>Client: throw RateLimitException
-
         else Request Allowed
-            %% 4B) Rate limit OK: make real API call
-            RateLimitService-->>ApiCacheHandler: true
-            ApiCacheHandler->>BaseApiClient: sendRequest(endpoint, params, method)
+            %% 4B) Make real API call
             BaseApiClient->>ApiEndpoint: HTTP request
             ApiEndpoint-->>BaseApiClient: HTTP response
-            BaseApiClient-->>ApiCacheHandler: API result
-
+            
             %% 5) Track rate limit usage
-            ApiCacheHandler->>RateLimitService: incrementAttempts(clientName)
-            RateLimitService-->>ApiCacheHandler: void
-
+            BaseApiClient->>ApiCacheManager: incrementAttempts(clientName)
+            ApiCacheManager->>RateLimitService: incrementAttempts(clientName)
+            RateLimitService-->>ApiCacheManager: void
+            
             %% 6) Cache the fresh response
-            ApiCacheHandler->>+CacheRepository: store(client, key, metadata)
-            CacheRepository->>+CompressionService: compress(data)
+            BaseApiClient->>+ApiCacheManager: storeResponse(clientName, cacheKey, apiResult)
+            ApiCacheManager->>+CacheRepository: store(clientName, cacheKey, metadata)
+            CacheRepository->>+CompressionService: compress() (if needed)
             CompressionService-->>CacheRepository: compressed data
-            CacheRepository-->>ApiCacheHandler: void
-
-            %% 7) Return to client
-            ApiCacheHandler-->>BaseApiClient: API result
-            BaseApiClient-->>Client: return result
+            CacheRepository-->>ApiCacheManager: void
+            ApiCacheManager-->>BaseApiClient: void
+            
+            %% 7) Return result
+            BaseApiClient-->>Client: return final API response
         end
     end

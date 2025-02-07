@@ -25,14 +25,14 @@
 
 ### Tier 2 (Essential) - 30% of Development Effort
 
-#### ApiCacheHandler
+#### ApiCacheManager
 - Priority: High
 - Effort: Medium
 - Focus Areas:
-  - processRequest() - Main orchestration
+  - storeResponse() - Cache storage orchestration
+  - getCachedResponse() - Cache retrieval orchestration
   - Cache key generation
   - Parameter normalization
-  - Response validation
 
 #### RateLimitService
 - Priority: High
@@ -40,7 +40,6 @@
 - Focus Areas:
   - Rate limit tracking
   - Throttling logic
-  - Distributed rate limiting
 
 ### Tier 3 (Supporting) - 20% of Development Effort
 
@@ -85,7 +84,7 @@
 
 ### Testing Priority
 1. BaseApiClient and CacheRepository (90-100% coverage)
-2. ApiCacheHandler and RateLimitService (80-90% coverage)
+2. ApiCacheManager and RateLimitService (80-90% coverage)
 3. Supporting services (70-80% coverage)
 4. Sample implementations (60-70% coverage)
 
@@ -99,7 +98,7 @@
 
 ### High Risk Areas
 - Request/response type safety in BaseApiClient
-- Cache key generation and parameter normalization in ApiCacheHandler
+- Cache key generation and parameter normalization in ApiCacheManager
 - Race conditions in CacheRepository
 - Rate limit accuracy in RateLimitService
 

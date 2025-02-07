@@ -23,6 +23,8 @@ class CacheRepository
      *
      * @param string $clientName Client name
      *
+     * @throws \InvalidArgumentException When sanitization fails
+     *
      * @return string Valid table name with appropriate prefix and suffix
      */
     public function getTableName(string $clientName): string
@@ -56,6 +58,19 @@ class CacheRepository
 
         // Replace multiple underscores with a single underscore
         $table_name = preg_replace('/_+/', '_', $table_name);
+
+        // If the table name is 'api_cache_responses'
+        // Or 'api_cache_responses_compressed'
+        // Then throw an exception
+        if ($table_name === 'api_cache_responses' || $table_name === 'api_cache_responses_compressed') {
+            Log::error('Failed to sanitize', [
+                'client'     => $clientName,
+                'sanitized'  => $sanitized,
+                'table_name' => $table_name,
+            ]);
+
+            throw new \InvalidArgumentException('Sanitization error for string: ' . $clientName);
+        }
 
         return $table_name;
     }

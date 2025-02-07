@@ -8,6 +8,7 @@ use FOfX\ApiCache\CacheRepository;
 use FOfX\ApiCache\CompressionService;
 use Illuminate\Database\Connection;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class CacheRepositoryTest extends TestCase
 {
@@ -92,6 +93,104 @@ class CacheRepositoryTest extends TestCase
             'api_cache_test_client_responses_compressed',
             $this->compressedCache->getTableName('test-client')
         );
+    }
+
+    public static function tableNameProvider(): array
+    {
+        return [
+            'simple name' => [
+                'clientName'            => 'demo',
+                'expected_uncompressed' => 'api_cache_demo_responses',
+                'expected_compressed'   => 'api_cache_demo_responses_compressed',
+            ],
+            'long name' => [
+                'clientName'            => str_repeat('a', 64),
+                'expected_uncompressed' => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses',
+                'expected_compressed'   => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed',
+            ],
+            'name with spaces' => [
+                'clientName'            => 'open ai',
+                'expected_uncompressed' => 'api_cache_open_ai_responses',
+                'expected_compressed'   => 'api_cache_open_ai_responses_compressed',
+            ],
+            'name with dashes' => [
+                'clientName'            => 'data-for-seo',
+                'expected_uncompressed' => 'api_cache_data_for_seo_responses',
+                'expected_compressed'   => 'api_cache_data_for_seo_responses_compressed',
+            ],
+            'name with dots' => [
+                'clientName'            => 'api.client.v1',
+                'expected_uncompressed' => 'api_cache_api_client_v1_responses',
+                'expected_compressed'   => 'api_cache_api_client_v1_responses_compressed',
+            ],
+            'unicode characters' => [
+                'clientName'            => 'über-api',
+                'expected_uncompressed' => 'api_cache_ber_api_responses',
+                'expected_compressed'   => 'api_cache_ber_api_responses_compressed',
+            ],
+            'chinese characters' => [
+                'clientName'            => 'chinese-天气-api',
+                'expected_uncompressed' => 'api_cache_chinese_api_responses',
+                'expected_compressed'   => 'api_cache_chinese_api_responses_compressed',
+            ],
+            'numbers only' => [
+                'clientName'            => '123456',
+                'expected_uncompressed' => 'api_cache_123456_responses',
+                'expected_compressed'   => 'api_cache_123456_responses_compressed',
+            ],
+        ];
+    }
+
+    public static function invalidTableNameProvider(): array
+    {
+        return [
+            'special characters' => [
+                'clientName' => '!@#$%^&*()',
+            ],
+            'empty string' => [
+                'clientName' => '',
+            ],
+        ];
+    }
+
+    #[DataProvider('tableNameProvider')]
+    public function test_get_table_name_handles_various_client_names_uncompressed(
+        string $clientName,
+        string $expected_uncompressed,
+        string $expected_compressed
+    ): void {
+        $repository = new CacheRepository($this->db, $this->uncompressedService);
+
+        $this->assertEquals($expected_uncompressed, $repository->getTableName($clientName));
+    }
+
+    #[DataProvider('tableNameProvider')]
+    public function test_get_table_name_handles_various_client_names_compressed(
+        string $clientName,
+        string $expected_uncompressed,
+        string $expected_compressed
+    ): void {
+        $repository = new CacheRepository($this->db, $this->compressedService);
+
+        $this->assertEquals($expected_compressed, $repository->getTableName($clientName));
+    }
+
+    #[DataProvider('invalidTableNameProvider')]
+    public function test_get_table_name_throws_exception_for_invalid_names_uncompressed(string $clientName): void
+    {
+        $repository = new CacheRepository($this->db, $this->uncompressedService);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $repository->getTableName($clientName);
+    }
+
+    #[DataProvider('invalidTableNameProvider')]
+    public function test_get_table_name_throws_exception_for_invalid_names_compressed(string $clientName): void
+    {
+        $repository = new CacheRepository($this->db, $this->compressedService);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $repository->getTableName($clientName);
     }
 
     public function test_store_validates_required_fields(): void

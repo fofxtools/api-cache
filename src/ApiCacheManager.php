@@ -64,13 +64,15 @@ class ApiCacheManager
      * Increment attempts for the client
      *
      * @param string $clientName The API client identifier
+     * @param int    $amount     The amount to increment by
      */
-    public function incrementAttempts(string $clientName): void
+    public function incrementAttempts(string $clientName, int $amount = 1): void
     {
-        $this->rateLimiter->incrementAttempts($clientName);
+        $this->rateLimiter->incrementAttempts($clientName, $amount);
 
         Log::debug('Rate limit attempts incremented', [
             'client' => $clientName,
+            'amount' => $amount,
         ]);
     }
 

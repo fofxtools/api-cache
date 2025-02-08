@@ -78,12 +78,29 @@ class ApiCacheManagerTest extends TestCase
 
         $this->rateLimiter->shouldReceive('incrementAttempts')
             ->once()
-            ->with($this->clientName);
+            ->with($this->clientName, 1);
 
         // Test
         $this->assertEquals(10, $this->manager->getRemainingAttempts($this->clientName));
         $this->manager->incrementAttempts($this->clientName);
         $this->assertEquals(9, $this->manager->getRemainingAttempts($this->clientName));
+    }
+
+    public function test_increment_attempts_with_amount(): void
+    {
+        // Setup
+        $this->rateLimiter->shouldReceive('getRemainingAttempts')
+            ->twice()
+            ->with($this->clientName)
+            ->andReturn(10, 5); // First call returns 10, second call returns 5
+
+        $this->rateLimiter->shouldReceive('incrementAttempts')
+            ->once()
+            ->with($this->clientName, 5);
+
+        $this->assertEquals(10, $this->manager->getRemainingAttempts($this->clientName));
+        $this->manager->incrementAttempts($this->clientName, 5);
+        $this->assertEquals(5, $this->manager->getRemainingAttempts($this->clientName));
     }
 
     /**

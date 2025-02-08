@@ -19,6 +19,10 @@ class ApiCacheManager
 
     /**
      * Check if request is allowed by rate limiter
+     *
+     * @param string $clientName The API client identifier
+     *
+     * @return bool True if request is allowed, false otherwise
      */
     public function allowRequest(string $clientName): bool
     {
@@ -33,7 +37,23 @@ class ApiCacheManager
     }
 
     /**
+     * Get remaining attempts for the client
+     *
+     * @param string $clientName The API client identifier
+     *
+     * @return int Remaining attempts
+     */
+    public function getRemainingAttempts(string $clientName): int
+    {
+        return $this->rateLimiter->getRemainingAttempts($clientName);
+    }
+
+    /**
      * Get seconds until rate limit resets
+     *
+     * @param string $clientName The API client identifier
+     *
+     * @return int Seconds until rate limit resets
      */
     public function getAvailableIn(string $clientName): int
     {
@@ -42,6 +62,8 @@ class ApiCacheManager
 
     /**
      * Increment attempts for the client
+     *
+     * @param string $clientName The API client identifier
      */
     public function incrementAttempts(string $clientName): void
     {

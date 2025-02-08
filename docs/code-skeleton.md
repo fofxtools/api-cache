@@ -475,6 +475,18 @@ class ApiCacheManager
     }
 
     /**
+     * Get remaining attempts for the client
+     *
+     * @param string $clientName Client identifier
+     *
+     * @return int Remaining attempts
+     */
+    public function getRemainingAttempts(string $clientName): int
+    {
+        return $this->rateLimiter->getRemainingAttempts($clientName);
+    }
+
+    /**
      * Get seconds until rate limit resets
      *
      * @param string $clientName Client identifier

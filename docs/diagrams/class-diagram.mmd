@@ -38,6 +38,7 @@ classDiagram
         -CacheRepository repository
         -RateLimitService rateLimiter
         +allowRequest(string) bool
+        +getRemainingAttempts(string) int
         +getAvailableIn(string) int
         +incrementAttempts(string) void
         +storeResponse(string, string, array, string, string, int) void

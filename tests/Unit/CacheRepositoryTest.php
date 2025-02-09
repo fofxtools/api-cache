@@ -108,30 +108,10 @@ class CacheRepositoryTest extends TestCase
                 'expected_uncompressed' => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses',
                 'expected_compressed'   => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed',
             ],
-            'name with spaces' => [
-                'clientName'            => 'open ai',
-                'expected_uncompressed' => 'api_cache_open_ai_responses',
-                'expected_compressed'   => 'api_cache_open_ai_responses_compressed',
-            ],
             'name with dashes' => [
                 'clientName'            => 'data-for-seo',
                 'expected_uncompressed' => 'api_cache_data_for_seo_responses',
                 'expected_compressed'   => 'api_cache_data_for_seo_responses_compressed',
-            ],
-            'name with dots' => [
-                'clientName'            => 'api.client.v1',
-                'expected_uncompressed' => 'api_cache_api_client_v1_responses',
-                'expected_compressed'   => 'api_cache_api_client_v1_responses_compressed',
-            ],
-            'unicode characters' => [
-                'clientName'            => 'über-api',
-                'expected_uncompressed' => 'api_cache_ber_api_responses',
-                'expected_compressed'   => 'api_cache_ber_api_responses_compressed',
-            ],
-            'chinese characters' => [
-                'clientName'            => 'chinese-天气-api',
-                'expected_uncompressed' => 'api_cache_chinese_api_responses',
-                'expected_compressed'   => 'api_cache_chinese_api_responses_compressed',
             ],
             'numbers only' => [
                 'clientName'            => '123456',
@@ -144,6 +124,18 @@ class CacheRepositoryTest extends TestCase
     public static function invalidTableNameProvider(): array
     {
         return [
+            'name with dots' => [
+                'clientName' => 'api.client.v1',
+            ],
+            'name with spaces' => [
+                'clientName' => 'open ai',
+            ],
+            'chinese characters' => [
+                'clientName' => 'chinese-天气-api',
+            ],
+            'unicode characters' => [
+                'clientName' => 'über-api',
+            ],
             'special characters' => [
                 'clientName' => '!@#$%^&*()',
             ],

@@ -83,6 +83,7 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\PendingRequest;
+use FOfX\Helper;
 
 abstract class BaseApiClient
 {
@@ -109,6 +110,9 @@ abstract class BaseApiClient
         ?string $version = null,
         ?ApiCacheManager $cacheManager = null
     ) {
+        // Validate that $clientName only contains alphanumeric characters, hyphens, and underscores
+        Helper\validate_identifier($clientName);
+
         $this->clientName = $clientName;
         $this->baseUrl = $baseUrl;
         $this->apiKey = $apiKey;

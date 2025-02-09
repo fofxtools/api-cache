@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
+use FOfX\Helper;
 
 class ApiCacheManager
 {
@@ -256,6 +257,9 @@ class ApiCacheManager
         string $method = 'GET',
         ?string $version = null
     ): string {
+        // Validate that $clientName only contains alphanumeric characters, hyphens, and underscores
+        Helper\validate_identifier($clientName);
+
         try {
             // Normalize parameters for stable ordering
             $normalizedParams = $this->normalizeParams($params);

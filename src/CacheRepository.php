@@ -6,6 +6,7 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Log;
+use FOfX\Helper;
 
 class CacheRepository
 {
@@ -29,10 +30,11 @@ class CacheRepository
      */
     public function getTableName(string $clientName): string
     {
-        // Replace any non-alphanumeric characters (except hyphen and underscore) with underscore
-        $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '_', $clientName);
+        // Validate that $clientName only contains alphanumeric characters, hyphens, and underscores
+        Helper\validate_identifier($clientName);
+
         // Replace hyphens with underscores for SQL compatibility
-        $sanitized = str_replace('-', '_', $sanitized);
+        $sanitized = str_replace('-', '_', $clientName);
 
         $prefix_string     = 'api_cache_';
         $responses_string  = '_responses';

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "18707b1091bbf3b2dbea817e60718f9b",
+    "content-hash": "62e8f5b86024215c841356984e3cfbc3",
     "packages": [
         {
             "name": "brick/math",
@@ -509,6 +509,71 @@
                 }
             ],
             "time": "2024-12-27T00:36:43+00:00"
+        },
+        {
+            "name": "fofx/helper",
+            "version": "v1.1.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/fofxtools/helper.git",
+                "reference": "7b303abf08e95666680864aca4926f510c11881c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/fofxtools/helper/zipball/7b303abf08e95666680864aca4926f510c11881c",
+                "reference": "7b303abf08e95666680864aca4926f510c11881c",
+                "shasum": ""
+            },
+            "require": {
+                "ext-mbstring": "*",
+                "php": "^8.0"
+            },
+            "require-dev": {
+                "fakerphp/faker": "^1.23",
+                "friendsofphp/php-cs-fixer": "^3.64",
+                "phpstan/phpstan": "^1.12",
+                "phpunit/phpunit": "^10.5"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "config/helper.constants.php",
+                    "src/array.php",
+                    "src/buffer.php",
+                    "src/datetime.php",
+                    "src/file.php",
+                    "src/functions.php",
+                    "src/math.php",
+                    "src/memory.php",
+                    "src/scraping.php",
+                    "src/server.php",
+                    "src/string.php",
+                    "src/text.php",
+                    "bootstrap/init.php"
+                ],
+                "psr-4": {
+                    "FOfX\\Helper\\": "src/"
+                },
+                "classmap": [
+                    "src/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "fofx",
+                    "email": "177870764+fofxtools@users.noreply.github.com"
+                }
+            ],
+            "description": "Helper functions.",
+            "support": {
+                "issues": "https://github.com/fofxtools/helper/issues",
+                "source": "https://github.com/fofxtools/helper/tree/v1.1.5"
+            },
+            "time": "2025-02-09T03:03:48+00:00"
         },
         {
             "name": "fruitcake/php-cors",

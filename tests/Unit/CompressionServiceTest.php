@@ -23,14 +23,6 @@ class CompressionServiceTest extends TestCase
         $this->assertSame($data, $service->compress($data));
     }
 
-    public function test_decompress_returns_original_when_disabled(): void
-    {
-        $service = new CompressionService(false);
-        $data    = 'test data';
-
-        $this->assertSame($data, $service->decompress($data));
-    }
-
     public function test_compress_modifies_data_when_enabled(): void
     {
         $service = new CompressionService(true);
@@ -38,27 +30,6 @@ class CompressionServiceTest extends TestCase
 
         $compressed = $service->compress($data);
         $this->assertNotSame($data, $compressed);
-    }
-
-    public function test_decompress_restores_compressed_data(): void
-    {
-        $service = new CompressionService(true);
-        $data    = 'test data';
-
-        $compressed   = $service->compress($data);
-        $decompressed = $service->decompress($compressed);
-
-        $this->assertSame($data, $decompressed);
-    }
-
-    public function test_decompress_throws_on_invalid_data(): void
-    {
-        $service = new CompressionService(true);
-
-        $this->expectException(\RuntimeException::class);
-
-        // With compression enabled, trying to decompress a raw string should throw an exception
-        $service->decompress('invalid data');
     }
 
     public function test_compress_includes_context_in_logs(): void
@@ -104,5 +75,60 @@ class CompressionServiceTest extends TestCase
                 && isset($event->context['context'])
                 && $event->context['context'] === '';
         }));
+    }
+
+    /**
+     * Test that empty data is handled correctly
+     */
+    public function test_compress_handles_empty_data(): void
+    {
+        $service = new CompressionService(true);
+
+        $emptyString = '';
+        $result      = $service->compress($emptyString, 'test-context');
+
+        $this->assertSame($emptyString, $result);
+    }
+
+    /**
+     * Test that empty data is handled correctly when compression is disabled
+     */
+    public function test_compress_handles_empty_data_when_disabled(): void
+    {
+        $service = new CompressionService(false);
+
+        $emptyString = '';
+        $result      = $service->compress($emptyString, 'test-context');
+
+        $this->assertSame($emptyString, $result);
+    }
+
+    public function test_decompress_returns_original_when_disabled(): void
+    {
+        $service = new CompressionService(false);
+        $data    = 'test data';
+
+        $this->assertSame($data, $service->decompress($data));
+    }
+
+    public function test_decompress_restores_compressed_data(): void
+    {
+        $service = new CompressionService(true);
+        $data    = 'test data';
+
+        $compressed   = $service->compress($data);
+        $decompressed = $service->decompress($compressed);
+
+        $this->assertSame($data, $decompressed);
+    }
+
+    public function test_decompress_throws_on_invalid_data(): void
+    {
+        $service = new CompressionService(true);
+
+        $this->expectException(\RuntimeException::class);
+
+        // With compression enabled, trying to decompress a raw string should throw an exception
+        $service->decompress('invalid data');
     }
 }

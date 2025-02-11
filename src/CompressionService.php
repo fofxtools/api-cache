@@ -44,6 +44,11 @@ class CompressionService
             return $data;
         }
 
+        // Return early if empty to avoid division by zero
+        if (empty($data)) {
+            return $data;
+        }
+
         $compressed = gzcompress($data);
         if ($compressed === false) {
             Log::error('Failed to compress data', [

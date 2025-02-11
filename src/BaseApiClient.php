@@ -75,6 +75,30 @@ abstract class BaseApiClient
     }
 
     /**
+     * Get the current request timeout in seconds
+     *
+     * @return int|null Timeout in seconds, or null if no timeout set
+     */
+    public function getTimeout(): ?int
+    {
+        return $this->pendingRequest->getOptions()['timeout'] ?? null;
+    }
+
+    /**
+     * Set request timeout in seconds
+     *
+     * @param int $seconds Timeout in seconds
+     *
+     * @return self
+     */
+    public function setTimeout(int $seconds): self
+    {
+        $this->pendingRequest->timeout($seconds);
+
+        return $this;
+    }
+
+    /**
      * Builds the full URL for an endpoint
      *
      * @param string $endpoint The API endpoint

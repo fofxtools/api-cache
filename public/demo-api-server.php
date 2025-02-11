@@ -18,6 +18,22 @@ declare(strict_types=1);
  * Or in Ubuntu WSL, using curl:
  *
  * curl http://$(grep nameserver /etc/resolv.conf | awk '{print $2}'):8000/demo-api-server.php/health
+ *
+ * To test the POST reports endpoint, use the following command in Windows CMD:
+ *
+ * curl -X POST ^
+ * -H "Authorization: Bearer demo-api-key" ^
+ * -H "Content-Type: application/json" ^
+ * -d "{\"report_type\":\"monthly\",\"data_source\":\"sales\"}" ^
+ * http://localhost:8000/demo-api-server.php/v1/reports
+ *
+ * Or in Ubuntu WSL:
+ *
+ * curl -X POST \
+ * -H "Authorization: Bearer demo-api-key" \
+ * -H "Content-Type: application/json" \
+ * -d "{\"report_type\":\"monthly\",\"data_source\":\"sales\"}" \
+ * http://$(grep nameserver /etc/resolv.conf | awk '{print $2}'):8000/demo-api-server.php/v1/reports
  */
 
 // Simple router based on path and method

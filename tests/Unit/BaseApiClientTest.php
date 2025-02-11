@@ -13,8 +13,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 
 class BaseApiClientTest extends TestCase
 {
-    /** @var string */
-    protected static $apiBaseUrl;
+    // Name it $apiBaseUrl to avoid confusion with Orchestra's $baseUrl
+    protected static string $apiBaseUrl;
 
     /** @var BaseApiClient&MockObject */
     protected BaseApiClient $client;
@@ -108,6 +108,18 @@ class BaseApiClientTest extends TestCase
     public function test_getVersion_returns_correct_version(): void
     {
         $this->assertEquals($this->version, $this->client->getVersion());
+    }
+
+    public function test_getTimeout_returns_int(): void
+    {
+        $this->assertIsInt($this->client->getTimeout());
+    }
+
+    public function test_setTimeout_sets_timeout(): void
+    {
+        $timeout = 2;
+        $this->client->setTimeout($timeout);
+        $this->assertEquals($timeout, $this->client->getTimeout());
     }
 
     public function test_sendRequest_makes_real_http_call(): void

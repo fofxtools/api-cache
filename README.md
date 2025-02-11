@@ -29,7 +29,7 @@ composer install
 3. Copy `.env.example` to `.env`
 4. For testing the demo API:
 ```bash
-php -S localhost:8000 -t public
+php -S 0.0.0.0:8000 -t public
 ```
 
 ## License

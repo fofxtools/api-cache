@@ -2,6 +2,24 @@
 
 declare(strict_types=1);
 
+/**
+ * This is a simple API server for testing the API cache library.
+ *
+ * It can be started with the command:
+ * (0.0.0.0 is used to allow connections from Ubuntu WSL, use localhost for Windows only):
+ *
+ * php -S 0.0.0.0:8000 -t public
+ *
+ * Then for instance you can visit the following URLs in a browser in Windows:
+ *
+ * http://localhost:8000/demo-api-server.php/health
+ * http://localhost:8000/demo-api-server.php/v1/predictions?query=test&max_results=5&api_key=demo-api-key
+ *
+ * Or in Ubuntu WSL, using curl:
+ *
+ * curl http://$(grep nameserver /etc/resolv.conf | awk '{print $2}'):8000/demo-api-server.php/health
+ */
+
 // Simple router based on path and method
 $path   = $_SERVER['PATH_INFO'] ?? '/';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -19,7 +37,7 @@ function jsonResponse(array $data, int $status = 200): void
 // Validate API key
 function validateApiKey(): bool
 {
-    $apiKey = 'demo-key';
+    $apiKey = 'demo-api-key';
 
     // Check GET parameter first (for easy testing)
     if (isset($_GET['api_key']) && $_GET['api_key'] === $apiKey) {
@@ -34,6 +52,12 @@ function validateApiKey(): bool
     $providedKey = $matches[1];
 
     return $providedKey === $apiKey;
+}
+
+// Check health. Does not require API key or version.
+if ($path === '/health') {
+    jsonResponse(['status' => 'OK']);
+    exit;
 }
 
 // Check API key before processing
@@ -137,5 +161,9 @@ function handleReports()
 
 function handle404()
 {
-    jsonResponse(['error' => 'Not found'], 404);
+    jsonResponse([
+        'status' => 'error',
+        'code'   => 404,
+        'error'  => 'Not found',
+    ], 404);
 }

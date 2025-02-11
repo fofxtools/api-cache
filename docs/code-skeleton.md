@@ -201,13 +201,13 @@ abstract class BaseApiClient
      * Send request with caching and rate limiting
      *
      * Algorithm:
-     * 1. Generate cache key
-     * 2. Check cache
-     * 3. Check rate limit
-     * 4. Make request if needed
-     * 5. Track rate limit usage
-     * 6. Store in cache
-     * 7. Return response
+     * - Generate cache key
+     * - Check cache
+     * - Check rate limit
+     * - Make request if needed
+     * - Track rate limit usage
+     * - Store in cache
+     * - Return response
      *
      * @param string $endpoint API endpoint to call
      * @param array $params Request parameters
@@ -1200,7 +1200,7 @@ function validateApiKey(): bool {
         return false;
     }
     $providedKey = $matches[1];
-    return $providedKey === 'demo-key';  // Hardcoded for demo purposes
+    return $providedKey === 'demo-api-key';  // Hardcoded for demo purposes
 }
 
 // Check API key before processing

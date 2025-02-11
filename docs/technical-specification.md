@@ -137,7 +137,7 @@ For testing and development, a simple demo API server is included.
 ### Setup
 1. Start the PHP development server:
 ```bash
-php -S localhost:8000 -t public
+php -S 0.0.0.0:8000 -t public
 ```
 
 2. The demo server will be available at:

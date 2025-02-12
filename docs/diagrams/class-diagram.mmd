@@ -8,17 +8,21 @@ classDiagram
 
     class RateLimitService {
         -RateLimiter limiter
-        +allowRequest(string) bool
-        +incrementAttempts(string) void
+        +getRateLimitKey(string) string
+        +getMaxAttempts(string) int
+        +getDecaySeconds(string) int
+        +clear(string) void
         +getRemainingAttempts(string) int
         +getAvailableIn(string) int
+        +allowRequest(string) bool
+        +incrementAttempts(string, int) void
     }
     
     class CompressionService {
         -bool enabled
+        +isEnabled() bool
         +compress(string) string
         +decompress(string) string
-        +isEnabled() bool
     }
 
     class CacheRepository {
@@ -54,10 +58,11 @@ classDiagram
         #string version
         #PendingRequest pendingRequest
         #ApiCacheManager cacheManager
-        +__construct(string, string, string, string, ApiCacheManager)
-        +buildUrl(string)* string
         +getClientName() string
         +getVersion() string
+        +getTimeout() int
+        +setTimeout(int) self
+        +buildUrl(string)* string
         +sendRequest(string, array, string) array
         +sendCachedRequest(string, array, string) array
     }

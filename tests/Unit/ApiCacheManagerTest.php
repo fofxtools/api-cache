@@ -38,6 +38,19 @@ class ApiCacheManagerTest extends TestCase
         parent::tearDown();
     }
 
+    /**
+     * @return \Mockery\MockInterface&\Illuminate\Http\Client\Response
+     */
+    private static function mockResponse(int $status, array $headers, string $body)
+    {
+        $response = Mockery::mock(Response::class);
+        $response->shouldReceive('status')->andReturn($status);
+        $response->shouldReceive('headers')->andReturn($headers);
+        $response->shouldReceive('body')->andReturn($body);
+
+        return $response;
+    }
+
     public function test_allow_request_checks_rate_limit(): void
     {
         $this->rateLimiter->shouldReceive('allowRequest')
@@ -103,21 +116,11 @@ class ApiCacheManagerTest extends TestCase
         $this->assertEquals(5, $this->manager->getRemainingAttempts($this->clientName));
     }
 
-    /**
-     * @return \Mockery\MockInterface&\Illuminate\Http\Client\Response
-     */
-    private static function mockResponse(int $status, array $headers, string $body)
-    {
-        $response = Mockery::mock(Response::class);
-        $response->shouldReceive('status')->andReturn($status);
-        $response->shouldReceive('headers')->andReturn($headers);
-        $response->shouldReceive('body')->andReturn($body);
-
-        return $response;
-    }
-
     public static function apiResponseProvider(): array
     {
+        $requestHeaders  = ['Accept' => 'application/json'];
+        $responseHeaders = ['Content-Type' => 'application/json'];
+
         return [
             'simple json response' => [
                 'apiResult' => [
@@ -125,12 +128,12 @@ class ApiCacheManagerTest extends TestCase
                         'base_url' => 'https://api.test',
                         'full_url' => 'https://api.test/endpoint',
                         'method'   => 'GET',
-                        'headers'  => ['Accept' => 'application/json'],
+                        'headers'  => $requestHeaders,
                         'body'     => '{"query":"test"}',
                     ],
                     'response' => self::mockResponse(
                         200,
-                        ['Content-Type' => 'application/json'],
+                        $responseHeaders,
                         '{"test":"data"}'
                     ),
                     'response_time' => 0.5,
@@ -141,10 +144,10 @@ class ApiCacheManagerTest extends TestCase
                     'base_url'             => 'https://api.test',
                     'full_url'             => 'https://api.test/endpoint',
                     'method'               => 'GET',
-                    'request_headers'      => ['Accept' => 'application/json'],
+                    'request_headers'      => $requestHeaders,
                     'request_body'         => '{"query":"test"}',
                     'response_status_code' => 200,
-                    'response_headers'     => ['Content-Type' => 'application/json'],
+                    'response_headers'     => $responseHeaders,
                     'response_body'        => '{"test":"data"}',
                     'response_size'        => 15,
                     'response_time'        => 0.5,
@@ -185,9 +188,20 @@ class ApiCacheManagerTest extends TestCase
 
         $result = $this->manager->getCachedResponse($this->clientName, 'test-key');
 
-        $this->assertEquals($expectedMetadata, $result);
-        $this->assertEquals($expectedMetadata['response_body'], $result['response_body']);
-        $this->assertEquals($expectedMetadata['response_status_code'], $result['response_status_code']);
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('response_time', $result);
+        $this->assertArrayHasKey('request', $result);
+
+        // Verify response content
+        $this->assertEquals($expectedMetadata['response_status_code'], $result['response']->status());
+        $this->assertEquals($expectedMetadata['response_body'], $result['response']->body());
+        $this->assertEquals(0, $result['response_time']);
+
+        // Verify request data
+        $this->assertEquals($expectedMetadata['base_url'], $result['request']['base_url']);
+        $this->assertEquals($expectedMetadata['full_url'], $result['request']['full_url']);
+        $this->assertEquals($expectedMetadata['method'], $result['request']['method']);
     }
 
     public function test_get_cached_response_returns_null_when_not_found(): void

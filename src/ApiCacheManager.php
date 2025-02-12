@@ -156,14 +156,33 @@ class ApiCacheManager
      */
     public function getCachedResponse(string $clientName, string $cacheKey): ?array
     {
-        $result = $this->repository->get($clientName, $cacheKey);
+        $cached = $this->repository->get($clientName, $cacheKey);
+        if (!$cached) {
+            return null;
+        }
 
-        Log::debug($result ? 'Cache hit' : 'Cache miss', [
-            'client' => $clientName,
-            'key'    => $cacheKey,
-        ]);
+        // Reconstruct Response object
+        $response = new \Illuminate\Http\Client\Response(
+            new \GuzzleHttp\Psr7\Response(
+                $cached['response_status_code'],
+                $cached['response_headers'],
+                $cached['response_body']
+            )
+        );
 
-        return $result;
+        // Return in same format as fresh responses
+        // response_time is set to 0 because it's cached
+        return [
+            'request' => [
+                'base_url' => $cached['base_url'],
+                'full_url' => $cached['full_url'],
+                'method'   => $cached['method'],
+                'headers'  => $cached['request_headers'],
+                'body'     => $cached['request_body'],
+            ],
+            'response'      => $response,
+            'response_time' => 0,
+        ];
     }
 
     /**

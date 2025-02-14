@@ -23,6 +23,18 @@ $app->bootstrapWith([
     \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
 ]);
 
+// Set up facades
+Facade::setFacadeApplication($app);
+
+// Register services
+$app->singleton('config', fn () => new \Illuminate\Config\Repository([
+    'api-cache' => require __DIR__ . '/../config/api-cache.php',
+    'app'       => require __DIR__ . '/../config/app.php',
+    'cache'     => require __DIR__ . '/../config/cache.php',
+    'database'  => require __DIR__ . '/../config/database.php',
+    'logging'   => require __DIR__ . '/../config/logging.php',
+]));
+
 // Get the appropriate host based on environment
 if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
     // In WSL2, /etc/resolv.conf's nameserver points to the Windows host
@@ -30,35 +42,28 @@ if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
 } else {
     $nameserver = 'localhost';
 }
-$baseUrl = 'http://' . $nameserver . ':8000';
 
-// Register services
-$app->singleton('config', fn () => new \Illuminate\Config\Repository([
-    'app'       => require __DIR__ . '/../config/app.php',
-    'logging'   => require __DIR__ . '/../config/logging.php',
-    'cache'     => require __DIR__ . '/../config/cache.php',
-    'api-cache' => [
-        'apis' => [
-            'demo' => [
-                'base_url'                 => $baseUrl,
-                'api_key'                  => 'demo-api-key',
-                'rate_limit_max_attempts'  => 3,
-                'rate_limit_decay_seconds' => 5,
-            ],
-        ],
-    ],
-]));
+$configBaseUrl = config('api-cache.apis.demo.base_url');
+
+// Replace localhost with appropriate nameserver for Ubuntu WSL
+$modifiedBaseUrl = preg_replace(
+    '#localhost(:\d+)?#',
+    $nameserver . '$1',
+    $configBaseUrl
+);
+
+// Update config with WSL-adjusted URL
+$app['config']->set('api-cache.apis.demo.base_url', $modifiedBaseUrl);
 
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
-Facade::setFacadeApplication($app);
 
 // Setup database
 $capsule = new Capsule();
-$capsule->addConnection([
-    'driver'   => 'sqlite',
-    'database' => ':memory:',
-]);
+// Use SQLite memory for tests
+$capsule->addConnection(
+    config('database.connections.sqlite_memory')
+);
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 

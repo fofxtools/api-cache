@@ -35,5 +35,12 @@
         "cs-fix": "vendor/bin/php-cs-fixer fix",
         "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff",
         "cs-list": "vendor/bin/php-cs-fixer list-files"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "FOfX\\ApiCache\\ApiCacheServiceProvider"
+            ]
+        }
     }
 }

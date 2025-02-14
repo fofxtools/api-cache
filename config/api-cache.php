@@ -18,8 +18,8 @@ return [
         |--------------------------------------------------------------------------
         */
         'demo' => [
-            'base_url'                 => env('DEMO_BASE_URL', 'http://localhost:8000'),
-            'api_key'                  => env('DEMO_API_KEY'),
+            'base_url'                 => env('DEMO_BASE_URL', 'http://localhost:8000/demo-api-server.php/v1'),
+            'api_key'                  => env('DEMO_API_KEY', 'demo-api-key'),
             'cache_ttl'                => env('DEMO_CACHE_TTL', null),
             'compression_enabled'      => env('DEMO_COMPRESSION_ENABLED', false),
             'default_endpoint'         => env('DEMO_DEFAULT_ENDPOINT', 'prediction'),
@@ -34,7 +34,7 @@ return [
         */
         'openai' => [
             'base_url'                 => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
-            'api_key'                  => env('OPENAI_API_KEY'),
+            'api_key'                  => env('OPENAI_API_KEY', null),
             'cache_ttl'                => env('OPENAI_CACHE_TTL', null),
             'compression_enabled'      => env('OPENAI_COMPRESSION_ENABLED', false),
             'default_endpoint'         => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),
@@ -49,7 +49,7 @@ return [
         */
         'pixabay' => [
             'base_url'                 => env('PIXABAY_BASE_URL', 'https://pixabay.com/api'),
-            'api_key'                  => env('PIXABAY_API_KEY'),
+            'api_key'                  => env('PIXABAY_API_KEY', null),
             'cache_ttl'                => env('PIXABAY_CACHE_TTL', null),
             'compression_enabled'      => env('PIXABAY_COMPRESSION_ENABLED', false),
             'default_endpoint'         => env('PIXABAY_DEFAULT_ENDPOINT', 'search'),

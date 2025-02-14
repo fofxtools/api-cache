@@ -12,41 +12,38 @@ use Illuminate\Support\Facades\Cache;
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
-
-// Core bootstrappers needed
 $app->bootstrapWith([
     \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
     \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
 ]);
 
-$rateLimitMaxAttempts  = 3;
-$rateLimitDecaySeconds = 5;
+// Set up facades
+Facade::setFacadeApplication($app);
 
 // Register base bindings
 $app->singleton('config', fn () => new \Illuminate\Config\Repository([
+    'api-cache' => require __DIR__ . '/../config/api-cache.php',
     'app'       => require __DIR__ . '/../config/app.php',
-    'logging'   => require __DIR__ . '/../config/logging.php',
     'cache'     => require __DIR__ . '/../config/cache.php',
-    'api-cache' => [
-        'apis' => [
-            'test-client' => [
-                'rate_limit_max_attempts'  => $rateLimitMaxAttempts,
-                'rate_limit_decay_seconds' => $rateLimitDecaySeconds,
-            ],
-        ],
-    ],
+    'logging'   => require __DIR__ . '/../config/logging.php',
 ]));
 
 // Register cache and logging services
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
-// Set Facade root
-Facade::setFacadeApplication($app);
-
 // Create rate limiter
 $rateLimiter = new RateLimiter(Cache::driver());
 $service     = new RateLimitService($rateLimiter);
+
+// Override settings for testing
+$app['config']->set('api-cache.apis.test-client', [
+    'rate_limit_max_attempts'  => 3,
+    'rate_limit_decay_seconds' => 5,
+]);
+
+$rateLimitMaxAttempts  = config('api-cache.apis.test-client.rate_limit_max_attempts');
+$rateLimitDecaySeconds = config('api-cache.apis.test-client.rate_limit_decay_seconds');
 
 // Test basic rate limiting
 $client = 'test-client';

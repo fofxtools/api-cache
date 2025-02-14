@@ -240,14 +240,26 @@ abstract class BaseApiClient
         // Increment attempts for the client to track rate limit usage
         $this->cacheManager->incrementAttempts($this->clientName);
 
-        // Store in cache
-        $this->cacheManager->storeResponse(
-            $this->clientName,
-            $cacheKey,
-            $apiResult,
-            $endpoint,
-            $this->version
-        );
+        // Store in cache if response is successful
+        if ($apiResult['response']->successful()) {
+            $this->cacheManager->storeResponse(
+                $this->clientName,
+                $cacheKey,
+                $apiResult,
+                $endpoint,
+                $this->version
+            );
+        } else {
+            Log::warning('Failed to store API response in cache', [
+                'client'           => $this->clientName,
+                'endpoint'         => $endpoint,
+                'version'          => $this->version,
+                'cache_key'        => $cacheKey,
+                'status_code'      => $apiResult['response']->status(),
+                'response_headers' => $apiResult['response']->headers(),
+                'response_body'    => $apiResult['response']->body(),
+            ]);
+        }
 
         return $apiResult;
     }

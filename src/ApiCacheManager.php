@@ -127,23 +127,13 @@ class ApiCacheManager
             'response_time'        => $apiResult['response_time'],
         ];
 
-        try {
-            $this->repository->store($clientName, $cacheKey, $metadata, $ttl);
+        $this->repository->store($clientName, $cacheKey, $metadata, $ttl);
 
-            Log::debug('Stored API response in cache', [
-                'client' => $clientName,
-                'key'    => $cacheKey,
-                'ttl'    => $ttl,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to store API response', [
-                'client' => $clientName,
-                'key'    => $cacheKey,
-                'error'  => $e->getMessage(),
-            ]);
-
-            throw $e;
-        }
+        Log::debug('Stored API response in cache', [
+            'client' => $clientName,
+            'key'    => $cacheKey,
+            'ttl'    => $ttl,
+        ]);
     }
 
     /**

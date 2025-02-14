@@ -71,7 +71,7 @@ function validateApiKey(): bool
 }
 
 // Check health. Does not require API key or version.
-if ($path === '/health') {
+if ($path === '/health' || $path === '/v1/health') {
     jsonResponse(['status' => 'OK']);
     exit;
 }

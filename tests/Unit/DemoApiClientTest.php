@@ -6,7 +6,6 @@ namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\DemoApiClient;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Config;
 use Orchestra\Testbench\TestCase;
 use Mockery;
 
@@ -55,7 +54,7 @@ class DemoApiClientTest extends TestCase
     {
         $url = $this->client->buildUrl('predictions');
         $this->assertEquals(
-            $this->apiBaseUrl . '/demo-api-server.php/v1/predictions',
+            $this->apiBaseUrl . '/predictions',
             $url
         );
     }
@@ -64,7 +63,7 @@ class DemoApiClientTest extends TestCase
     {
         $url = $this->client->buildUrl('/predictions');
         $this->assertEquals(
-            $this->apiBaseUrl . '/demo-api-server.php/v1/predictions',
+            $this->apiBaseUrl . '/predictions',
             $url
         );
     }

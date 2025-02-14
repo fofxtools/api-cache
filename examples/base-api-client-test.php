@@ -32,31 +32,30 @@ $app->bootstrapWith([
     \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
 ]);
 
+// Set up facades
+Facade::setFacadeApplication($app);
+
 // Register services
 $app->singleton('config', fn () => new \Illuminate\Config\Repository([
+    'api-cache' => require __DIR__ . '/../config/api-cache.php',
     'app'       => require __DIR__ . '/../config/app.php',
-    'logging'   => require __DIR__ . '/../config/logging.php',
     'cache'     => require __DIR__ . '/../config/cache.php',
-    'api-cache' => [
-        'apis' => [
-            'demo-client' => [
-                'rate_limit_max_attempts'  => 3,
-                'rate_limit_decay_seconds' => 5,
-            ],
-        ],
-    ],
+    'database'  => require __DIR__ . '/../config/database.php',
+    'logging'   => require __DIR__ . '/../config/logging.php',
 ]));
 
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
-Facade::setFacadeApplication($app);
+
+// Override rate limit max attempts and decay seconds to lower values for testing
+$app['config']->set('api-cache.apis.demo-client.rate_limit_max_attempts', 3);
+$app['config']->set('api-cache.apis.demo-client.rate_limit_decay_seconds', 5);
 
 // Setup database
 $capsule = new Capsule();
-$capsule->addConnection([
-    'driver'   => 'sqlite',
-    'database' => ':memory:',
-]);
+$capsule->addConnection(
+    config('database.connections.sqlite_memory')
+);
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::create('api_cache_demo_responses_compressed', function (Blueprint $table) {
+        Schema::create('api_cache_openai_responses_compressed', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
             $table->string('client');
@@ -18,24 +18,24 @@ return new class () extends Migration {
             $table->string('base_url')->nullable();
             $table->string('full_url')->nullable();
             $table->string('method')->nullable();
-            $table->mediumText('request_headers')->nullable();
-            $table->mediumText('request_body')->nullable();
+            $table->mediumText('request_headers')->charset('binary')->nullable();
+            $table->mediumText('request_body')->charset('binary')->nullable();
             $table->integer('response_status_code')->nullable();
-            $table->mediumText('response_headers')->nullable();
-            $table->mediumText('response_body')->nullable();
+            $table->mediumText('response_headers')->charset('binary')->nullable();
+            $table->mediumText('response_body')->charset('binary')->nullable();
             $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
             // Indexes for performance
-            $table->index(['client', 'endpoint', 'version']);
+            $table->index(['client', 'endpoint', 'version'], 'openai_client_endpoint_version_index');
             $table->index('expires_at');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_demo_responses_compressed');
+        Schema::dropIfExists('api_cache_openai_responses_compressed');
     }
 };

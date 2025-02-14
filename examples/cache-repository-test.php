@@ -104,25 +104,32 @@ $app->bootstrapWith([
     \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
 ]);
 
+// Set up facades
+Facade::setFacadeApplication($app);
+
 // Register services
 $app->singleton('config', fn () => new \Illuminate\Config\Repository([
+    'api-cache' => require __DIR__ . '/../config/api-cache.php',
     'app'       => require __DIR__ . '/../config/app.php',
+    'cache'     => require __DIR__ . '/../config/cache.php',
+    'database'  => require __DIR__ . '/../config/database.php',
     'logging'   => require __DIR__ . '/../config/logging.php',
-    'api-cache' => [
-        'apis' => [
-            'test-client' => [],
-        ],
-    ],
 ]));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
-Facade::setFacadeApplication($app);
+
+// Override test client settings
+$app['config']->set('api-cache.apis.test-client', [
+    'compression_enabled'      => true,
+    'rate_limit_max_attempts'  => 1000,
+    'rate_limit_decay_seconds' => 60,
+    'cache_ttl'                => null,
+]);
 
 // Setup database
 $capsule = new Capsule();
-$capsule->addConnection([
-    'driver'   => 'sqlite',
-    'database' => ':memory:',
-]);
+$capsule->addConnection(
+    config('database.connections.sqlite_memory')
+);
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 

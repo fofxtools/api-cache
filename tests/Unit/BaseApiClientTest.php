@@ -13,38 +13,29 @@ use PHPUnit\Framework\MockObject\MockObject;
 
 class BaseApiClientTest extends TestCase
 {
-    // Name it $apiBaseUrl to avoid confusion with Orchestra's $baseUrl
-    protected static string $apiBaseUrl;
-
     /** @var BaseApiClient&MockObject */
     protected BaseApiClient $client;
 
     /** @var ApiCacheManager&Mockery\MockInterface */
     protected ApiCacheManager $cacheManager;
 
-    protected string $apiKey  = 'demo-api-key';
     protected string $version = 'v1';
 
-    public static function setUpBeforeClass(): void
+    /**
+     * Get package providers.
+     *
+     * @param \Illuminate\Foundation\Application $app
+     *
+     * @return array<int, class-string>
+     */
+    protected function getPackageProviders($app): array
     {
-        parent::setUpBeforeClass();
-
-        // Get the appropriate host based on environment
-        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
-            // In WSL2, /etc/resolv.conf's nameserver points to the Windows host
-            $nameserver       = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));
-            self::$apiBaseUrl = 'http://' . $nameserver . ':8000/demo-api-server.php';
-        } else {
-            self::$apiBaseUrl = 'http://localhost:8000/demo-api-server.php';
-        }
-
-        // Verify server is running
-        static::checkServerStatus();
+        return ['FOfX\ApiCache\ApiCacheServiceProvider'];
     }
 
-    protected static function checkServerStatus(): void
+    protected function checkServerStatus(string $url): void
     {
-        $healthUrl = self::$apiBaseUrl . '/health';
+        $healthUrl = $url . '/health';
         $ch        = curl_init($healthUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         // Timeout after 2 seconds
@@ -71,7 +62,16 @@ class BaseApiClientTest extends TestCase
     {
         parent::setUp();
 
-        $this->baseUrl = self::$apiBaseUrl;
+        // Get base URL and handle WSL if needed
+        $baseUrl = config('api-cache.apis.demo.base_url');
+        $apiKey  = config('api-cache.apis.demo.api_key');
+
+        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
+            $nameserver = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));
+            $baseUrl    = str_replace('localhost', $nameserver, $baseUrl);
+        }
+
+        $this->checkServerStatus($baseUrl);
 
         $this->cacheManager = Mockery::mock(ApiCacheManager::class);
 
@@ -79,8 +79,8 @@ class BaseApiClientTest extends TestCase
         $this->client = $this->getMockBuilder(BaseApiClient::class)
             ->setConstructorArgs([
                 'test-client',
-                $this->baseUrl,
-                $this->apiKey,
+                $baseUrl,
+                $apiKey,
                 $this->version,
                 $this->cacheManager,
             ])
@@ -89,8 +89,8 @@ class BaseApiClientTest extends TestCase
 
         // Configure buildUrl to work with demo server
         $this->client->method('buildUrl')
-            ->willReturnCallback(function (string $endpoint) {
-                return $this->baseUrl . '/v1/' . ltrim($endpoint, '/');
+            ->willReturnCallback(function (string $endpoint) use ($baseUrl) {
+                return $baseUrl . '/' . ltrim($endpoint, '/');
             });
     }
 

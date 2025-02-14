@@ -35,12 +35,13 @@ class DemoApiClient extends BaseApiClient
      */
     public function buildUrl(string $endpoint): string
     {
-        // Add demo-api-server.php and version to the path
-        $url = $this->baseUrl . '/demo-api-server.php/' . $this->version . '/' . ltrim($endpoint, '/');
+        // Base URL already includes demo-api-server.php/v1
+        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
 
         Log::debug('Built URL for demo API request', [
             'client'   => $this->clientName,
             'endpoint' => $endpoint,
+            'base_url' => $this->baseUrl,
             'url'      => $url,
         ]);
 

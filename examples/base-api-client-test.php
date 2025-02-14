@@ -16,15 +16,6 @@ use Illuminate\Foundation\Application;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
 
-// Create a concrete implementation for testing
-class TestApiClient extends BaseApiClient
-{
-    public function buildUrl(string $endpoint): string
-    {
-        return $this->baseUrl . '/v1/' . ltrim($endpoint, '/');
-    }
-}
-
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
 $app->bootstrapWith([
@@ -35,7 +26,7 @@ $app->bootstrapWith([
 // Set up facades
 Facade::setFacadeApplication($app);
 
-// Register services
+// Register bindings
 $app->singleton('config', fn () => new \Illuminate\Config\Repository([
     'api-cache' => require __DIR__ . '/../config/api-cache.php',
     'app'       => require __DIR__ . '/../config/app.php',
@@ -43,7 +34,6 @@ $app->singleton('config', fn () => new \Illuminate\Config\Repository([
     'database'  => require __DIR__ . '/../config/database.php',
     'logging'   => require __DIR__ . '/../config/logging.php',
 ]));
-
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
@@ -67,6 +57,15 @@ $repository       = new CacheRepository(
     $capsule->getDatabaseManager()->connection(),
     $compression
 );
+
+// Create a concrete implementation for testing
+class TestApiClient extends BaseApiClient
+{
+    public function buildUrl(string $endpoint): string
+    {
+        return $this->baseUrl . '/v1/' . ltrim($endpoint, '/');
+    }
+}
 
 /**
  * Create the response table with standard schema
@@ -123,7 +122,17 @@ $client = new TestApiClient(
 // Set shorter timeout for testing
 $client->setTimeout(2);
 
+echo "\n";
+
 try {
+    // Test health endpoint
+    echo "Testing health endpoint...\n";
+    $result = $client->getHealth();
+    echo "Status code: {$result['response']->status()}\n";
+    echo "Response time: {$result['response_time']}s\n";
+    echo "Response body:\n";
+    echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT) . "\n\n";
+
     // Test basic request
     echo "Testing basic request...\n";
     $result = $client->sendRequest('predictions', ['query' => 'test']);

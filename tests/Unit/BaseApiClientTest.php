@@ -208,4 +208,13 @@ class BaseApiClientTest extends TestCase
         $this->assertArrayHasKey('response', $result);
         $this->assertArrayHasKey('response_time', $result);
     }
+
+    public function test_getHealth_returns_health_endpoint_response(): void
+    {
+        $result = $this->client->getHealth();
+
+        $this->assertEquals(200, $result['response']->status());
+        $this->assertArrayHasKey('status', $result['response']->json());
+        $this->assertEquals('OK', $result['response']->json()['status']);
+    }
 }

@@ -20,15 +20,14 @@ $app->bootstrapWith([
 // Set up facades
 Facade::setFacadeApplication($app);
 
-// Register base bindings
+// Register bindings
 $app->singleton('config', fn () => new \Illuminate\Config\Repository([
     'api-cache' => require __DIR__ . '/../config/api-cache.php',
     'app'       => require __DIR__ . '/../config/app.php',
     'cache'     => require __DIR__ . '/../config/cache.php',
+    'database'  => require __DIR__ . '/../config/database.php',
     'logging'   => require __DIR__ . '/../config/logging.php',
 ]));
-
-// Register cache and logging services
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 

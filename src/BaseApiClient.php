@@ -263,4 +263,14 @@ abstract class BaseApiClient
 
         return $apiResult;
     }
+
+    /**
+     * Get the health endpoint of the API
+     *
+     * @return array The health endpoint response
+     */
+    public function getHealth(): array
+    {
+        return $this->sendRequest('/health');
+    }
 }

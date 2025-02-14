@@ -72,7 +72,19 @@ function validateApiKey(): bool
 
 // Check health. Does not require API key or version.
 if ($path === '/health' || $path === '/v1/health') {
-    jsonResponse(['status' => 'OK']);
+    jsonResponse([
+        'status' => 'OK',
+        'server' => [
+            'php_version'    => PHP_VERSION,
+            'time_utc'       => gmdate('Y-m-d\TH:i:s\Z'),
+            'remote_addr'    => $_SERVER['REMOTE_ADDR'],
+            'server_addr'    => $_SERVER['SERVER_ADDR'] ?? 'unknown',
+            'server_port'    => $_SERVER['SERVER_PORT'],
+            'http_host'      => $_SERVER['HTTP_HOST'] ?? 'unknown',
+            'request_method' => $_SERVER['REQUEST_METHOD'],
+            'request_uri'    => $_SERVER['REQUEST_URI'],
+        ],
+    ]);
     exit;
 }
 

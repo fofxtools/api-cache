@@ -26,7 +26,7 @@ $app->bootstrapWith([
 // Set up facades
 Facade::setFacadeApplication($app);
 
-// Register services
+// Register bindings
 $app->singleton('config', fn () => new \Illuminate\Config\Repository([
     'api-cache' => require __DIR__ . '/../config/api-cache.php',
     'app'       => require __DIR__ . '/../config/app.php',
@@ -34,6 +34,8 @@ $app->singleton('config', fn () => new \Illuminate\Config\Repository([
     'database'  => require __DIR__ . '/../config/database.php',
     'logging'   => require __DIR__ . '/../config/logging.php',
 ]));
+$app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
+$app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
 // Get the appropriate host based on environment
 if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
@@ -54,9 +56,6 @@ $modifiedBaseUrl = preg_replace(
 
 // Update config with WSL-adjusted URL
 $app['config']->set('api-cache.apis.demo.base_url', $modifiedBaseUrl);
-
-$app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
-$app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
 // Setup database
 $capsule = new Capsule();

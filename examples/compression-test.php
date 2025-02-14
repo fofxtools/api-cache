@@ -18,17 +18,16 @@ $app->bootstrapWith([
 // Set Facade root
 Facade::setFacadeApplication($app);
 
-// Register base bindings
+// Register bindings
 $app->singleton('config', fn () => new \Illuminate\Config\Repository([
     'api-cache' => require __DIR__ . '/../config/api-cache.php',
     'app'       => require __DIR__ . '/../config/app.php',
+    'cache'     => require __DIR__ . '/../config/cache.php',
+    'database'  => require __DIR__ . '/../config/database.php',
     'logging'   => require __DIR__ . '/../config/logging.php',
 ]));
-
-// Register logging service
-$app->singleton('log', function ($app) {
-    return new \Illuminate\Log\LogManager($app);
-});
+$app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
+$app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
 // Override settings for testing
 $app['config']->set('api-cache.apis.test-client', [

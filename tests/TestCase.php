@@ -22,21 +22,15 @@ class TestCase extends Orchestra
         parent::setUp();
     }
 
+    /**
+     * Define database migrations.
+     */
     protected function defineDatabaseMigrations(): void
     {
-        // This will run our package migrations
+        // Run package migrations
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
-    }
 
-    /**
-     * Get package providers.
-     *
-     * @param \Illuminate\Foundation\Application $app
-     *
-     * @return array<int, class-string>
-     */
-    protected function getPackageProviders($app): array
-    {
-        return ['FOfX\ApiCache\ApiCacheServiceProvider'];
+        // Ensure SQLite database exists and is migrated
+        $this->artisan('migrate', ['--database' => 'sqlite']);
     }
 }

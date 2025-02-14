@@ -5,56 +5,67 @@ declare(strict_types=1);
 namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\DemoApiClient;
-use Illuminate\Http\Client\Response;
+use FOfX\ApiCache\ApiCacheManager;
+use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
 use Orchestra\Testbench\TestCase;
 use Mockery;
+use Illuminate\Support\Facades\Config;
 
 class DemoApiClientTest extends TestCase
 {
-    /** @var DemoApiClient&\Mockery\MockInterface */
-    private DemoApiClient $client;
-    private string $apiBaseUrl = 'https://api.test';
-    private string $apiKey     = 'test-key';
+    use ApiServerTestTrait;
 
-    protected function getEnvironmentSetUp($app): void
+    protected DemoApiClient $client;
+
+    /** @var ApiCacheManager&Mockery\MockInterface */
+    protected ApiCacheManager $cacheManager;
+
+    protected string $version = 'v1';
+
+    /**
+     * Get package providers.
+     *
+     * @param \Illuminate\Foundation\Application $app
+     *
+     * @return array<int, class-string>
+     */
+    protected function getPackageProviders($app): array
     {
-        // Set up test config
-        $app['config']->set('api-cache.apis.demo.base_url', $this->apiBaseUrl);
-        $app['config']->set('api-cache.apis.demo.api_key', $this->apiKey);
+        return ['FOfX\ApiCache\ApiCacheServiceProvider'];
     }
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->client = Mockery::mock(DemoApiClient::class)
-            ->makePartial()
-            ->shouldAllowMockingProtectedMethods();
-        $this->client->__construct();
-    }
+        $baseUrl = config('api-cache.apis.demo.base_url');
+        $baseUrl = $this->getWslAwareBaseUrl($baseUrl);
 
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
+        $this->checkServerStatus($baseUrl);
 
-    /**
-     * @return \Mockery\MockInterface&\Illuminate\Http\Client\Response
-     */
-    private function mockResponse(int $status)
-    {
-        $response = Mockery::mock(Response::class);
-        $response->shouldReceive('status')->andReturn($status);
+        $this->cacheManager = Mockery::mock(ApiCacheManager::class);
 
-        return $response;
+        // Set WSL-aware base URL in config
+        Config::set('api-cache.apis.demo.base_url', $baseUrl);
+
+        $this->client = new DemoApiClient($this->cacheManager);
+
+        $this->cacheManager->shouldReceive('getCachedResponse')
+            ->andReturnNull();
+        $this->cacheManager->shouldReceive('allowRequest')
+            ->andReturnTrue();
+        $this->cacheManager->shouldReceive('generateCacheKey')
+            ->byDefault()
+            ->andReturn('demo.get.predictions.test-hash.v1');
+        $this->cacheManager->shouldReceive('incrementAttempts');
+        $this->cacheManager->shouldReceive('storeResponse');
     }
 
     public function test_builds_url_without_leading_slash(): void
     {
         $url = $this->client->buildUrl('predictions');
         $this->assertEquals(
-            $this->apiBaseUrl . '/predictions',
+            config('api-cache.apis.demo.base_url') . '/predictions',
             $url
         );
     }
@@ -63,53 +74,37 @@ class DemoApiClientTest extends TestCase
     {
         $url = $this->client->buildUrl('/predictions');
         $this->assertEquals(
-            $this->apiBaseUrl . '/predictions',
+            config('api-cache.apis.demo.base_url') . '/predictions',
             $url
         );
     }
 
     public function test_prediction_method_sends_correct_request(): void
     {
-        $query          = 'test query';
-        $maxResults     = 5;
-        $expectedParams = [
-            'query'       => $query,
-            'max_results' => $maxResults,
-        ];
-
-        $this->client->shouldReceive('sendCachedRequest')
-            ->once()
-            ->with('predictions', $expectedParams, 'GET')
-            ->andReturn([
-                'response'      => $this->mockResponse(200),
-                'response_time' => 0.5,
-            ]);
+        $query      = 'test query';
+        $maxResults = 5;
 
         $result = $this->client->prediction($query, $maxResults);
 
+        $this->assertEquals(200, $result['response']->status());
+        $responseData = json_decode($result['response']->body(), true);
+        $this->assertTrue($responseData['success']);
+        $this->assertNotEmpty($responseData['data']);
         $this->assertArrayHasKey('response', $result);
         $this->assertArrayHasKey('response_time', $result);
     }
 
     public function test_report_method_sends_correct_request(): void
     {
-        $reportType     = 'monthly';
-        $dataSource     = 'sales';
-        $expectedParams = [
-            'report_type' => $reportType,
-            'data_source' => $dataSource,
-        ];
-
-        $this->client->shouldReceive('sendCachedRequest')
-            ->once()
-            ->with('reports', $expectedParams, 'POST')
-            ->andReturn([
-                'response'      => $this->mockResponse(200),
-                'response_time' => 0.5,
-            ]);
+        $reportType = 'monthly';
+        $dataSource = 'sales';
 
         $result = $this->client->report($reportType, $dataSource);
 
+        $this->assertEquals(200, $result['response']->status());
+        $responseData = json_decode($result['response']->body(), true);
+        $this->assertTrue($responseData['success']);
+        $this->assertNotEmpty($responseData['data']);
         $this->assertArrayHasKey('response', $result);
         $this->assertArrayHasKey('response_time', $result);
     }
@@ -117,23 +112,32 @@ class DemoApiClientTest extends TestCase
     public function test_prediction_method_merges_additional_params(): void
     {
         $additionalParams = ['filter' => 'test'];
-        $expectedParams   = [
-            'query'       => 'test',
-            'max_results' => 10,
-            'filter'      => 'test',
-        ];
 
-        $this->client->shouldReceive('sendCachedRequest')
-            ->once()
-            ->with('predictions', $expectedParams, 'GET')
-            ->andReturn([
-                'response'      => $this->mockResponse(200),
-                'response_time' => 0.5,
-            ]);
+        // Override the default mock
+        $capturedArgs = [];
+        $this->cacheManager->shouldReceive('generateCacheKey')
+            ->andReturnUsing(function (...$args) use (&$capturedArgs) {
+                $capturedArgs = $args;
+
+                return 'demo.get.predictions.test-hash.v1';
+            });
 
         $result = $this->client->prediction('test', 10, $additionalParams);
 
-        // Assert response structure
+        $this->assertEquals(200, $result['response']->status());
+        $responseData = json_decode($result['response']->body(), true);
+        $this->assertTrue($responseData['success']);
+        $this->assertNotEmpty($responseData['data']);
+
+        // Debug the captured args
+        $this->assertCount(5, $capturedArgs, 'Expected 5 arguments passed to generateCacheKey');
+        $this->assertEquals('demo', $capturedArgs[0], 'First arg should be client name');
+        $this->assertEquals('predictions', $capturedArgs[1], 'Second arg should be endpoint');
+        $this->assertArrayHasKey('filter', $capturedArgs[2], 'Third arg should be params array');
+        $this->assertEquals('test', $capturedArgs[2]['filter'], 'Filter param should be "test"');
+        $this->assertEquals('GET', $capturedArgs[3], 'Fourth arg should be HTTP method');
+        $this->assertEquals('v1', $capturedArgs[4], 'Fifth arg should be API version');
+
         $this->assertArrayHasKey('response', $result);
         $this->assertArrayHasKey('response_time', $result);
     }

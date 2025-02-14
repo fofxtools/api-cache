@@ -10,9 +10,12 @@ use FOfX\ApiCache\RateLimitException;
 use Mockery;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
+use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
 
 class BaseApiClientTest extends TestCase
 {
+    use ApiServerTestTrait;
+
     /** @var BaseApiClient&MockObject */
     protected BaseApiClient $client;
 
@@ -33,43 +36,12 @@ class BaseApiClientTest extends TestCase
         return ['FOfX\ApiCache\ApiCacheServiceProvider'];
     }
 
-    protected function checkServerStatus(string $url): void
-    {
-        $healthUrl = $url . '/health';
-        $ch        = curl_init($healthUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        // Timeout after 2 seconds
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-
-        $response = curl_exec($ch);
-        $error    = curl_error($ch);
-        curl_close($ch);
-
-        if ($response === false) {
-            static::markTestSkipped(
-                'Demo API server not accessible: ' . $error . "\n" .
-                'Start with: php -S 0.0.0.0:8000 -t public'
-            );
-        }
-
-        $data = json_decode($response, true);
-        if (!isset($data['status']) || $data['status'] !== 'OK') {
-            static::markTestSkipped('Demo API server health check failed');
-        }
-    }
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Get base URL and handle WSL if needed
         $baseUrl = config('api-cache.apis.demo.base_url');
-        $apiKey  = config('api-cache.apis.demo.api_key');
-
-        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
-            $nameserver = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));
-            $baseUrl    = str_replace('localhost', $nameserver, $baseUrl);
-        }
+        $baseUrl = $this->getWslAwareBaseUrl($baseUrl);
 
         $this->checkServerStatus($baseUrl);
 
@@ -80,7 +52,7 @@ class BaseApiClientTest extends TestCase
             ->setConstructorArgs([
                 'test-client',
                 $baseUrl,
-                $apiKey,
+                config('api-cache.apis.demo.api_key'),
                 $this->version,
                 $this->cacheManager,
             ])
@@ -120,6 +92,20 @@ class BaseApiClientTest extends TestCase
         $timeout = 2;
         $this->client->setTimeout($timeout);
         $this->assertEquals($timeout, $this->client->getTimeout());
+    }
+
+    public function test_builds_url_with_leading_slash(): void
+    {
+        $baseUrl = $this->getWslAwareBaseUrl(config('api-cache.apis.demo.base_url'));
+        $url     = $this->client->buildUrl('/predictions');
+        $this->assertEquals($baseUrl . '/predictions', $url);
+    }
+
+    public function test_builds_url_without_leading_slash(): void
+    {
+        $baseUrl = $this->getWslAwareBaseUrl(config('api-cache.apis.demo.base_url'));
+        $url     = $this->client->buildUrl('predictions');
+        $this->assertEquals($baseUrl . '/predictions', $url);
     }
 
     public function test_sendRequest_makes_real_http_call(): void

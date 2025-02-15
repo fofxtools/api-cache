@@ -86,6 +86,10 @@ class CompressionService
             return $data;
         }
 
+        if (empty($data)) {
+            return $data;
+        }
+
         // Suppress warning since we handle the error
         $decompressed = @gzuncompress($data);
         if ($decompressed === false) {

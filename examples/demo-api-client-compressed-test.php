@@ -68,7 +68,7 @@ $capsule->bootEloquent();
 // Create services
 $rateLimiter      = new RateLimiter(Cache::driver());
 $rateLimitService = new RateLimitService($rateLimiter);
-$compression      = new CompressionService(false);
+$compression      = new CompressionService(true);
 $repository       = new CacheRepository(
     $capsule->getDatabaseManager()->connection(),
     $compression
@@ -101,6 +101,27 @@ function createResponseTable(Illuminate\Database\Schema\Builder $schema, string 
         $table->timestamp('expires_at')->nullable();
         $table->timestamps();
     });
+
+    // Alter the request and response headers and body columns
+    // For MySQL use MEDIUMBLOB, for SQL Server use VARBINARY(MAX)
+    $driver = $schema->getConnection()->getDriverName();
+    if ($driver === 'mysql') {
+        $schema->getConnection()->statement('
+                ALTER TABLE api_cache_demo_responses_compressed
+                MODIFY request_headers MEDIUMBLOB,
+                MODIFY request_body MEDIUMBLOB,
+                MODIFY response_headers MEDIUMBLOB,
+                MODIFY response_body MEDIUMBLOB
+            ');
+    } elseif ($driver === 'sqlsrv') {
+        $schema->getConnection()->statement('
+                ALTER TABLE api_cache_demo_responses_compressed
+                ALTER COLUMN request_headers VARBINARY(MAX),
+                ALTER COLUMN request_body VARBINARY(MAX),
+                ALTER COLUMN response_headers VARBINARY(MAX),
+                ALTER COLUMN response_body VARBINARY(MAX)
+            ');
+    }
 }
 
 // Create response table

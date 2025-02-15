@@ -220,7 +220,21 @@ abstract class BaseApiClient
 
         // Check cache
         if ($cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey)) {
+            Log::debug('Cache hit', [
+                'client'    => $this->clientName,
+                'endpoint'  => $endpoint,
+                'method'    => $method,
+                'cache_key' => $cacheKey,
+            ]);
+
             return $cached;
+        } else {
+            Log::debug('Cache miss', [
+                'client'    => $this->clientName,
+                'endpoint'  => $endpoint,
+                'method'    => $method,
+                'cache_key' => $cacheKey,
+            ]);
         }
 
         // Check rate limit
@@ -249,6 +263,12 @@ abstract class BaseApiClient
                 $endpoint,
                 $this->version
             );
+            Log::debug('Cache stored', [
+                'client'    => $this->clientName,
+                'endpoint'  => $endpoint,
+                'method'    => $method,
+                'cache_key' => $cacheKey,
+            ]);
         } else {
             Log::warning('Failed to store API response in cache', [
                 'client'           => $this->clientName,
@@ -271,6 +291,6 @@ abstract class BaseApiClient
      */
     public function getHealth(): array
     {
-        return $this->sendRequest('/health');
+        return $this->sendRequest('health');
     }
 }

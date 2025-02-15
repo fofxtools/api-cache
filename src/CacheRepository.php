@@ -88,6 +88,10 @@ class CacheRepository
      */
     public function prepareHeaders(?array $headers): ?string
     {
+        Log::debug('Preparing headers', [
+            'compression' => $this->compression->isEnabled(),
+        ]);
+
         if ($headers === null) {
             return null;
         }
@@ -123,6 +127,10 @@ class CacheRepository
      */
     public function retrieveHeaders(?string $data): ?array
     {
+        Log::debug('Retrieving headers', [
+            'compression' => $this->compression->isEnabled(),
+        ]);
+
         if ($data === null) {
             return null;
         }
@@ -169,6 +177,11 @@ class CacheRepository
      */
     public function prepareBody(?string $body): ?string
     {
+        Log::debug('Preparing body', [
+            'body_length' => strlen($body ?? ''),
+            'compression' => $this->compression->isEnabled(),
+        ]);
+
         if ($body === null) {
             return null;
         }
@@ -189,6 +202,13 @@ class CacheRepository
      */
     public function retrieveBody(?string $data): ?string
     {
+        Log::debug('Retrieving body', [
+            'body_length' => strlen($data ?? ''),
+            'compression' => $this->compression->isEnabled(),
+            'data_type'   => gettype($data),
+            'data_sample' => mb_substr($data ?? '', 0, 20),
+        ]);
+
         if ($data === null) {
             return null;
         }
@@ -295,8 +315,7 @@ class CacheRepository
     public function get(string $clientName, string $key): ?array
     {
         $table = $this->getTableName($clientName);
-
-        $data = $this->db->table($table)
+        $data  = $this->db->table($table)
             ->where('key', $key)
             ->where(function ($query) {
                 $query->whereNull('expires_at')
@@ -313,6 +332,16 @@ class CacheRepository
 
             return null;
         }
+
+        // Debug raw data before processing
+        Log::debug('Raw data from database', [
+            'response_headers_length'         => strlen($data->response_headers ?? ''),
+            'response_headers_type'           => gettype($data->response_headers),
+            'response_headers_bin2hex_sample' => $data->response_headers === null ? null : bin2hex(mb_substr($data->response_headers, 0, 20)),
+            'response_body_length'            => strlen($data->response_body ?? ''),
+            'response_body_type'              => gettype($data->response_body),
+            'response_body_bin2hex_sample'    => $data->response_body === null ? null : bin2hex(mb_substr($data->response_body, 0, 20)),
+        ]);
 
         Log::debug('Cache hit', [
             'client'     => $clientName,

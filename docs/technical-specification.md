@@ -67,16 +67,23 @@ Create a Laravel-based PHP library for caching API responses, designed to work w
 - `base_url`
 - `full_url`
 - `method`
-- `request_headers` (mediumblob)
-- `request_body` (mediumblob)
+- `request_headers` (binary)
+- `request_body` (binary)
 - `response_status_code`
-- `response_headers` (mediumblob)
-- `response_body` (mediumblob)
+- `response_headers` (binary)
+- `response_body` (binary)
 - `response_size`
 - `response_time` (double)
 - `expires_at` (nullable, allows for permanent caching if `null`)
 - `created_at`
 - `updated_at`
+
+**Note**:
+- Laravel does not natively support `mediumBlob` or `longBlob` types.
+- For SQLite and PostgreSQL, we can use Laravel's native `binary` type.
+- But for MySQL and SQL Server, we need to manually alter the column types.
+- Otherwise you will get character limits of **64K** and **8K** in MySQL and SQL Server respectively.
+- For MySQL, use `MEDIUMBLOB` and for SQL Server, use `VARBINARY(MAX)`.
 
 ## Proposed Classes
 

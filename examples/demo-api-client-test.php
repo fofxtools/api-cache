@@ -120,25 +120,25 @@ $client->setTimeout(2);
 echo "\n";
 
 try {
-    // Test prediction endpoint
-    echo "Testing prediction endpoint...\n";
-    $result = $client->prediction('test query', 5);
+    // Test predictions endpoint
+    echo "Testing predictions endpoint...\n";
+    $result = $client->predictions('test query', 5);
     echo "Status code: {$result['response']->status()}\n";
     echo "Response time: {$result['response_time']}s\n\n";
     echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
     echo "\n\n";
 
-    // Test cached prediction with same parameters
-    echo "Testing cached prediction...\n";
-    $result = $client->prediction('test query', 5);
+    // Test cached predictions with same parameters
+    echo "Testing cached predictions...\n";
+    $result = $client->predictions('test query', 5);
     echo "Status code: {$result['response']->status()}\n";
     echo "Response time: {$result['response_time']}s\n\n";
     echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
     echo "\n\n";
 
-    // Test report endpoint
-    echo "Testing report endpoint...\n";
-    $result = $client->report('monthly', 'sales');
+    // Test reports endpoint
+    echo "Testing reports endpoint...\n";
+    $result = $client->reports('monthly', 'sales');
     echo "Status code: {$result['response']->status()}\n";
     echo "Response time: {$result['response_time']}s\n\n";
     echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
@@ -148,7 +148,7 @@ try {
     echo "Testing error handling...\n";
 
     try {
-        $result = $client->prediction('', 0); // Invalid parameters
+        $result = $client->predictions('', 0); // Invalid parameters
         echo "Status code: {$result['response']->status()}\n";
         $body = json_decode($result['response']->body(), true);
         if (isset($body['error'])) {

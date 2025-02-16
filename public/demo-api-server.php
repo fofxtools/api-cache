@@ -165,14 +165,14 @@ function handleReports()
         return;
     }
 
-    // Generate demo report
-    $report = [
+    // Generate demo reports
+    $reports = [
         'id'           => rand(1000, 9999),
         'type'         => $reportType,
         'source'       => $dataSource,
         'generated_at' => date('Y-m-d H:i:s'),
         'data'         => [
-            'summary' => "Demo report for {$reportType} using {$dataSource}",
+            'summary' => "Demo reports for {$reportType} using {$dataSource}",
             'metrics' => [
                 'value1' => rand(100, 1000),
                 'value2' => rand(1000, 10000),
@@ -183,7 +183,7 @@ function handleReports()
 
     jsonResponse([
         'success' => true,
-        'data'    => $report,
+        'data'    => $reports,
     ]);
 }
 

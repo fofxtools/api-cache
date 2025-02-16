@@ -117,7 +117,7 @@ return [
             'base_url' => env('DEMO_BASE_URL'),
             'cache_ttl' => env('DEMO_CACHE_TTL', null),
             'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
-            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'prediction'),
+            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
             'rate_limit_max_attempts' => env('DEMO_RATE_LIMIT_MAX_ATTEMPTS', 1000),
             'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
@@ -155,7 +155,7 @@ http://localhost:8000/demo-api-server.php/v1
 ### Endpoints
 - GET /predictions
   - Parameters: query (string), max_results (int)
-  - Returns: Array of prediction results
+  - Returns: Array of predictions endpoint results
 - POST /reports
   - Parameters: report_type (string), data_source (string)
-  - Returns: Report data
+  - Returns: Array of reports endpoint results

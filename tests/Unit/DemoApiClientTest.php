@@ -79,12 +79,12 @@ class DemoApiClientTest extends TestCase
         );
     }
 
-    public function test_prediction_method_sends_correct_request(): void
+    public function test_predictions_method_sends_correct_request(): void
     {
         $query      = 'test query';
         $maxResults = 5;
 
-        $result = $this->client->prediction($query, $maxResults);
+        $result = $this->client->predictions($query, $maxResults);
 
         $this->assertEquals(200, $result['response']->status());
         $responseData = json_decode($result['response']->body(), true);
@@ -94,12 +94,12 @@ class DemoApiClientTest extends TestCase
         $this->assertArrayHasKey('response_time', $result);
     }
 
-    public function test_report_method_sends_correct_request(): void
+    public function test_reports_method_sends_correct_request(): void
     {
         $reportType = 'monthly';
         $dataSource = 'sales';
 
-        $result = $this->client->report($reportType, $dataSource);
+        $result = $this->client->reports($reportType, $dataSource);
 
         $this->assertEquals(200, $result['response']->status());
         $responseData = json_decode($result['response']->body(), true);
@@ -109,7 +109,7 @@ class DemoApiClientTest extends TestCase
         $this->assertArrayHasKey('response_time', $result);
     }
 
-    public function test_prediction_method_merges_additional_params(): void
+    public function test_predictions_method_merges_additional_params(): void
     {
         $additionalParams = ['filter' => 'test'];
 
@@ -122,7 +122,7 @@ class DemoApiClientTest extends TestCase
                 return 'demo.get.predictions.test-hash.v1';
             });
 
-        $result = $this->client->prediction('test', 10, $additionalParams);
+        $result = $this->client->predictions('test', 10, $additionalParams);
 
         $this->assertEquals(200, $result['response']->status());
         $responseData = json_decode($result['response']->body(), true);

@@ -298,7 +298,7 @@ class DemoApiClient extends BaseApiClient
     /**
      * Get predictions based on query parameters
      */
-    public function prediction(
+    public function predictions(
         string $query,
         int $maxResults = 10,
         array $additionalParams = []
@@ -312,9 +312,9 @@ class DemoApiClient extends BaseApiClient
     }
 
     /**
-     * Get report based on type and source
+     * Get reports based on type and source
      */
-    public function report(
+    public function reports(
         string $reportType,
         string $dataSource,
         array $additionalParams = []
@@ -1183,7 +1183,7 @@ return [
             'base_url' => env('DEMO_BASE_URL'),
             'cache_ttl' => env('DEMO_CACHE_TTL', null),
             'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
-            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'prediction'),
+            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
             'rate_limit_max_attempts' => env('DEMO_RATE_LIMIT_MAX_ATTEMPTS', 1000),
             'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
         ],

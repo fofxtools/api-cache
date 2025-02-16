@@ -14,9 +14,9 @@ class TestCase extends Orchestra
      */
     protected function setUp(): void
     {
-        // Load .env.testing before parent setup
-        if (file_exists(dirname(__DIR__) . '/.env.testing')) {
-            (Dotenv::createImmutable(dirname(__DIR__), '.env.testing'))->safeLoad();
+        // Load .env before parent setup
+        if (file_exists(dirname(__DIR__) . '/.env')) {
+            (Dotenv::createImmutable(dirname(__DIR__), '.env'))->safeLoad();
         }
 
         parent::setUp();

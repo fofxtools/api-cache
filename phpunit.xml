@@ -21,6 +21,5 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="ENV_FILE" value=".env.testing"/>
     </php>
 </phpunit>

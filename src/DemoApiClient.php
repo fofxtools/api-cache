@@ -57,12 +57,12 @@ class DemoApiClient extends BaseApiClient
      *
      * @return array API response data
      */
-    public function prediction(
+    public function predictions(
         string $query,
         int $maxResults = 10,
         array $additionalParams = []
     ): array {
-        Log::debug('Making prediction request', [
+        Log::debug('Making predictions request', [
             'client'     => $this->clientName,
             'query'      => $query,
             'maxResults' => $maxResults,
@@ -77,20 +77,20 @@ class DemoApiClient extends BaseApiClient
     }
 
     /**
-     * Get report based on type and source
+     * Get reports based on type and source
      *
-     * @param string $reportType       Type of report to generate
-     * @param string $dataSource       Source of data for the report
+     * @param string $reportType       Type of reports to generate
+     * @param string $dataSource       Source of data for the reports
      * @param array  $additionalParams Additional parameters to include in the request
      *
      * @return array API response data
      */
-    public function report(
+    public function reports(
         string $reportType,
         string $dataSource,
         array $additionalParams = []
     ): array {
-        Log::debug('Making report request', [
+        Log::debug('Making reports request', [
             'client'     => $this->clientName,
             'reportType' => $reportType,
             'dataSource' => $dataSource,

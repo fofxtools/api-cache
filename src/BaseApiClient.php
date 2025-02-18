@@ -16,7 +16,7 @@ abstract class BaseApiClient
     protected string $apiKey;
     protected ?string $version;
     protected PendingRequest $pendingRequest;
-    protected ApiCacheManager $cacheManager;
+    protected ?ApiCacheManager $cacheManager;
 
     /**
      * Create a new API client instance
@@ -41,7 +41,7 @@ abstract class BaseApiClient
         $this->baseUrl        = $baseUrl;
         $this->apiKey         = $apiKey;
         $this->version        = $version;
-        $this->cacheManager   = $cacheManager ?? app(ApiCacheManager::class);
+        $this->cacheManager   = $this->resolveCacheManager($cacheManager);
         $this->pendingRequest = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
             'Accept'        => 'application/json',
@@ -195,7 +195,7 @@ abstract class BaseApiClient
      * @param array  $params   Request parameters
      * @param string $method   HTTP method (GET, POST, etc.)
      *
-     * @throws RateLimitException        When rate limit is exceeded
+     * @throws RateLimitException        When rate limit is exceeded. Or when cache manager is not initialized.
      * @throws \JsonException            When cache key generation fails
      * @throws \InvalidArgumentException When HTTP method is not supported
      *
@@ -203,6 +203,11 @@ abstract class BaseApiClient
      */
     public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET'): array
     {
+        // Make sure $this->cacheManager is not null
+        if ($this->cacheManager === null) {
+            throw new \RuntimeException('Cache manager is not initialized');
+        }
+
         Log::debug('Processing cached request', [
             'client'   => $this->clientName,
             'endpoint' => $endpoint,
@@ -292,5 +297,28 @@ abstract class BaseApiClient
     public function getHealth(): array
     {
         return $this->sendRequest('health');
+    }
+
+    /**
+     * Resolve the cache manager
+     *
+     * @param ApiCacheManager|null $cacheManager Optional cache manager instance
+     *
+     * @return ApiCacheManager|null The resolved cache manager
+     */
+    protected function resolveCacheManager(?ApiCacheManager $cacheManager): ?ApiCacheManager
+    {
+        if ($cacheManager !== null) {
+            return $cacheManager;
+        }
+
+        try {
+            // Get client-specific manager from factory
+            return app('api-cache.factory')->createManager($this->clientName);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to resolve ApiCacheManager', ['error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 }

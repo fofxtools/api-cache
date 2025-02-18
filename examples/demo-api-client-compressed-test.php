@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use FOfX\ApiCache\DemoApiClient;
+use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\ApiCacheManager;
 use FOfX\ApiCache\CacheRepository;
 use FOfX\ApiCache\CompressionService;
@@ -37,6 +38,9 @@ $app->singleton('config', fn () => new \Illuminate\Config\Repository([
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
+// Register our service provider
+$app->register(ApiCacheServiceProvider::class);
+
 // Get the appropriate host based on environment
 if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
     // In WSL2, /etc/resolv.conf's nameserver points to the Windows host
@@ -57,6 +61,9 @@ $modifiedBaseUrl = preg_replace(
 // Update config with WSL-adjusted URL
 $app['config']->set('api-cache.apis.demo.base_url', $modifiedBaseUrl);
 
+// Enable compression
+$app['config']->set('api-cache.apis.demo.compression_enabled', true);
+
 // Setup database
 $capsule = new Capsule();
 $capsule->addConnection(
@@ -64,6 +71,11 @@ $capsule->addConnection(
 );
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
+
+// Register database in container
+$app->singleton('db', function () use ($capsule) {
+    return $capsule->getDatabaseManager();
+});
 
 // Create services
 $rateLimiter      = new RateLimiter(Cache::driver());

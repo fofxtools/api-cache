@@ -11,6 +11,11 @@ class ApiCacheServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/api-cache.php', 'api-cache');
+
+        // Register factory for client-specific services
+        $this->app->singleton('api-cache.factory', function ($app) {
+            return new ApiCacheFactory($app);
+        });
     }
 
     public function boot(): void

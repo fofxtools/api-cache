@@ -50,7 +50,7 @@ class CacheRepository
         }
 
         // If compression is enabled, add the compressed suffix
-        if ($this->compression->isEnabled()) {
+        if ($this->compression->isEnabled($clientName)) {
             $suffix = $compressed_string;
         } else {
             $suffix = '';
@@ -80,16 +80,20 @@ class CacheRepository
     /**
      * Prepare headers for storage (headers are always an array)
      *
+     * @param string $clientName Client name
      * @param array|null $headers HTTP headers array
      *
      * @throws \JsonException When JSON encoding fails
      *
      * @return string|null JSON encoded and optionally compressed headers
      */
-    public function prepareHeaders(?array $headers): ?string
+    public function prepareHeaders(string $clientName, ?array $headers): ?string
     {
+        $compressionEnabled = $this->compression->isEnabled($clientName);
+
         Log::debug('Preparing headers', [
-            'compression' => $this->compression->isEnabled(),
+            'client'      => $clientName,
+            'compression_enabled' => $compressionEnabled,
         ]);
 
         if ($headers === null) {
@@ -100,6 +104,7 @@ class CacheRepository
             $encoded = json_encode($headers, flags: JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
             Log::error('Failed to encode headers', [
+                'client'  => $clientName,
                 'error'   => $e->getMessage(),
                 'headers' => $headers,
             ]);
@@ -108,8 +113,8 @@ class CacheRepository
             throw $e;
         }
 
-        if ($this->compression->isEnabled()) {
-            return $this->compression->compress($encoded, 'headers');
+        if ($compressionEnabled) {
+            return $this->compression->compress($clientName, $encoded, 'headers');
         } else {
             return $encoded;
         }
@@ -118,6 +123,7 @@ class CacheRepository
     /**
      * Retrieve headers from storage (headers are always an array)
      *
+     * @param string $clientName Client name
      * @param string|null $data Stored HTTP headers data
      *
      * @throws \JsonException    When JSON decoding fails
@@ -125,18 +131,21 @@ class CacheRepository
      *
      * @return array|null Decoded headers array
      */
-    public function retrieveHeaders(?string $data): ?array
+    public function retrieveHeaders(string $clientName, ?string $data): ?array
     {
+        $compressionEnabled = $this->compression->isEnabled($clientName);
+
         Log::debug('Retrieving headers', [
-            'compression' => $this->compression->isEnabled(),
+            'client'      => $clientName,
+            'compression_enabled' => $compressionEnabled,
         ]);
 
         if ($data === null) {
             return null;
         }
 
-        if ($this->compression->isEnabled()) {
-            $raw = $this->compression->decompress($data);
+        if ($compressionEnabled) {
+            $raw = $this->compression->decompress($clientName, $data);
         } else {
             $raw = $data;
         }
@@ -171,23 +180,27 @@ class CacheRepository
     /**
      * Prepare body for storage (body is always a string)
      *
+     * @param string $clientName Client name
      * @param string|null $body Raw body content
      *
      * @return string|null Optionally compressed body
      */
-    public function prepareBody(?string $body): ?string
+    public function prepareBody(string $clientName, ?string $body): ?string
     {
+        $compressionEnabled = $this->compression->isEnabled($clientName);
+
         Log::debug('Preparing body', [
+            'client'      => $clientName,
+            'compression_enabled' => $compressionEnabled,
             'body_length' => strlen($body ?? ''),
-            'compression' => $this->compression->isEnabled(),
         ]);
 
         if ($body === null) {
             return null;
         }
 
-        if ($this->compression->isEnabled()) {
-            return $this->compression->compress($body, 'body');
+        if ($compressionEnabled) {
+            return $this->compression->compress($clientName, $body, 'body');
         } else {
             return $body;
         }
@@ -196,15 +209,19 @@ class CacheRepository
     /**
      * Retrieve body from storage (body is always a string)
      *
+     * @param string $clientName Client name
      * @param string|null $data Stored body data
      *
      * @return string|null Raw body content
      */
-    public function retrieveBody(?string $data): ?string
+    public function retrieveBody(string $clientName, ?string $data): ?string
     {
+        $compressionEnabled = $this->compression->isEnabled($clientName);
+
         Log::debug('Retrieving body', [
+            'client'      => $clientName,
+            'compression_enabled' => $compressionEnabled,
             'body_length' => strlen($data ?? ''),
-            'compression' => $this->compression->isEnabled(),
             'data_type'   => gettype($data),
             'data_sample' => mb_substr($data ?? '', 0, 20),
         ]);
@@ -213,8 +230,8 @@ class CacheRepository
             return null;
         }
 
-        if ($this->compression->isEnabled()) {
-            return $this->compression->decompress($data);
+        if ($compressionEnabled) {
+            return $this->compression->decompress($clientName, $data);
         } else {
             return $data;
         }
@@ -276,11 +293,11 @@ class CacheRepository
             'base_url'             => $metadata['base_url'],
             'full_url'             => $metadata['full_url'],
             'method'               => $metadata['method'],
-            'request_headers'      => $this->prepareHeaders($metadata['request_headers']),
-            'request_body'         => $this->prepareBody($metadata['request_body']),
+            'request_headers'      => $this->prepareHeaders($clientName, $metadata['request_headers']),
+            'request_body'         => $this->prepareBody($clientName, $metadata['request_body']),
             'response_status_code' => $metadata['response_status_code'],
-            'response_headers'     => $this->prepareHeaders($metadata['response_headers']),
-            'response_body'        => $this->prepareBody($metadata['response_body']),
+            'response_headers'     => $this->prepareHeaders($clientName, $metadata['response_headers']),
+            'response_body'        => $this->prepareBody($clientName, $metadata['response_body']),
             'response_size'        => $metadata['response_size'],
             'response_time'        => $metadata['response_time'],
             'expires_at'           => $expiresAt,
@@ -356,11 +373,11 @@ class CacheRepository
             'base_url'             => $data->base_url,
             'full_url'             => $data->full_url,
             'method'               => $data->method,
-            'request_headers'      => $this->retrieveHeaders($data->request_headers),
-            'request_body'         => $this->retrieveBody($data->request_body),
+            'request_headers'      => $this->retrieveHeaders($clientName, $data->request_headers),
+            'request_body'         => $this->retrieveBody($clientName, $data->request_body),
             'response_status_code' => $data->response_status_code,
-            'response_headers'     => $this->retrieveHeaders($data->response_headers),
-            'response_body'        => $this->retrieveBody($data->response_body),
+            'response_headers'     => $this->retrieveHeaders($clientName, $data->response_headers),
+            'response_body'        => $this->retrieveBody($clientName, $data->response_body),
             'response_size'        => $data->response_size,
             'response_time'        => $data->response_time,
             'expires_at'           => $data->expires_at,

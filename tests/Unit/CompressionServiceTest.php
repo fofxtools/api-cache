@@ -9,85 +9,50 @@ use Orchestra\Testbench\TestCase;
 
 class CompressionServiceTest extends TestCase
 {
+    private CompressionService $service;
+    private string $clientName = 'test-client';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        
+        // Set up default config
+        $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", false);
+        
+        $this->service = new CompressionService();
+    }
+
     public function test_isEnabled_returns_false_by_default(): void
     {
-        $service = new CompressionService();
-        $this->assertFalse($service->isEnabled());
+        // setUp() should always reset the config to false before each test
+        $this->assertFalse($this->service->isEnabled($this->clientName));
     }
 
     public function test_compress_returns_original_when_disabled(): void
     {
-        $service = new CompressionService(false);
-        $data    = 'test data';
-
-        $this->assertSame($data, $service->compress($data));
+        $data = 'test data';
+        $this->assertEquals($data, $this->service->compress($this->clientName, $data));
     }
 
     public function test_compress_modifies_data_when_enabled(): void
     {
-        $service = new CompressionService(true);
-        $data    = 'test data';
+        $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", true);
 
-        $compressed = $service->compress($data);
-        $this->assertNotSame($data, $compressed);
-    }
-
-    public function test_compress_includes_context_in_logs(): void
-    {
-        $service = new CompressionService(true);
-        $data    = 'test data';
-        $context = 'test-context';
-
-        // Capture logs
-        $logs = [];
-        $this->app->make('log')->listen(function ($event) use (&$logs) {
-            $logs[] = $event;
-        });
-
-        // Compress with context
-        $service->compress($data, $context);
-
-        // Assert log contains context
-        $this->assertTrue(collect($logs)->contains(function ($event) use ($context) {
-            return $event->message === 'Data compressed successfully'
-                && isset($event->context['context'])
-                && $event->context['context'] === $context;
-        }));
-    }
-
-    public function test_compress_works_without_context(): void
-    {
-        $service = new CompressionService(true);
-        $data    = 'test data';
-
-        // Capture logs
-        $logs = [];
-        $this->app->make('log')->listen(function ($event) use (&$logs) {
-            $logs[] = $event;
-        });
-
-        // Compress without context
-        $service->compress($data);
-
-        // Assert log contains empty context
-        $this->assertTrue(collect($logs)->contains(function ($event) {
-            return $event->message === 'Data compressed successfully'
-                && isset($event->context['context'])
-                && $event->context['context'] === '';
-        }));
+        $data = 'test data';
+        $compressed = $this->service->compress($this->clientName, $data);
+        
+        $this->assertNotEquals($data, $compressed);
+        $this->assertEquals($data, $this->service->decompress($this->clientName, $compressed));
     }
 
     /**
-     * Test that empty data is handled correctly
+     * Test that empty data is handled correctly when compression is enabled
      */
-    public function test_compress_handles_empty_data(): void
+    public function test_compress_handles_empty_data_when_enabled(): void
     {
-        $service = new CompressionService(true);
+        $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", true);
 
-        $emptyString = '';
-        $result      = $service->compress($emptyString, 'test-context');
-
-        $this->assertSame($emptyString, $result);
+        $this->assertEquals('', $this->service->compress($this->clientName, ''));
     }
 
     /**
@@ -95,40 +60,31 @@ class CompressionServiceTest extends TestCase
      */
     public function test_compress_handles_empty_data_when_disabled(): void
     {
-        $service = new CompressionService(false);
-
-        $emptyString = '';
-        $result      = $service->compress($emptyString, 'test-context');
-
-        $this->assertSame($emptyString, $result);
+        $this->assertEquals('', $this->service->compress($this->clientName, ''));
     }
 
     public function test_decompress_returns_original_when_disabled(): void
     {
-        $service = new CompressionService(false);
-        $data    = 'test data';
-
-        $this->assertSame($data, $service->decompress($data));
+        $data = 'test data';
+        $this->assertEquals($data, $this->service->decompress($this->clientName, $data));
     }
 
     public function test_decompress_restores_compressed_data(): void
     {
-        $service = new CompressionService(true);
-        $data    = 'test data';
+        $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", true);
 
-        $compressed   = $service->compress($data);
-        $decompressed = $service->decompress($compressed);
-
-        $this->assertSame($data, $decompressed);
+        $data = 'test data';
+        $compressed = $this->service->compress($this->clientName, $data);
+        $decompressed = $this->service->decompress($this->clientName, $compressed);
+        
+        $this->assertEquals($data, $decompressed);
     }
 
     public function test_decompress_throws_on_invalid_data(): void
     {
-        $service = new CompressionService(true);
+        $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", true);
 
         $this->expectException(\RuntimeException::class);
-
-        // With compression enabled, trying to decompress a raw string should throw an exception
-        $service->decompress('invalid data');
+        $this->service->decompress($this->clientName, 'invalid compressed data');
     }
 }

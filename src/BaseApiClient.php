@@ -315,7 +315,7 @@ abstract class BaseApiClient
         try {
             // Get client-specific manager from factory
             return app('api-cache.factory')->createManager($this->clientName);
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             Log::warning('Failed to resolve ApiCacheManager', ['error' => $e->getMessage()]);
 
             return null;

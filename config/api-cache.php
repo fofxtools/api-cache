@@ -18,8 +18,9 @@ return [
         |--------------------------------------------------------------------------
         */
         'demo' => [
-            'base_url'                 => env('DEMO_BASE_URL', 'http://localhost:8000/demo-api-server.php/v1'),
             'api_key'                  => env('DEMO_API_KEY', 'demo-api-key'),
+            'base_url'                 => env('DEMO_BASE_URL', 'http://localhost:8000/demo-api-server.php/v1'),
+            'version'                  => env('DEMO_VERSION', null),
             'cache_ttl'                => env('DEMO_CACHE_TTL', null),
             'compression_enabled'      => env('DEMO_COMPRESSION_ENABLED', false),
             'default_endpoint'         => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
@@ -33,8 +34,9 @@ return [
         |--------------------------------------------------------------------------
         */
         'openai' => [
-            'base_url'                 => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
             'api_key'                  => env('OPENAI_API_KEY', null),
+            'base_url'                 => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+            'version'                  => env('OPENAI_VERSION', null),
             'cache_ttl'                => env('OPENAI_CACHE_TTL', null),
             'compression_enabled'      => env('OPENAI_COMPRESSION_ENABLED', false),
             'default_endpoint'         => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),
@@ -48,8 +50,9 @@ return [
         |--------------------------------------------------------------------------
         */
         'pixabay' => [
-            'base_url'                 => env('PIXABAY_BASE_URL', 'https://pixabay.com/api'),
             'api_key'                  => env('PIXABAY_API_KEY', null),
+            'base_url'                 => env('PIXABAY_BASE_URL', 'https://pixabay.com/api'),
+            'version'                  => env('PIXABAY_VERSION', null),
             'cache_ttl'                => env('PIXABAY_CACHE_TTL', null),
             'compression_enabled'      => env('PIXABAY_COMPRESSION_ENABLED', false),
             'default_endpoint'         => env('PIXABAY_DEFAULT_ENDPOINT', 'search'),
@@ -68,6 +71,7 @@ return [
     */
     'defaults' => [
         'cache_ttl'                => null,
+        'version'                  => null,
         'compression_enabled'      => false,
         'rate_limit_max_attempts'  => 1000,
         'rate_limit_decay_seconds' => 60,

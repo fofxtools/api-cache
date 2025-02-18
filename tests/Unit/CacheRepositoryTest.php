@@ -13,12 +13,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 class CacheRepositoryTest extends TestCase
 {
     protected Connection $db;
-    protected CompressionService $uncompressedService;
-    protected CompressionService $compressedService;
-    protected CacheRepository $uncompressedCache;
-    protected CacheRepository $compressedCache;
-    protected string $clientName = 'test-client';
-    protected string $key        = 'test-key';
+    protected CompressionService $compressionService;
+    protected CacheRepository $repository;
+    protected string $compressedClient = 'compressed-client';
+    protected string $uncompressedClient = 'uncompressed-client';
+    protected string $key = 'test-key';
     protected array $testData;
 
     protected function setUp(): void
@@ -32,19 +31,20 @@ class CacheRepositoryTest extends TestCase
             'database' => ':memory:',
         ]);
 
+        // Configure compression for different clients
+        $this->app['config']->set("api-cache.apis.{$this->compressedClient}.compression_enabled", true);
+        $this->app['config']->set("api-cache.apis.{$this->uncompressedClient}.compression_enabled", false);
+
         $this->db = $this->app['db']->connection();
+        $this->compressionService = new CompressionService();
+        $this->repository = new CacheRepository(
+            $this->db,
+            $this->compressionService
+        );
 
-        // Setup services
-        $this->uncompressedService = new CompressionService(false);
-        $this->compressedService   = new CompressionService(true);
-
-        // Setup repositories
-        $this->uncompressedCache = new CacheRepository($this->db, $this->uncompressedService);
-        $this->compressedCache   = new CacheRepository($this->db, $this->compressedService);
-
-        // Create both tables
-        $this->createTestTable($this->uncompressedCache->getTableName($this->clientName));
-        $this->createTestTable($this->compressedCache->getTableName($this->clientName));
+        // Create tables for both clients
+        $this->createTestTable($this->repository->getTableName($this->compressedClient));
+        $this->createTestTable($this->repository->getTableName($this->uncompressedClient));
 
         // Test data
         $this->testData = [
@@ -82,43 +82,143 @@ class CacheRepositoryTest extends TestCase
     public function test_getTableName_without_compression(): void
     {
         $this->assertEquals(
-            'api_cache_test_client_responses',
-            $this->uncompressedCache->getTableName('test-client')
+            'api_cache_uncompressed_client_responses',
+            $this->repository->getTableName($this->uncompressedClient)
         );
     }
 
     public function test_getTableName_with_compression(): void
     {
         $this->assertEquals(
-            'api_cache_test_client_responses_compressed',
-            $this->compressedCache->getTableName('test-client')
+            'api_cache_compressed_client_responses_compressed',
+            $this->repository->getTableName($this->compressedClient)
         );
     }
 
-    public static function tableNameProvider(): array
+    public static function clientNamesProvider(): array
     {
         return [
-            'simple name' => [
-                'clientName'            => 'demo',
-                'expected_uncompressed' => 'api_cache_demo_responses',
-                'expected_compressed'   => 'api_cache_demo_responses_compressed',
+            'uncompressed client' => ['uncompressed-client'],
+            'compressed client'   => ['compressed-client'],
+        ];
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_store_and_get(string $clientName): void
+    {
+        $this->repository->store($clientName, $this->key, $this->testData);
+        $retrieved = $this->repository->get($clientName, $this->key);
+
+        $this->assertNotNull($retrieved);
+        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
+        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
+        $this->assertEquals($this->testData['method'], $retrieved['method']);
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_get_respects_ttl(string $clientName): void
+    {
+        $this->repository->store($clientName, $this->key, $this->testData, 1);
+
+        $this->assertNotNull($this->repository->get($clientName, $this->key));
+
+        sleep(2);
+
+        $this->assertNull($this->repository->get($clientName, $this->key));
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_cleanup_removes_expired_data(string $clientName): void
+    {
+        $this->repository->store($clientName, $this->key, $this->testData, 1);
+
+        sleep(2);
+
+        $this->repository->cleanup($clientName);
+        $this->assertNull($this->repository->get($clientName, $this->key));
+    }
+
+    public function test_store_validates_required_fields_without_compression(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $invalidData = [
+            'method' => 'GET',
+            // Deliberately missing required fields 'endpoint' and 'response_body'
+        ];
+
+        $this->repository->store($this->uncompressedClient, $this->key, $invalidData);
+    }
+
+    public function test_store_validates_required_fields_with_compression(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $invalidData = [
+            'method' => 'GET',
+            // Deliberately missing required fields 'endpoint' and 'response_body' to test validation
+        ];
+
+        $this->repository->store($this->compressedClient, $this->key, $invalidData);
+    }
+
+    public static function tableNameVariationsProvider(): array
+    {
+        return [
+            'simple name compressed' => [
+                'clientName' => 'demo',
+                'isCompressed' => true,
+                'expected' => 'api_cache_demo_responses_compressed'
             ],
-            'long name' => [
-                'clientName'            => str_repeat('a', 64),
-                'expected_uncompressed' => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses',
-                'expected_compressed'   => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed',
+            'simple name uncompressed' => [
+                'clientName' => 'demo',
+                'isCompressed' => false,
+                'expected' => 'api_cache_demo_responses'
             ],
-            'name with dashes' => [
-                'clientName'            => 'data-for-seo',
-                'expected_uncompressed' => 'api_cache_data_for_seo_responses',
-                'expected_compressed'   => 'api_cache_data_for_seo_responses_compressed',
+            'long name compressed' => [
+                'clientName' => str_repeat('a', 64),
+                'isCompressed' => true,
+                'expected' => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed'
             ],
-            'numbers only' => [
-                'clientName'            => '123456',
-                'expected_uncompressed' => 'api_cache_123456_responses',
-                'expected_compressed'   => 'api_cache_123456_responses_compressed',
+            'long name uncompressed' => [
+                'clientName' => str_repeat('a', 64),
+                'isCompressed' => false,
+                'expected' => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses'
+            ],
+            'name with dashes compressed' => [
+                'clientName' => 'data-for-seo',
+                'isCompressed' => true,
+                'expected' => 'api_cache_data_for_seo_responses_compressed'
+            ],
+            'name with dashes uncompressed' => [
+                'clientName' => 'data-for-seo',
+                'isCompressed' => false,
+                'expected' => 'api_cache_data_for_seo_responses'
+            ],
+            'numbers only compressed' => [
+                'clientName' => '1234567890',
+                'isCompressed' => true,
+                'expected' => 'api_cache_1234567890_responses_compressed'
+            ],
+            'numbers only uncompressed' => [
+                'clientName' => '1234567890',
+                'isCompressed' => false,
+                'expected' => 'api_cache_1234567890_responses'
             ],
         ];
+    }
+
+    #[DataProvider('tableNameVariationsProvider')]
+    public function test_get_table_name_handles_variations(
+        string $clientName,
+        bool $isCompressed,
+        string $expected
+    ): void {
+        // Configure compression for this client
+        $this->app['config']->set("api-cache.apis.{$clientName}.compression_enabled", $isCompressed);
+
+        // Use existing repository
+        $this->assertEquals($expected, $this->repository->getTableName($clientName));
     }
 
     public static function invalidTableNameProvider(): array
@@ -145,121 +245,10 @@ class CacheRepositoryTest extends TestCase
         ];
     }
 
-    #[DataProvider('tableNameProvider')]
-    public function test_get_table_name_handles_various_client_names_uncompressed(
-        string $clientName,
-        string $expected_uncompressed,
-        string $expected_compressed
-    ): void {
-        $repository = new CacheRepository($this->db, $this->uncompressedService);
-
-        $this->assertEquals($expected_uncompressed, $repository->getTableName($clientName));
-    }
-
-    #[DataProvider('tableNameProvider')]
-    public function test_get_table_name_handles_various_client_names_compressed(
-        string $clientName,
-        string $expected_uncompressed,
-        string $expected_compressed
-    ): void {
-        $repository = new CacheRepository($this->db, $this->compressedService);
-
-        $this->assertEquals($expected_compressed, $repository->getTableName($clientName));
-    }
-
     #[DataProvider('invalidTableNameProvider')]
-    public function test_get_table_name_throws_exception_for_invalid_names_uncompressed(string $clientName): void
-    {
-        $repository = new CacheRepository($this->db, $this->uncompressedService);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $repository->getTableName($clientName);
-    }
-
-    #[DataProvider('invalidTableNameProvider')]
-    public function test_get_table_name_throws_exception_for_invalid_names_compressed(string $clientName): void
-    {
-        $repository = new CacheRepository($this->db, $this->compressedService);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $repository->getTableName($clientName);
-    }
-
-    public function test_store_validates_required_fields(): void
+    public function test_get_table_name_throws_exception_for_invalid_names(string $clientName): void
     {
         $this->expectException(\InvalidArgumentException::class);
-
-        $invalidData = [
-            'method' => 'GET',
-            // Deliberately missing required fields 'endpoint' and 'response_body' to test validation
-        ];
-
-        $this->uncompressedCache->store($this->clientName, $this->key, $invalidData);
-    }
-
-    public function test_store_and_get_without_compression(): void
-    {
-        $this->uncompressedCache->store($this->clientName, $this->key, $this->testData);
-        $retrieved = $this->uncompressedCache->get($this->clientName, $this->key);
-
-        $this->assertNotNull($retrieved);
-        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
-        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
-        $this->assertEquals($this->testData['method'], $retrieved['method']);
-    }
-
-    public function test_store_and_get_with_compression(): void
-    {
-        $this->compressedCache->store($this->clientName, $this->key, $this->testData);
-        $retrieved = $this->compressedCache->get($this->clientName, $this->key);
-
-        $this->assertNotNull($retrieved);
-        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
-        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
-        $this->assertEquals($this->testData['method'], $retrieved['method']);
-    }
-
-    public function test_get_respects_ttl_without_compression(): void
-    {
-        $this->uncompressedCache->store($this->clientName, $this->key, $this->testData, 1);
-
-        $this->assertNotNull($this->uncompressedCache->get($this->clientName, $this->key));
-
-        sleep(2);
-
-        $this->assertNull($this->uncompressedCache->get($this->clientName, $this->key));
-    }
-
-    public function test_get_respects_ttl_with_compression(): void
-    {
-        $this->compressedCache->store($this->clientName, $this->key, $this->testData, 1);
-
-        $this->assertNotNull($this->compressedCache->get($this->clientName, $this->key));
-
-        sleep(2);
-
-        $this->assertNull($this->compressedCache->get($this->clientName, $this->key));
-    }
-
-    public function test_cleanup_removes_expired_data_without_compression(): void
-    {
-        $this->uncompressedCache->store($this->clientName, $this->key, $this->testData, 1);
-
-        sleep(2);
-
-        $this->uncompressedCache->cleanup($this->clientName);
-
-        $this->assertNull($this->uncompressedCache->get($this->clientName, $this->key));
-    }
-
-    public function test_cleanup_removes_expired_data_with_compression(): void
-    {
-        $this->compressedCache->store($this->clientName, $this->key, $this->testData, 1);
-
-        sleep(2);
-
-        $this->compressedCache->cleanup($this->clientName);
-
-        $this->assertNull($this->compressedCache->get($this->clientName, $this->key));
+        $this->repository->getTableName($clientName);
     }
 }

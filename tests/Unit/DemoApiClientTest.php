@@ -9,7 +9,6 @@ use FOfX\ApiCache\ApiCacheManager;
 use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
 use Orchestra\Testbench\TestCase;
 use Mockery;
-use Illuminate\Support\Facades\Config;
 
 class DemoApiClientTest extends TestCase
 {
@@ -45,8 +44,9 @@ class DemoApiClientTest extends TestCase
 
         $this->cacheManager = Mockery::mock(ApiCacheManager::class);
 
-        // Set WSL-aware base URL in config
-        Config::set('api-cache.apis.demo.base_url', $baseUrl);
+        // Set WSL-aware base URL in config. And version.
+        $this->app['config']->set('api-cache.apis.demo.base_url', $baseUrl);
+        $this->app['config']->set('api-cache.apis.demo.version', 'v1');
 
         $this->client = new DemoApiClient($this->cacheManager);
 
@@ -119,7 +119,7 @@ class DemoApiClientTest extends TestCase
             ->andReturnUsing(function (...$args) use (&$capturedArgs) {
                 $capturedArgs = $args;
 
-                return 'demo.get.predictions.test-hash.v1';
+                return 'demo.get.predictions.test-hash.' . config('api-cache.apis.demo.version');
             });
 
         $result = $this->client->predictions('test', 10, $additionalParams);

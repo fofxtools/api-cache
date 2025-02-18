@@ -21,7 +21,7 @@ class DemoApiClient extends BaseApiClient
             'demo',
             config('api-cache.apis.demo.base_url'),
             config('api-cache.apis.demo.api_key'),
-            'v1',
+            config('api-cache.apis.demo.version'),
             $cacheManager
         );
     }

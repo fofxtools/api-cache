@@ -33,9 +33,7 @@ class ApiCacheFactory
         ]);
 
         // Create compression service
-        $compression = new CompressionService(
-            config("api-cache.apis.{$clientName}.compression_enabled")
-        );
+        $compression = new CompressionService();
 
         // Create repository
         $repository = new CacheRepository(

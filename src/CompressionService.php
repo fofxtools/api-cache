@@ -9,37 +9,33 @@ use Illuminate\Support\Facades\Log;
 class CompressionService
 {
     /**
-     * Whether compression is enabled
-     */
-    protected bool $enabled;
-
-    public function __construct(bool $enabled = false)
-    {
-        $this->enabled = $enabled;
-    }
-
-    /**
-     * Check if compression is enabled
-     */
-    public function isEnabled(): bool
-    {
-        return $this->enabled;
-    }
-
-    /**
-     * Compress data if compression is enabled
+     * Check if compression is enabled for a client
      *
-     * @param string $data    Raw data to compress
-     * @param string $context Context of what's being compressed (e.g., 'headers', 'body')
+     * @param string $clientName Client identifier
+     * @return bool Whether compression is enabled
+     */
+    public function isEnabled(string $clientName): bool
+    {
+        return (bool) config("api-cache.apis.{$clientName}.compression_enabled");
+    }
+
+    /**
+     * Compress data if compression is enabled for the client
+     *
+     * @param string $clientName Client identifier
+     * @param string $data      Raw data to compress
+     * @param string $context   Context of what's being compressed (e.g., 'headers', 'body')
      *
      * @throws \RuntimeException If compression fails
      *
      * @return string Compressed data if enabled, original data if not
      */
-    public function compress(string $data, string $context = ''): string
+    public function compress(string $clientName, string $data, string $context = ''): string
     {
-        if (!$this->enabled) {
-            Log::debug('Compression disabled, returning original data');
+        if (!$this->isEnabled($clientName)) {
+            Log::debug('Compression disabled for client, returning original data', [
+                'client' => $clientName
+            ]);
 
             return $data;
         }
@@ -52,6 +48,7 @@ class CompressionService
         $compressed = gzcompress($data);
         if ($compressed === false) {
             Log::error('Failed to compress data', [
+                'client'      => $clientName,
                 'context'     => $context,
                 'data_length' => strlen($data),
             ]);
@@ -60,28 +57,33 @@ class CompressionService
         }
 
         Log::debug('Data compressed successfully', [
+            'client'          => $clientName,
             'context'         => $context,
             'original_size'   => strlen($data),
             'compressed_size' => strlen($compressed),
-            'ratio'           => round(strlen($compressed) / strlen($data), 2),
+            'ratio'          => round(strlen($compressed) / strlen($data), 2),
         ]);
 
         return $compressed;
     }
 
     /**
-     * Decompress data if compression is enabled
+     * Decompress data if compression is enabled for the client
      *
-     * @param string $data Data to decompress
+     * @param string $clientName Client identifier
+     * @param string $data      Data to decompress
+     * @param string $context   Context of what's being decompressed
      *
-     * @throws \RuntimeException When decompression fails
+     * @throws \RuntimeException If decompression fails
      *
-     * @return string Decompressed data if compressed, original data if not
+     * @return string Decompressed data if compressed, original data if not compressed
      */
-    public function decompress(string $data): string
+    public function decompress(string $clientName, string $data, string $context = ''): string
     {
-        if (!$this->enabled) {
-            Log::debug('Compression disabled, returning original data');
+        if (!$this->isEnabled($clientName)) {
+            Log::debug('Compression disabled for client, returning original data', [
+                'client' => $clientName
+            ]);
 
             return $data;
         }
@@ -94,6 +96,8 @@ class CompressionService
         $decompressed = @gzuncompress($data);
         if ($decompressed === false) {
             Log::error('Failed to decompress data', [
+                'client'      => $clientName,
+                'context'     => $context,
                 'data_length' => strlen($data),
             ]);
 
@@ -101,8 +105,10 @@ class CompressionService
         }
 
         Log::debug('Data decompressed successfully', [
-            'compressed_size' => strlen($data),
-            'original_size'   => strlen($decompressed),
+            'client'            => $clientName,
+            'context'          => $context,
+            'compressed_size'   => strlen($data),
+            'decompressed_size' => strlen($decompressed),
         ]);
 
         return $decompressed;

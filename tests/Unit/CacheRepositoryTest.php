@@ -15,9 +15,9 @@ class CacheRepositoryTest extends TestCase
     protected Connection $db;
     protected CompressionService $compressionService;
     protected CacheRepository $repository;
-    protected string $compressedClient = 'compressed-client';
+    protected string $compressedClient   = 'compressed-client';
     protected string $uncompressedClient = 'uncompressed-client';
-    protected string $key = 'test-key';
+    protected string $key                = 'test-key';
     protected array $testData;
 
     protected function setUp(): void
@@ -35,9 +35,9 @@ class CacheRepositoryTest extends TestCase
         $this->app['config']->set("api-cache.apis.{$this->compressedClient}.compression_enabled", true);
         $this->app['config']->set("api-cache.apis.{$this->uncompressedClient}.compression_enabled", false);
 
-        $this->db = $this->app['db']->connection();
+        $this->db                 = $this->app['db']->connection();
         $this->compressionService = new CompressionService();
-        $this->repository = new CacheRepository(
+        $this->repository         = new CacheRepository(
             $this->db,
             $this->compressionService
         );
@@ -166,44 +166,44 @@ class CacheRepositoryTest extends TestCase
     {
         return [
             'simple name compressed' => [
-                'clientName' => 'demo',
+                'clientName'   => 'demo',
                 'isCompressed' => true,
-                'expected' => 'api_cache_demo_responses_compressed'
+                'expected'     => 'api_cache_demo_responses_compressed',
             ],
             'simple name uncompressed' => [
-                'clientName' => 'demo',
+                'clientName'   => 'demo',
                 'isCompressed' => false,
-                'expected' => 'api_cache_demo_responses'
+                'expected'     => 'api_cache_demo_responses',
             ],
             'long name compressed' => [
-                'clientName' => str_repeat('a', 64),
+                'clientName'   => str_repeat('a', 64),
                 'isCompressed' => true,
-                'expected' => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed'
+                'expected'     => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed',
             ],
             'long name uncompressed' => [
-                'clientName' => str_repeat('a', 64),
+                'clientName'   => str_repeat('a', 64),
                 'isCompressed' => false,
-                'expected' => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses'
+                'expected'     => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses',
             ],
             'name with dashes compressed' => [
-                'clientName' => 'data-for-seo',
+                'clientName'   => 'data-for-seo',
                 'isCompressed' => true,
-                'expected' => 'api_cache_data_for_seo_responses_compressed'
+                'expected'     => 'api_cache_data_for_seo_responses_compressed',
             ],
             'name with dashes uncompressed' => [
-                'clientName' => 'data-for-seo',
+                'clientName'   => 'data-for-seo',
                 'isCompressed' => false,
-                'expected' => 'api_cache_data_for_seo_responses'
+                'expected'     => 'api_cache_data_for_seo_responses',
             ],
             'numbers only compressed' => [
-                'clientName' => '1234567890',
+                'clientName'   => '1234567890',
                 'isCompressed' => true,
-                'expected' => 'api_cache_1234567890_responses_compressed'
+                'expected'     => 'api_cache_1234567890_responses_compressed',
             ],
             'numbers only uncompressed' => [
-                'clientName' => '1234567890',
+                'clientName'   => '1234567890',
                 'isCompressed' => false,
-                'expected' => 'api_cache_1234567890_responses'
+                'expected'     => 'api_cache_1234567890_responses',
             ],
         ];
     }

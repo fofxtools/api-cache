@@ -312,13 +312,7 @@ abstract class BaseApiClient
             return $cacheManager;
         }
 
-        try {
-            // Get client-specific manager from factory
-            return app('api-cache.factory')->createManager($this->clientName);
-        } catch (\Exception $e) {
-            Log::warning('Failed to resolve ApiCacheManager', ['error' => $e->getMessage()]);
-
-            return null;
-        }
+        // Instead of using factory, resolve from container
+        return app(ApiCacheManager::class);
     }
 }

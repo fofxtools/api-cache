@@ -80,8 +80,8 @@ class CacheRepository
     /**
      * Prepare headers for storage (headers are always an array)
      *
-     * @param string $clientName Client name
-     * @param array|null $headers HTTP headers array
+     * @param string     $clientName Client name
+     * @param array|null $headers    HTTP headers array
      *
      * @throws \JsonException When JSON encoding fails
      *
@@ -92,7 +92,7 @@ class CacheRepository
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
         Log::debug('Preparing headers', [
-            'client'      => $clientName,
+            'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
         ]);
 
@@ -123,8 +123,8 @@ class CacheRepository
     /**
      * Retrieve headers from storage (headers are always an array)
      *
-     * @param string $clientName Client name
-     * @param string|null $data Stored HTTP headers data
+     * @param string      $clientName Client name
+     * @param string|null $data       Stored HTTP headers data
      *
      * @throws \JsonException    When JSON decoding fails
      * @throws \RuntimeException When decoded value is not an array
@@ -136,7 +136,7 @@ class CacheRepository
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
         Log::debug('Retrieving headers', [
-            'client'      => $clientName,
+            'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
         ]);
 
@@ -180,8 +180,8 @@ class CacheRepository
     /**
      * Prepare body for storage (body is always a string)
      *
-     * @param string $clientName Client name
-     * @param string|null $body Raw body content
+     * @param string      $clientName Client name
+     * @param string|null $body       Raw body content
      *
      * @return string|null Optionally compressed body
      */
@@ -190,9 +190,9 @@ class CacheRepository
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
         Log::debug('Preparing body', [
-            'client'      => $clientName,
+            'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
-            'body_length' => strlen($body ?? ''),
+            'body_length'         => strlen($body ?? ''),
         ]);
 
         if ($body === null) {
@@ -209,8 +209,8 @@ class CacheRepository
     /**
      * Retrieve body from storage (body is always a string)
      *
-     * @param string $clientName Client name
-     * @param string|null $data Stored body data
+     * @param string      $clientName Client name
+     * @param string|null $data       Stored body data
      *
      * @return string|null Raw body content
      */
@@ -219,11 +219,11 @@ class CacheRepository
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
         Log::debug('Retrieving body', [
-            'client'      => $clientName,
+            'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
-            'body_length' => strlen($data ?? ''),
-            'data_type'   => gettype($data),
-            'data_sample' => mb_substr($data ?? '', 0, 20),
+            'body_length'         => strlen($data ?? ''),
+            'data_type'           => gettype($data),
+            'data_sample'         => mb_substr($data ?? '', 0, 20),
         ]);
 
         if ($data === null) {
@@ -256,8 +256,16 @@ class CacheRepository
      */
     public function store(string $clientName, string $key, array $metadata, ?int $ttl = null): void
     {
-        $table     = $this->getTableName($clientName);
-        $expiresAt = $ttl ? now()->addSeconds($ttl) : null;
+        $table = $this->getTableName($clientName);
+
+        // Single source of truth for current time
+        $now = now();
+
+        if ($ttl) {
+            $expiresAt = $now->copy()->addSeconds($ttl);
+        } else {
+            $expiresAt = null;
+        }
 
         // Ensure required fields exist
         if (empty($metadata['endpoint']) || empty($metadata['response_body'])) {
@@ -301,8 +309,8 @@ class CacheRepository
             'response_size'        => $metadata['response_size'],
             'response_time'        => $metadata['response_time'],
             'expires_at'           => $expiresAt,
-            'created_at'           => now(),
-            'updated_at'           => now(),
+            'created_at'           => $now,
+            'updated_at'           => $now,
         ]);
 
         Log::info('Stored response in cache', [
@@ -332,11 +340,13 @@ class CacheRepository
     public function get(string $clientName, string $key): ?array
     {
         $table = $this->getTableName($clientName);
-        $data  = $this->db->table($table)
+        $now   = now();
+
+        $data = $this->db->table($table)
             ->where('key', $key)
-            ->where(function ($query) {
+            ->where(function ($query) use ($now) {
                 $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
+                    ->orWhere('expires_at', '>', $now);
             })
             ->first();
 
@@ -401,10 +411,12 @@ class CacheRepository
             $clientsArray = array_keys(config('api-cache.apis'));
         }
 
+        $now = now();
+
         foreach ($clientsArray as $clientElement) {
             $table   = $this->getTableName($clientElement);
             $deleted = $this->db->table($table)
-                ->where('expires_at', '<=', now())
+                ->where('expires_at', '<=', $now)
                 ->delete();
 
             Log::info('Cleaned up expired responses', [

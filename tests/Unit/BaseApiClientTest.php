@@ -217,4 +217,35 @@ class BaseApiClientTest extends TestCase
         $this->assertArrayHasKey('status', $result['response']->json());
         $this->assertEquals('OK', $result['response']->json()['status']);
     }
+
+    /**
+     * Call protected resolveCacheManager method using reflection
+     */
+    private function callResolveCacheManager(?ApiCacheManager $manager): ?ApiCacheManager
+    {
+        $method = new \ReflectionMethod(BaseApiClient::class, 'resolveCacheManager');
+        $method->setAccessible(true);
+
+        return $method->invoke($this->client, $manager);
+    }
+
+    public function test_resolve_cache_manager_returns_injected_manager(): void
+    {
+        // Already injected in setUp()
+        $resolvedManager = $this->callResolveCacheManager($this->cacheManager);
+
+        $this->assertSame($this->cacheManager, $resolvedManager);
+    }
+
+    public function test_resolve_cache_manager_returns_singleton_when_not_injected(): void
+    {
+        // Create new singleton instance
+        $singletonManager = $this->mock(ApiCacheManager::class);
+        $this->app->instance(ApiCacheManager::class, $singletonManager);
+
+        // Test with null to simulate no injection
+        $resolvedManager = $this->callResolveCacheManager(null);
+
+        $this->assertSame($singletonManager, $resolvedManager);
+    }
 }

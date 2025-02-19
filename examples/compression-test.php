@@ -29,15 +29,13 @@ $app->singleton('config', fn () => new \Illuminate\Config\Repository([
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
+$clientName = 'test-client';
+
 // Override settings for testing
-$app['config']->set('api-cache.apis.test-client', [
-    'compression_enabled' => true,
-]);
+$app['config']->set("api-cache.apis.{$clientName}.compression_enabled", true);
 
 // Create compression service using config
-$service = new CompressionService(
-    config('api-cache.apis.test-client.compression_enabled')
-);
+$service = new CompressionService();
 
 // Test valid compression
 $data = "Hello, this is a test string that we'll compress and decompress";
@@ -49,7 +47,7 @@ try {
     $compressed = $service->compress($data, 'test-data');
     echo 'Compressed (base64): ' . base64_encode($compressed) . "\n";
 
-    $decompressed = $service->decompress($compressed);
+    $decompressed = $service->decompress($clientName, $compressed);
     echo "Decompressed: {$decompressed}\n";
 
     // Verify
@@ -61,7 +59,7 @@ try {
 // Test invalid data
 try {
     echo "\nTesting invalid data...\n";
-    $service->decompress('not compressed data');
+    $service->decompress($clientName, 'not compressed data');
 } catch (\Exception $e) {
     echo 'Expected error: ' . $e->getMessage() . "\n";
 }

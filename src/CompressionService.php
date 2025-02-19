@@ -12,6 +12,7 @@ class CompressionService
      * Check if compression is enabled for a client
      *
      * @param string $clientName Client identifier
+     *
      * @return bool Whether compression is enabled
      */
     public function isEnabled(string $clientName): bool
@@ -23,8 +24,8 @@ class CompressionService
      * Compress data if compression is enabled for the client
      *
      * @param string $clientName Client identifier
-     * @param string $data      Raw data to compress
-     * @param string $context   Context of what's being compressed (e.g., 'headers', 'body')
+     * @param string $data       Raw data to compress
+     * @param string $context    Context of what's being compressed (e.g., 'headers', 'body')
      *
      * @throws \RuntimeException If compression fails
      *
@@ -34,7 +35,7 @@ class CompressionService
     {
         if (!$this->isEnabled($clientName)) {
             Log::debug('Compression disabled for client, returning original data', [
-                'client' => $clientName
+                'client' => $clientName,
             ]);
 
             return $data;
@@ -61,7 +62,7 @@ class CompressionService
             'context'         => $context,
             'original_size'   => strlen($data),
             'compressed_size' => strlen($compressed),
-            'ratio'          => round(strlen($compressed) / strlen($data), 2),
+            'ratio'           => round(strlen($compressed) / strlen($data), 2),
         ]);
 
         return $compressed;
@@ -71,8 +72,8 @@ class CompressionService
      * Decompress data if compression is enabled for the client
      *
      * @param string $clientName Client identifier
-     * @param string $data      Data to decompress
-     * @param string $context   Context of what's being decompressed
+     * @param string $data       Data to decompress
+     * @param string $context    Context of what's being decompressed
      *
      * @throws \RuntimeException If decompression fails
      *
@@ -82,7 +83,7 @@ class CompressionService
     {
         if (!$this->isEnabled($clientName)) {
             Log::debug('Compression disabled for client, returning original data', [
-                'client' => $clientName
+                'client' => $clientName,
             ]);
 
             return $data;
@@ -106,7 +107,7 @@ class CompressionService
 
         Log::debug('Data decompressed successfully', [
             'client'            => $clientName,
-            'context'          => $context,
+            'context'           => $context,
             'compressed_size'   => strlen($data),
             'decompressed_size' => strlen($decompressed),
         ]);

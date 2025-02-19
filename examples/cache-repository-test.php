@@ -149,7 +149,7 @@ echo "\nTesting CacheRepository with compression enabled:\n";
 echo "------------------------------------------------\n";
 $repository = new CacheRepository(
     $capsule->getDatabaseManager()->connection(),
-    new CompressionService(true)
+    new CompressionService()
 );
 createResponseTable($capsule->schema(), $repository->getTableName($client));
 runCacheTests($repository, $client, $key, $metadata);
@@ -159,7 +159,7 @@ echo "\n\nTesting CacheRepository with compression disabled:\n";
 echo "------------------------------------------------\n";
 $repository = new CacheRepository(
     $capsule->getDatabaseManager()->connection(),
-    new CompressionService(false)
+    new CompressionService()
 );
 createResponseTable($capsule->schema(), $repository->getTableName($client));
 runCacheTests($repository, $client, $key, $metadata);

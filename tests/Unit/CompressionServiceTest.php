@@ -15,10 +15,10 @@ class CompressionServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Set up default config
         $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", false);
-        
+
         $this->service = new CompressionService();
     }
 
@@ -38,9 +38,9 @@ class CompressionServiceTest extends TestCase
     {
         $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", true);
 
-        $data = 'test data';
+        $data       = 'test data';
         $compressed = $this->service->compress($this->clientName, $data);
-        
+
         $this->assertNotEquals($data, $compressed);
         $this->assertEquals($data, $this->service->decompress($this->clientName, $compressed));
     }
@@ -73,10 +73,10 @@ class CompressionServiceTest extends TestCase
     {
         $this->app['config']->set("api-cache.apis.{$this->clientName}.compression_enabled", true);
 
-        $data = 'test data';
-        $compressed = $this->service->compress($this->clientName, $data);
+        $data         = 'test data';
+        $compressed   = $this->service->compress($this->clientName, $data);
         $decompressed = $this->service->decompress($this->clientName, $compressed);
-        
+
         $this->assertEquals($data, $decompressed);
     }
 

@@ -52,7 +52,7 @@ $capsule->bootEloquent();
 // Create services
 $rateLimiter      = new RateLimiter(Cache::driver());
 $rateLimitService = new RateLimitService($rateLimiter);
-$compression      = new CompressionService(true);
+$compression      = new CompressionService();
 $repository       = new CacheRepository(
     $capsule->getDatabaseManager()->connection(),
     $compression

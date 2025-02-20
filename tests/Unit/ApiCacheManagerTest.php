@@ -15,11 +15,16 @@ use PHPUnit\Framework\Attributes\DataProvider;
 class ApiCacheManagerTest extends TestCase
 {
     protected ApiCacheManager $manager;
+
     /** @var \Mockery\MockInterface&CacheRepository */
     protected CacheRepository $repository;
+
     /** @var \Mockery\MockInterface&RateLimitService */
     protected RateLimitService $rateLimiter;
-    protected string $clientName = 'test-client';
+
+    // Use constant so it can be used in static method data providers
+    protected const CLIENT_NAME  = 'test-client';
+    protected string $clientName = self::CLIENT_NAME;
     protected string $endpoint   = '/test';
     protected array $params      = ['key' => 'value'];
 
@@ -49,6 +54,19 @@ class ApiCacheManagerTest extends TestCase
         $response->shouldReceive('body')->andReturn($body);
 
         return $response;
+    }
+
+    public function test_getTableName_returns_correct_name(): void
+    {
+        $sanitizedClientName = str_replace('-', '_', $this->clientName);
+        $expectedTable       = 'api_cache_' . $sanitizedClientName . '_responses';
+
+        $this->repository->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($expectedTable);
+
+        $this->assertEquals($expectedTable, $this->manager->getTableName($this->clientName));
     }
 
     public function test_allow_request_checks_rate_limit(): void
@@ -361,92 +379,92 @@ class ApiCacheManagerTest extends TestCase
 
         return [
             'simple parameters' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/users',
                 'params'      => $params['simple parameters'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.users.' . self::calculateExpectedHash($params['simple parameters']),
+                'expectedKey' => self::CLIENT_NAME . '.get.users.' . self::calculateExpectedHash($params['simple parameters']),
             ],
             'simple parameters different order' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/users',
                 'params'      => $params['simple parameters different order'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.users.' . self::calculateExpectedHash($params['simple parameters different order']),
+                'expectedKey' => self::CLIENT_NAME . '.get.users.' . self::calculateExpectedHash($params['simple parameters different order']),
             ],
             'with version' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/users',
                 'params'      => $params['with version'],
                 'method'      => 'GET',
                 'version'     => 'v1',
-                'expectedKey' => 'test-client.get.users.' . self::calculateExpectedHash($params['with version']) . '.v1',
+                'expectedKey' => self::CLIENT_NAME . '.get.users.' . self::calculateExpectedHash($params['with version']) . '.v1',
             ],
             'different http method' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/users',
                 'params'      => $params['different http method'],
                 'method'      => 'POST',
                 'version'     => null,
-                'expectedKey' => 'test-client.post.users.' . self::calculateExpectedHash($params['different http method']),
+                'expectedKey' => self::CLIENT_NAME . '.post.users.' . self::calculateExpectedHash($params['different http method']),
             ],
             'endpoint without slash' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => 'users',
                 'params'      => $params['endpoint without slash'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.users.' . self::calculateExpectedHash($params['endpoint without slash']),
+                'expectedKey' => self::CLIENT_NAME . '.get.users.' . self::calculateExpectedHash($params['endpoint without slash']),
             ],
             'empty parameters' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/users',
                 'params'      => $params['empty parameters'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.users.' . self::calculateExpectedHash($params['empty parameters']),
+                'expectedKey' => self::CLIENT_NAME . '.get.users.' . self::calculateExpectedHash($params['empty parameters']),
             ],
             'nested parameters' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/search',
                 'params'      => $params['nested parameters'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.search.' . self::calculateExpectedHash($params['nested parameters']),
+                'expectedKey' => self::CLIENT_NAME . '.get.search.' . self::calculateExpectedHash($params['nested parameters']),
             ],
             'unicode in parameters' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/users',
                 'params'      => $params['unicode in parameters'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.users.' . self::calculateExpectedHash($params['unicode in parameters']),
+                'expectedKey' => self::CLIENT_NAME . '.get.users.' . self::calculateExpectedHash($params['unicode in parameters']),
             ],
             'special characters in endpoint' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/user-profiles/123',
                 'params'      => $params['special characters in endpoint'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.user-profiles/123.' . self::calculateExpectedHash($params['special characters in endpoint']),
+                'expectedKey' => self::CLIENT_NAME . '.get.user-profiles/123.' . self::calculateExpectedHash($params['special characters in endpoint']),
             ],
             'mixed parameter types' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/data',
                 'params'      => $params['mixed parameter types'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.data.' . self::calculateExpectedHash($params['mixed parameter types']),
+                'expectedKey' => self::CLIENT_NAME . '.get.data.' . self::calculateExpectedHash($params['mixed parameter types']),
             ],
             'parameters with null values' => [
-                'clientName'  => 'test-client',
+                'clientName'  => self::CLIENT_NAME,
                 'endpoint'    => '/users',
                 'params'      => $params['parameters with null values'],
                 'method'      => 'GET',
                 'version'     => null,
-                'expectedKey' => 'test-client.get.users.' . self::calculateExpectedHash($params['parameters with null values']),
+                'expectedKey' => self::CLIENT_NAME . '.get.users.' . self::calculateExpectedHash($params['parameters with null values']),
             ],
         ];
     }

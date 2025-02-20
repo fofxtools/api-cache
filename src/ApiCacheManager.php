@@ -19,6 +19,18 @@ class ApiCacheManager
     }
 
     /**
+     * Get the table name for a client
+     *
+     * @param string $clientName Client name
+     *
+     * @return string The table name
+     */
+    public function getTableName(string $clientName): string
+    {
+        return $this->repository->getTableName($clientName);
+    }
+
+    /**
      * Check if request is allowed by rate limiter
      *
      * @param string $clientName The API client identifier

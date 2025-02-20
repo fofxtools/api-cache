@@ -65,6 +65,16 @@ abstract class BaseApiClient
     }
 
     /**
+     * Get the table name for this client
+     *
+     * @return string The table name
+     */
+    public function getTableName(string $clientName): string
+    {
+        return $this->cacheManager->getTableName($clientName);
+    }
+
+    /**
      * Get the API version
      *
      * @return string|null The API version

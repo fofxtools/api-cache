@@ -22,7 +22,10 @@ class BaseApiClientTest extends TestCase
     /** @var ApiCacheManager&Mockery\MockInterface */
     protected ApiCacheManager $cacheManager;
 
-    protected string $version = 'v1';
+    // Use constant so it can be used in static method data providers
+    protected const CLIENT_NAME  = 'test-client';
+    protected string $clientName = self::CLIENT_NAME;
+    protected string $version    = 'v1';
 
     /**
      * Get package providers.
@@ -50,7 +53,7 @@ class BaseApiClientTest extends TestCase
         // Create partial mock, only mock buildUrl
         $this->client = $this->getMockBuilder(BaseApiClient::class)
             ->setConstructorArgs([
-                'test-client',
+                $this->clientName,
                 $baseUrl,
                 config('api-cache.apis.demo.api_key'),
                 $this->version,
@@ -74,7 +77,22 @@ class BaseApiClientTest extends TestCase
 
     public function test_getClientName_returns_correct_name(): void
     {
-        $this->assertEquals('test-client', $this->client->getClientName());
+        $this->assertEquals($this->clientName, $this->client->getClientName());
+    }
+
+    public function test_getTableName_returns_correct_name(): void
+    {
+        $sanitizedClientName = str_replace('-', '_', $this->clientName);
+        $expectedTable       = 'api_cache_' . $sanitizedClientName . '_responses';
+
+        $this->cacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($expectedTable);
+
+        $tableName = $this->client->getTableName($this->clientName);
+
+        $this->assertEquals($expectedTable, $tableName);
     }
 
     public function test_getVersion_returns_correct_version(): void
@@ -133,12 +151,12 @@ class BaseApiClientTest extends TestCase
 
         $this->cacheManager->shouldReceive('generateCacheKey')
             ->once()
-            ->with('test-client', 'predictions', ['query' => 'test'], 'GET', $this->version)
+            ->with($this->clientName, 'predictions', ['query' => 'test'], 'GET', $this->version)
             ->andReturn('test-cache-key');
 
         $this->cacheManager->shouldReceive('getCachedResponse')
             ->once()
-            ->with('test-client', 'test-cache-key')
+            ->with($this->clientName, 'test-cache-key')
             ->andReturn($cachedResponse);
 
         $result = $this->client->sendCachedRequest('predictions', ['query' => 'test']);
@@ -160,16 +178,16 @@ class BaseApiClientTest extends TestCase
 
         $this->cacheManager->shouldReceive('allowRequest')
             ->once()
-            ->with('test-client')
+            ->with($this->clientName)
             ->andReturnFalse();
 
         $this->cacheManager->shouldReceive('getAvailableIn')
             ->once()
-            ->with('test-client')
+            ->with($this->clientName)
             ->andReturn($availableIn);
 
         $this->expectException(RateLimitException::class);
-        $this->expectExceptionMessage("Rate limit exceeded for client 'test-client'. Available in {$availableIn} seconds.");
+        $this->expectExceptionMessage("Rate limit exceeded for client '{$this->clientName}'. Available in {$availableIn} seconds.");
 
         $this->client->sendCachedRequest('predictions', ['query' => 'test']);
     }
@@ -190,12 +208,12 @@ class BaseApiClientTest extends TestCase
 
         $this->cacheManager->shouldReceive('incrementAttempts')
             ->once()
-            ->with('test-client');
+            ->with($this->clientName);
 
         $this->cacheManager->shouldReceive('storeResponse')
             ->once()
             ->withArgs(function ($client, $key, $result, $endpoint, $version) {
-                return $client === 'test-client' &&
+                return $client === $this->clientName &&
                        $key === 'test-cache-key' &&
                        $endpoint === 'predictions' &&
                        $version === $this->version &&

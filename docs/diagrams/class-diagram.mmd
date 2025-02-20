@@ -19,20 +19,19 @@ classDiagram
     }
     
     class CompressionService {
-        -bool enabled
-        +isEnabled() bool
-        +compress(string) string
-        +decompress(string) string
+        +isEnabled(string) bool
+        +compress(string, string, string) string
+        +decompress(string, string, string) string
     }
 
     class CacheRepository {
         -Connection db
         -CompressionService compression
         +getTableName(string) string
-        +prepareHeaders(array) string
-        +retrieveHeaders(string) array
-        +prepareBody(string) string
-        +retrieveBody(string) string
+        +prepareHeaders(string, array) string
+        +retrieveHeaders(string, string) array
+        +prepareBody(string, string) string
+        +retrieveBody(string, string) string
         +store(string, string, array, int) void
         +get(string, string) array
         +cleanup(string) void
@@ -41,10 +40,11 @@ classDiagram
     class ApiCacheManager {
         -CacheRepository repository
         -RateLimitService rateLimiter
+        +getTableName(string) string
         +allowRequest(string) bool
         +getRemainingAttempts(string) int
         +getAvailableIn(string) int
-        +incrementAttempts(string) void
+        +incrementAttempts(string, int) void
         +storeResponse(string, string, array, string, string, int) void
         +getCachedResponse(string, string) array
         +normalizeParams(array, int) array
@@ -59,6 +59,7 @@ classDiagram
         #PendingRequest pendingRequest
         #ApiCacheManager cacheManager
         +getClientName() string
+        +getTableName(string) string
         +getVersion() string
         +getTimeout() int
         +setTimeout(int) self

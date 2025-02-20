@@ -92,7 +92,7 @@ abstract class BaseApiClient
     protected string $apiKey;
     protected ?string $version;
     protected PendingRequest $pendingRequest;
-    protected ApiCacheManager $cacheManager;
+    protected ?ApiCacheManager $cacheManager;
     
     /**
      * Create a new API client instance
@@ -117,11 +117,19 @@ abstract class BaseApiClient
         $this->baseUrl = $baseUrl;
         $this->apiKey = $apiKey;
         $this->version = $version;
-        $this->cacheManager = $cacheManager ?? app(ApiCacheManager::class);
+        $this->cacheManager = $this->resolveCacheManager($cacheManager);
         $this->pendingRequest = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
             'Accept' => 'application/json',
         ]);
+    }
+
+    /**
+     * Get the table name for a client
+     */
+    public function getTableName(string $clientName): string
+    {
+        return $this->cacheManager->getTableName($clientName);
     }
 
     /**
@@ -259,6 +267,32 @@ abstract class BaseApiClient
         );
         
         return $apiResult;
+    }
+
+    /**
+     * Get the health endpoint of the API
+     *
+     * @return array The health endpoint response
+     */
+    public function getHealth(): array
+    {
+        return $this->sendRequest('health');
+    }
+
+    /**
+     * Resolve the cache manager
+     *
+     * @param ApiCacheManager|null $cacheManager Optional cache manager instance
+     *
+     * @return ApiCacheManager|null The resolved cache manager
+     */
+    protected function resolveCacheManager(?ApiCacheManager $cacheManager): ?ApiCacheManager
+    {
+        if ($cacheManager !== null) {
+            return $cacheManager;
+        }
+        
+        return app(ApiCacheManager::class);
     }
 }
 ```
@@ -468,6 +502,17 @@ class ApiCacheManager
     }
 
     /**
+     * Get the table name for a client
+     *
+     * @param string $clientName Client identifier
+     * @return string The table name
+     */
+    public function getTableName(string $clientName): string
+    {
+        return $this->repository->getTableName($clientName);
+    }
+
+    /**
      * Check if request is allowed by rate limiter
      *
      * @param string $clientName Client identifier
@@ -505,10 +550,11 @@ class ApiCacheManager
      * Increment attempts for the client
      *
      * @param string $clientName Client identifier
+     * @param int $amount Amount to increment by (default 1)
      */
-    public function incrementAttempts(string $clientName): void
+    public function incrementAttempts(string $clientName, int $amount = 1): void
     {
-        $this->rateLimiter->incrementAttempts($clientName);
+        $this->rateLimiter->incrementAttempts($clientName, $amount);
     }
 
     /**
@@ -722,11 +768,12 @@ class RateLimitService
      * Algorithm:
      * - Add attempt for the client
      * - Use configured decay time in seconds
+     * - Increment by amount (default 1)
      */
-    public function incrementAttempts(string $clientName): void 
+    public function incrementAttempts(string $clientName, int $amount = 1): void 
     {
         $decaySeconds = config("api-cache.apis.{$clientName}.rate_limit_decay_seconds");
-        $this->limiter->increment($clientName, $decaySeconds);
+        $this->limiter->increment($clientName, $decaySeconds, $amount);
     }
     
     /**
@@ -765,11 +812,15 @@ namespace FOfX\ApiCache;
 
 class CompressionService
 {
-    protected bool $enabled = false;
-    
-    public function __construct(bool $enabled = false)
+    /**
+     * Check if compression is enabled
+     * 
+     * @param string $clientName Client name
+     * @return bool True if compression is enabled, false otherwise
+     */
+    public function isEnabled(string $clientName): bool
     {
-        $this->enabled = $enabled;
+        return config("api-cache.apis.{$clientName}.compression_enabled");
     }
     
     /**
@@ -780,13 +831,14 @@ class CompressionService
      * - Compress using gzcompress
      * - Return compressed string or throw exception
      *
+     * @param string $clientName Client name
      * @param string $data Raw data to compress
      * @return string Compressed data if enabled, original data if not
      * @throws \RuntimeException When compression fails
      */
-    public function compress(string $data): string
+    public function compress(string $clientName, string $data): string
     {
-        if (!$this->enabled) {
+        if (!$this->isEnabled($clientName)) {
             return $data;
         }
         
@@ -806,30 +858,23 @@ class CompressionService
      * - Decompress using gzuncompress
      * - Return decompressed string or throw exception
      *
+     * @param string $clientName Client name
      * @param string $data Raw data to decompress
      * @return string Decompressed data if enabled, original data if not
      * @throws \RuntimeException When decompression fails
      */
-    public function decompress(string $data): string
+    public function decompress(string $clientName, string $data): string
     {
-        if (!$this->enabled) {
+        if (!$this->isEnabled($clientName)) {
             return $data;
         }
         
-        $decompressed = gzuncompress($data);
+        $decompressed = @gzuncompress($data);
         if ($decompressed === false) {
             throw new \RuntimeException('Failed to decompress data');
         }        
 
         return $decompressed;
-    }
-    
-    /**
-     * Check if compression is enabled
-     */
-    public function isEnabled(): bool
-    {
-        return $this->enabled;
     }
 }
 ```
@@ -855,45 +900,50 @@ class CacheRepository
 
     /**
      * Get the table name for the client
+     * 
+     * @param string $clientName Client name
+     * @return string The table name
      */
     public function getTableName(string $clientName): string
     {
-        $suffix = $this->compression->isEnabled() ? '_compressed' : '';
+        $suffix = $this->compression->isEnabled($clientName) ? '_compressed' : '';
         return "api_cache_{$clientName}_responses{$suffix}";
     }
     
     /**
      * Prepare headers for storage (always array)
      * 
+     * @param string $clientName Client name
      * @param array|null $headers HTTP headers array
      * @return string|null JSON encoded and optionally compressed headers
      */
-    public function prepareHeaders(?array $headers): ?string
+    public function prepareHeaders(string $clientName, ?array $headers): ?string
     {
         if ($headers === null) {
             return null;
         }
         
         $encoded = json_encode($headers);
-        return $this->compression->isEnabled()
-            ? $this->compression->compress($encoded)
+        return $this->compression->isEnabled($clientName)
+            ? $this->compression->compress($clientName, $encoded)
             : $encoded;
     }
 
     /**
      * Retrieve headers from storage (always array)
      * 
+     * @param string $clientName Client name
      * @param string|null $data Stored header data
      * @return array|null Decoded headers array
      */
-    public function retrieveHeaders(?string $data): ?array
+    public function retrieveHeaders(string $clientName, ?string $data): ?array
     {
         if ($data === null) {
             return null;
         }
         
-        $raw = $this->compression->isEnabled()
-            ? $this->compression->decompress($data)
+        $raw = $this->compression->isEnabled($clientName)
+            ? $this->compression->decompress($clientName, $data)
             : $data;
             
         return json_decode($raw, true);
@@ -902,34 +952,36 @@ class CacheRepository
     /**
      * Prepare body for storage (always string)
      * 
+     * @param string $clientName Client name
      * @param string|null $body Raw body content
      * @return string|null Optionally compressed body
      */
-    public function prepareBody(?string $body): ?string
+    public function prepareBody(string $clientName, ?string $body): ?string
     {
         if ($body === null) {
             return null;
         }
         
-        return $this->compression->isEnabled()
-            ? $this->compression->compress($body)
+        return $this->compression->isEnabled($clientName)
+            ? $this->compression->compress($clientName, $body)
             : $body;
     }
 
     /**
      * Retrieve body from storage (always string)
      * 
+     * @param string $clientName Client name
      * @param string|null $data Stored body data
      * @return string|null Raw body content
      */
-    protected function retrieveBody(?string $data): ?string
+    protected function retrieveBody(string $clientName, ?string $data): ?string
     {
         if ($data === null) {
             return null;
         }
         
-        return $this->compression->isEnabled()
-            ? $this->compression->decompress($data)
+        return $this->compression->isEnabled($clientName)
+            ? $this->compression->decompress($clientName, $data)
             : $data;
     }
     
@@ -958,7 +1010,12 @@ class CacheRepository
     public function store(string $clientName, string $key, array $metadata, ?int $ttl = null): void
     {
         $table = $this->getTableName($clientName);
-        $expiresAt = $ttl ? now()->addSeconds($ttl) : null;
+        $now = now();
+        if ($ttl) {
+            $expiresAt = $now->copy()->addSeconds($ttl);
+        } else {
+            $expiresAt = null;
+        }
         
         // Ensure required fields exist
         if (empty($metadata['endpoint']) || empty($metadata['response_body'])) {
@@ -996,8 +1053,8 @@ class CacheRepository
             'response_size' => $metadata['response_size'],
             'response_time' => $metadata['response_time'],
             'expires_at' => $expiresAt,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
     }
     
@@ -1179,8 +1236,9 @@ return new class extends Migration
 return [
     'apis' => [
         'demo' => [
-            'api_key' => env('DEMO_API_KEY'),
-            'base_url' => env('DEMO_BASE_URL'),
+            'api_key' => env('DEMO_API_KEY', 'demo-api-key'),
+            'base_url' => env('DEMO_BASE_URL', 'http://localhost:8000/demo-api-server.php/v1'),
+            'version' => env('DEMO_VERSION', null),
             'cache_ttl' => env('DEMO_CACHE_TTL', null),
             'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
             'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
@@ -1188,8 +1246,9 @@ return [
             'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
         'openai' => [
-            'api_key' => env('OPENAI_API_KEY'),
-            'base_url' => env('OPENAI_BASE_URL'),
+            'api_key' => env('OPENAI_API_KEY', null),
+            'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+            'version' => env('OPENAI_VERSION', null),
             'cache_ttl' => env('OPENAI_CACHE_TTL', null),
             'compression_enabled' => env('OPENAI_COMPRESSION_ENABLED', false),
             'default_endpoint' => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),

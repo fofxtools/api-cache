@@ -4,7 +4,7 @@ namespace FOfX\ApiCache\Tests\Traits;
 
 trait ApiServerTestTrait
 {
-    protected function checkServerStatus(string $url): void
+    public function checkServerStatus(string $url): void
     {
         $healthUrl = $url . '/health';
         $ch        = curl_init($healthUrl);
@@ -25,7 +25,7 @@ trait ApiServerTestTrait
         }
     }
 
-    protected function getWslAwareBaseUrl(string $baseUrl): string
+    public function getWslAwareBaseUrl(string $baseUrl): string
     {
         if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
             $nameserver = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));

@@ -98,15 +98,15 @@ abstract class BaseApiClient
      * Create a new API client instance
      *
      * @param string $clientName Client identifier
-     * @param string $baseUrl Base URL for API requests
-     * @param string $apiKey API authentication key
+     * @param string|null $baseUrl Base URL for API requests
+     * @param string|null $apiKey API authentication key
      * @param string|null $version API version
      * @param ApiCacheManager|null $cacheManager Optional cache manager instance
      */
     public function __construct(
         string $clientName,
-        string $baseUrl,
-        string $apiKey,
+        ?string $baseUrl = null,
+        ?string $apiKey = null,
         ?string $version = null,
         ?ApiCacheManager $cacheManager = null
     ) {
@@ -114,9 +114,10 @@ abstract class BaseApiClient
         Helper\validate_identifier($clientName);
 
         $this->clientName = $clientName;
-        $this->baseUrl = $baseUrl;
-        $this->apiKey = $apiKey;
-        $this->version = $version;
+        $this->baseUrl = $baseUrl ?? config("api-cache.apis.{$this->clientName}.base_url");
+        $this->apiKey = $apiKey ?? config("api-cache.apis.{$this->clientName}.api_key");
+        $this->version = $version ?? config("api-cache.apis.{$this->clientName}.version");
+        
         $this->cacheManager = $this->resolveCacheManager($cacheManager);
         $this->pendingRequest = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",

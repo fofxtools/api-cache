@@ -4,10 +4,30 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Foundation\Application;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Facades\Http;
+use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
+
+/**
+ * Helper class to use ApiServerTestTrait for getWslAwareBaseUrl
+ */
+class ServerTest
+{
+    use ApiServerTestTrait;
+
+    public function getWslAwareUrl(?string $url = null): string
+    {
+        if ($url) {
+            return $this->getWslAwareBaseUrl($url);
+        }
+
+        $configBaseUrl = config('api-cache.apis.demo.base_url');
+
+        return $this->getWslAwareBaseUrl($configBaseUrl);
+    }
+}
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
@@ -38,8 +58,11 @@ $capsule->addConnection(
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 
-// HTTP request for localhost:8000/demo-api-server.php/health
-$response = Http::get('http://localhost:8000/demo-api-server.php/health');
+$serverTest = new ServerTest();
+$baseUrl    = $serverTest->getWslAwareUrl();
+
+// HTTP request for (on Windows) localhost:8000/demo-api-server.php/health
+$response = Http::get("{$baseUrl}/health");
 
 // Print the response
 echo $response->body();

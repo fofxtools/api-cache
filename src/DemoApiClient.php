@@ -17,11 +17,13 @@ class DemoApiClient extends BaseApiClient
     {
         Log::debug('Initializing Demo API client');
 
+        $clientName = 'demo';
+
         parent::__construct(
-            'demo',
-            config('api-cache.apis.demo.base_url'),
-            config('api-cache.apis.demo.api_key'),
-            config('api-cache.apis.demo.version'),
+            $clientName,
+            config("api-cache.apis.{$clientName}.base_url"),
+            config("api-cache.apis.{$clientName}.api_key"),
+            config("api-cache.apis.{$clientName}.version"),
             $cacheManager
         );
     }

@@ -4,18 +4,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use FOfX\ApiCache\ApiCacheManager;
-use FOfX\ApiCache\CacheRepository;
-use FOfX\ApiCache\RateLimitService;
-use FOfX\ApiCache\CompressionService;
-use Illuminate\Cache\RateLimiter;
 use Illuminate\Support\Facades\Facade;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Foundation\Application;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
-
-date_default_timezone_set('UTC');
+use FOfX\ApiCache\ApiCacheServiceProvider;
+use FOfX\ApiCache\ApiCacheManager;
 
 /**
  * Create the response table with standard schema
@@ -46,96 +40,7 @@ function createResponseTable(Illuminate\Database\Schema\Builder $schema, string 
     });
 }
 
-/**
- * Run basic tests for the API Cache Manager
- */
-function runApiCacheTests(ApiCacheManager $manager, string $client): void
-{
-    try {
-        // Test rate limiting
-        echo "Testing rate limiting...\n";
-        echo 'Checking if request is allowed: ' . ($manager->allowRequest($client) ? 'Yes' : 'No') . "\n";
-        echo 'Remaining attempts: ' . $manager->getRemainingAttempts($client) . "\n";
-        echo 'Time until reset: ' . $manager->getAvailableIn($client) . " seconds\n";
-
-        // Test request tracking
-        echo "\nTracking API request...\n";
-        $manager->incrementAttempts($client);
-        echo 'Checking if request is allowed: ' . ($manager->allowRequest($client) ? 'Yes' : 'No') . "\n";
-        echo 'After increment, remaining attempts: ' . $manager->getRemainingAttempts($client) . "\n";
-        echo 'Time until reset: ' . $manager->getAvailableIn($client) . " seconds\n";
-
-        // Test incrementing attempts with amount
-        $amount = 2;
-        echo "\nIncrementing attempts with amount {$amount}...\n";
-        $manager->incrementAttempts($client, $amount);
-        echo 'Checking if request is allowed: ' . ($manager->allowRequest($client) ? 'Yes' : 'No') . "\n";
-        echo 'After increment, remaining attempts: ' . $manager->getRemainingAttempts($client) . "\n";
-        echo 'Time until reset: ' . $manager->getAvailableIn($client) . " seconds\n";
-
-        // Test cache key generation
-        echo "\nTesting cache key generation...\n";
-        $params1 = ['name' => 'John', 'age' => 30];
-        $params2 = ['age' => 30, 'name' => 'John'];  // Same params, different order
-
-        $key1 = $manager->generateCacheKey($client, '/users', $params1);
-        $key2 = $manager->generateCacheKey($client, '/users', $params2);
-
-        echo "Key 1: {$key1}\n";
-        echo "Key 2: {$key2}\n";
-        echo 'Keys match: ' . ($key1 === $key2 ? 'Yes' : 'No') . "\n";
-
-        // Test response caching
-        echo "\nTesting response caching...\n";
-        $apiResult = [
-            'request' => [
-                'base_url' => 'https://api.test',
-                'full_url' => 'https://api.test/endpoint',
-                'method'   => 'GET',
-                'headers'  => ['Accept' => 'application/json'],
-                'body'     => '{"query":"test"}',
-            ],
-            'response' => new \Illuminate\Http\Client\Response(
-                new \GuzzleHttp\Psr7\Response(
-                    200,
-                    ['Content-Type' => 'application/json'],
-                    '{"test":"data"}'
-                )
-            ),
-            'response_time' => 0.5,
-        ];
-
-        $manager->storeResponse($client, $key1, $apiResult, '/users');
-
-        // Retrieve cached response
-        $cached = $manager->getCachedResponse($client, $key1);
-        if ($cached) {
-            echo "Retrieved cached response:\n";
-            echo "- Status code: {$cached['response']->status()}\n";
-            echo "- Body: {$cached['response']->body()}\n";
-            echo "- Response time: {$cached['response_time']}s\n";
-        } else {
-            echo "No cached response found\n";
-        }
-
-        // Test parameter normalization
-        echo "\nTesting parameter normalization...\n";
-        $params = [
-            'filters' => [
-                'status' => 'active',
-                'type'   => null,
-            ],
-            'sort' => 'name',
-            'page' => 1,
-        ];
-
-        $normalized = $manager->normalizeParams($params);
-        echo "Normalized parameters:\n";
-        print_r($normalized);
-    } catch (\Exception $e) {
-        echo 'Error: ' . $e->getMessage() . "\n";
-    }
-}
+date_default_timezone_set('UTC');
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
@@ -159,8 +64,9 @@ $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
 // Override settings for testing
-$app['config']->set('api-cache.apis.test-client.rate_limit_max_attempts', 3);
-$app['config']->set('api-cache.apis.test-client.rate_limit_decay_seconds', 5);
+$clientName = 'test-client';
+$app['config']->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 3);
+$app['config']->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 5);
 
 // Setup database
 $capsule = new Capsule();
@@ -170,20 +76,103 @@ $capsule->addConnection(
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 
-// Create services
-$rateLimiter      = new RateLimiter(Cache::driver());
-$rateLimitService = new RateLimitService($rateLimiter);
-$compression      = new CompressionService();
-$repository       = new CacheRepository(
-    $capsule->getDatabaseManager()->connection(),
-    $compression
-);
+// Register database connection
+$app->singleton('db', function () use ($capsule) {
+    return $capsule->getDatabaseManager();
+});
+$app->singleton('db.connection', function () use ($capsule) {
+    return $capsule->getDatabaseManager()->connection();
+});
 
-// Create table
-createResponseTable($capsule->schema(), $repository->getTableName('test-client'));
+// Register our services
+$app->register(ApiCacheServiceProvider::class);
 
-// Create manager and run tests
-$manager = new ApiCacheManager($repository, $rateLimitService);
+// Create manager
+$manager = app(ApiCacheManager::class);
+
+$tableName = $manager->getTableName($clientName);
+createResponseTable($capsule->schema(), $tableName);
+
 echo "Testing ApiCacheManager...\n";
 echo "------------------------\n";
-runApiCacheTests($manager, 'test-client');
+
+// Test rate limiting
+echo "Testing rate limiting...\n";
+echo 'Checking if request is allowed: ' . ($manager->allowRequest($clientName) ? 'Yes' : 'No') . "\n";
+echo 'Remaining attempts: ' . $manager->getRemainingAttempts($clientName) . "\n";
+echo 'Time until reset: ' . $manager->getAvailableIn($clientName) . " seconds\n";
+
+// Test request tracking
+echo "\nTracking API request...\n";
+$manager->incrementAttempts($clientName);
+echo 'Checking if request is allowed: ' . ($manager->allowRequest($clientName) ? 'Yes' : 'No') . "\n";
+echo 'After increment, remaining attempts: ' . $manager->getRemainingAttempts($clientName) . "\n";
+echo 'Time until reset: ' . $manager->getAvailableIn($clientName) . " seconds\n";
+
+// Test incrementing attempts with amount
+$amount = 2;
+echo "\nIncrementing attempts with amount {$amount}...\n";
+$manager->incrementAttempts($clientName, $amount);
+echo 'Checking if request is allowed: ' . ($manager->allowRequest($clientName) ? 'Yes' : 'No') . "\n";
+echo 'After increment, remaining attempts: ' . $manager->getRemainingAttempts($clientName) . "\n";
+echo 'Time until reset: ' . $manager->getAvailableIn($clientName) . " seconds\n";
+
+// Test cache key generation
+echo "\nTesting cache key generation...\n";
+$params1 = ['name' => 'John', 'age' => 30];
+$params2 = ['age' => 30, 'name' => 'John'];  // Same params, different order
+
+$key1 = $manager->generateCacheKey($clientName, '/users', $params1);
+$key2 = $manager->generateCacheKey($clientName, '/users', $params2);
+
+echo "Key 1: {$key1}\n";
+echo "Key 2: {$key2}\n";
+echo 'Keys match: ' . ($key1 === $key2 ? 'Yes' : 'No') . "\n";
+
+// Test response caching
+echo "\nTesting response caching...\n";
+$apiResult = [
+    'request' => [
+        'base_url' => 'https://api.test',
+        'full_url' => 'https://api.test/endpoint',
+        'method'   => 'GET',
+        'headers'  => ['Accept' => 'application/json'],
+        'body'     => '{"query":"test"}',
+    ],
+    'response' => new \Illuminate\Http\Client\Response(
+        new \GuzzleHttp\Psr7\Response(
+            200,
+            ['Content-Type' => 'application/json'],
+            '{"test":"data"}'
+        )
+    ),
+    'response_time' => 0.5,
+];
+
+$manager->storeResponse($clientName, $key1, $apiResult, '/users');
+
+// Retrieve cached response
+$cached = $manager->getCachedResponse($clientName, $key1);
+if ($cached) {
+    echo "Retrieved cached response:\n";
+    echo "- Status code: {$cached['response']->status()}\n";
+    echo "- Body: {$cached['response']->body()}\n";
+    echo "- Response time: {$cached['response_time']}s\n";
+} else {
+    echo "No cached response found\n";
+}
+
+// Test parameter normalization
+echo "\nTesting parameter normalization...\n";
+$params = [
+    'filters' => [
+        'status' => 'active',
+        'type'   => null,
+    ],
+    'sort' => 'name',
+    'page' => 1,
+];
+
+$normalized = $manager->normalizeParams($params);
+echo "Normalized parameters:\n";
+print_r($normalized);

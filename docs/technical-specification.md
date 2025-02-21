@@ -115,6 +115,7 @@ return [
         'demo' => [
             'api_key' => env('DEMO_API_KEY'),
             'base_url' => env('DEMO_BASE_URL'),
+            'version' => env('DEMO_VERSION', null),
             'cache_ttl' => env('DEMO_CACHE_TTL', null),
             'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
             'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
@@ -123,7 +124,8 @@ return [
         ],
         'openai' => [
             'api_key' => env('OPENAI_API_KEY'),
-            'base_url' => env('OPENAI_BASE_URL'),
+            'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+            'version' => env('OPENAI_VERSION', null),
             'cache_ttl' => env('OPENAI_CACHE_TTL', null),
             'compression_enabled' => env('OPENAI_COMPRESSION_ENABLED', false),
             'default_endpoint' => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),

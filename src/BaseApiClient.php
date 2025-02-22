@@ -9,11 +9,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Client\PendingRequest;
 use FOfX\Helper;
 
-abstract class BaseApiClient
+class BaseApiClient
 {
     protected string $clientName;
     protected string $baseUrl;
-    protected string $apiKey;
+    protected ?string $apiKey;
     protected ?string $version;
     protected PendingRequest $pendingRequest;
     protected ?ApiCacheManager $cacheManager;
@@ -28,7 +28,7 @@ abstract class BaseApiClient
      * @param ApiCacheManager|null $cacheManager Optional cache manager instance
      */
     public function __construct(
-        string $clientName,
+        string $clientName = 'default',
         ?string $baseUrl = null,
         ?string $apiKey = null,
         ?string $version = null,
@@ -66,13 +66,23 @@ abstract class BaseApiClient
     }
 
     /**
-     * Get the table name for this client
+     * Get the base URL
      *
-     * @return string The table name
+     * @return string The base URL
      */
-    public function getTableName(string $clientName): string
+    public function getBaseUrl(): string
     {
-        return $this->cacheManager->getTableName($clientName);
+        return $this->baseUrl;
+    }
+
+    /**
+     * Get the API key
+     *
+     * @return string|null The API key
+     */
+    public function getApiKey(): ?string
+    {
+        return $this->apiKey;
     }
 
     /**
@@ -86,6 +96,16 @@ abstract class BaseApiClient
     }
 
     /**
+     * Get the table name for this client
+     *
+     * @return string The table name
+     */
+    public function getTableName(string $clientName): string
+    {
+        return $this->cacheManager->getTableName($clientName);
+    }
+
+    /**
      * Get the current request timeout in seconds
      *
      * @return int|null Timeout in seconds, or null if no timeout set
@@ -93,6 +113,62 @@ abstract class BaseApiClient
     public function getTimeout(): ?int
     {
         return $this->pendingRequest->getOptions()['timeout'] ?? null;
+    }
+
+    /**
+     * Set the client name
+     *
+     * @param string $clientName The client name
+     *
+     * @return self
+     */
+    public function setClientName(string $clientName): self
+    {
+        $this->clientName = $clientName;
+
+        return $this;
+    }
+
+    /**
+     * Set the base URL
+     *
+     * @param string $baseUrl The base URL
+     *
+     * @return self
+     */
+    public function setBaseUrl(string $baseUrl): self
+    {
+        $this->baseUrl = $baseUrl;
+
+        return $this;
+    }
+
+    /**
+     * Set the API key
+     *
+     * @param string $apiKey The API key
+     *
+     * @return self
+     */
+    public function setApiKey(string $apiKey): self
+    {
+        $this->apiKey = $apiKey;
+
+        return $this;
+    }
+
+    /**
+     * Set the API version
+     *
+     * @param string $version The API version
+     *
+     * @return self
+     */
+    public function setVersion(string $version): self
+    {
+        $this->version = $version;
+
+        return $this;
     }
 
     /**
@@ -112,11 +188,23 @@ abstract class BaseApiClient
     /**
      * Builds the full URL for an endpoint
      *
-     * @param string $endpoint The API endpoint
+     * @param string $endpoint The API endpoint (with or without leading slash)
      *
      * @return string The complete URL
      */
-    abstract public function buildUrl(string $endpoint): string;
+    public function buildUrl(string $endpoint): string
+    {
+        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
+
+        Log::debug('Built URL for API request', [
+            'client'   => $this->clientName,
+            'endpoint' => $endpoint,
+            'base_url' => $this->baseUrl,
+            'url'      => $url,
+        ]);
+
+        return $url;
+    }
 
     /**
      * Sends an API request
@@ -308,6 +396,39 @@ abstract class BaseApiClient
     public function getHealth(): array
     {
         return $this->sendRequest('health');
+    }
+
+    /**
+     * Get WSL-aware base URL
+     *
+     * @param string|null $baseUrl The base URL to make WSL-aware
+     *
+     * @return string The WSL-aware base URL
+     */
+    public function getWslAwareBaseUrl(?string $baseUrl = null): string
+    {
+        $baseUrl = $baseUrl ?? $this->baseUrl;
+
+        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
+            // In WSL2, /etc/resolv.conf's nameserver points to the Windows host
+            $nameserver = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));
+
+            $wslAwareBaseUrl = preg_replace(
+                '#localhost(:\d+)?#',
+                $nameserver . '$1',
+                $baseUrl
+            );
+        } else {
+            $wslAwareBaseUrl = $baseUrl;
+        }
+
+        Log::debug('WSL-aware base URL', [
+            'client'        => $this->clientName,
+            'original_url'  => $baseUrl,
+            'wsl_aware_url' => $wslAwareBaseUrl,
+        ]);
+
+        return $wslAwareBaseUrl;
     }
 
     /**

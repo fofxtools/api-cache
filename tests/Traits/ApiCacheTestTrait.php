@@ -2,8 +2,12 @@
 
 namespace FOfX\ApiCache\Tests\Traits;
 
-trait ApiServerTestTrait
+use Illuminate\Support\Facades\Log;
+
+trait ApiCacheTestTrait
 {
+    private array $mockedFunctions = [];
+
     public function checkServerStatus(string $url): void
     {
         $healthUrl = $url . '/health';
@@ -15,24 +19,19 @@ trait ApiServerTestTrait
         $error    = curl_error($ch);
         curl_close($ch);
 
+        Log::info('API server status check', [
+            'url'      => $healthUrl,
+            'response' => $response,
+            'error'    => $error,
+        ]);
+
         if ($response === false) {
-            static::markTestSkipped('Demo API server not accessible: ' . $error);
+            static::markTestSkipped('API server not accessible: ' . $error);
         }
 
         $data = json_decode($response, true);
         if (!isset($data['status']) || $data['status'] !== 'OK') {
-            static::markTestSkipped('Demo API server health check failed');
+            static::markTestSkipped('API server health check failed');
         }
-    }
-
-    public function getWslAwareBaseUrl(string $baseUrl): string
-    {
-        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
-            $nameserver = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));
-
-            return str_replace('localhost', $nameserver, $baseUrl);
-        }
-
-        return $baseUrl;
     }
 }

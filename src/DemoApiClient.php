@@ -29,28 +29,6 @@ class DemoApiClient extends BaseApiClient
     }
 
     /**
-     * Builds the full URL for an endpoint
-     *
-     * @param string $endpoint The API endpoint (with or without leading slash)
-     *
-     * @return string The complete URL
-     */
-    public function buildUrl(string $endpoint): string
-    {
-        // Base URL already includes demo-api-server.php/v1
-        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
-
-        Log::debug('Built URL for demo API request', [
-            'client'   => $this->clientName,
-            'endpoint' => $endpoint,
-            'base_url' => $this->baseUrl,
-            'url'      => $url,
-        ]);
-
-        return $url;
-    }
-
-    /**
      * Get predictions based on query parameters
      *
      * @param string $query            The search query

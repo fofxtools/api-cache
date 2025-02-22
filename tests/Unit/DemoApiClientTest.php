@@ -6,13 +6,13 @@ namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\DemoApiClient;
 use FOfX\ApiCache\ApiCacheManager;
-use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
+use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
 use Orchestra\Testbench\TestCase;
 use Mockery;
 
 class DemoApiClientTest extends TestCase
 {
-    use ApiServerTestTrait;
+    use ApiCacheTestTrait;
 
     protected DemoApiClient $client;
 
@@ -37,19 +37,23 @@ class DemoApiClientTest extends TestCase
     {
         parent::setUp();
 
+        // Get base URL from config
         $baseUrl = config('api-cache.apis.demo.base_url');
-        $baseUrl = $this->getWslAwareBaseUrl($baseUrl);
 
-        $this->checkServerStatus($baseUrl);
-
+        // Set up cache manager mock
         $this->cacheManager = Mockery::mock(ApiCacheManager::class);
 
-        // Set WSL-aware base URL in config. And version.
-        $this->app['config']->set('api-cache.apis.demo.base_url', $baseUrl);
-        $this->app['config']->set('api-cache.apis.demo.version', 'v1');
-
+        // Create client
         $this->client = new DemoApiClient($this->cacheManager);
 
+        // Update to WSL-aware URL
+        $wslAwareUrl = $this->client->getWslAwareBaseUrl($baseUrl);
+        $this->client->setBaseUrl($wslAwareUrl);
+
+        // Check if server is accessible
+        $this->checkServerStatus($wslAwareUrl);
+
+        // Set up mock expectations
         $this->cacheManager->shouldReceive('getCachedResponse')
             ->andReturnNull();
         $this->cacheManager->shouldReceive('allowRequest')
@@ -59,24 +63,6 @@ class DemoApiClientTest extends TestCase
             ->andReturn('demo.get.predictions.test-hash.v1');
         $this->cacheManager->shouldReceive('incrementAttempts');
         $this->cacheManager->shouldReceive('storeResponse');
-    }
-
-    public function test_builds_url_without_leading_slash(): void
-    {
-        $url = $this->client->buildUrl('predictions');
-        $this->assertEquals(
-            config('api-cache.apis.demo.base_url') . '/predictions',
-            $url
-        );
-    }
-
-    public function test_builds_url_with_leading_slash(): void
-    {
-        $url = $this->client->buildUrl('/predictions');
-        $this->assertEquals(
-            config('api-cache.apis.demo.base_url') . '/predictions',
-            $url
-        );
     }
 
     public function test_predictions_method_sends_correct_request(): void

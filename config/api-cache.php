@@ -14,13 +14,30 @@ return [
     'apis' => [
         /*
         |--------------------------------------------------------------------------
+        | Default Cache Settings
+        |--------------------------------------------------------------------------
+        |
+        | These are the default settings used if not specified in the API config.
+        |--------------------------------------------------------------------------
+        */
+        'default' => [
+            'api_key'                  => env('DEMO_API_KEY', 'demo-api-key'),
+            'base_url'                 => env('DEMO_BASE_URL', 'http://localhost:8000/demo-api-server.php/v1'),
+            'version'                  => env('DEMO_VERSION', 'v1'),
+            'cache_ttl'                => env('DEMO_CACHE_TTL', null),
+            'compression_enabled'      => env('DEMO_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('DEMO_RATE_LIMIT_MAX_ATTEMPTS', 1000),
+            'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
+        ],
+        /*
+        |--------------------------------------------------------------------------
         | Demo API
         |--------------------------------------------------------------------------
         */
         'demo' => [
             'api_key'                  => env('DEMO_API_KEY', 'demo-api-key'),
             'base_url'                 => env('DEMO_BASE_URL', 'http://localhost:8000/demo-api-server.php/v1'),
-            'version'                  => env('DEMO_VERSION', null),
+            'version'                  => env('DEMO_VERSION', 'v1'),
             'cache_ttl'                => env('DEMO_CACHE_TTL', null),
             'compression_enabled'      => env('DEMO_COMPRESSION_ENABLED', false),
             'default_endpoint'         => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
@@ -59,21 +76,5 @@ return [
             'rate_limit_max_attempts'  => env('PIXABAY_RATE_LIMIT_MAX_ATTEMPTS', 5000),
             'rate_limit_decay_seconds' => env('PIXABAY_RATE_LIMIT_DECAY_SECONDS', 3600),
         ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Default Cache Settings
-    |--------------------------------------------------------------------------
-    |
-    | These are the default settings used if not specified in the API config.
-    |
-    */
-    'defaults' => [
-        'cache_ttl'                => null,
-        'version'                  => null,
-        'compression_enabled'      => false,
-        'rate_limit_max_attempts'  => 1000,
-        'rate_limit_decay_seconds' => 60,
     ],
 ];

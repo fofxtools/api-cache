@@ -11,14 +11,14 @@ use Illuminate\Database\Schema\Blueprint;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\ApiCacheManager;
-use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
+use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
 
 /**
  * Create a concrete implementation for testing
  */
 class TestApiClient extends BaseApiClient
 {
-    use ApiServerTestTrait;
+    use ApiCacheTestTrait;
 
     public function buildUrl(string $endpoint): string
     {
@@ -56,6 +56,8 @@ function createResponseTable(Illuminate\Database\Schema\Builder $schema, string 
         $table->timestamps();
     });
 }
+
+date_default_timezone_set('UTC');
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));

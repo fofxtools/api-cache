@@ -5,8 +5,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use FOfX\ApiCache\CompressionService;
+use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Foundation\Application;
+
+date_default_timezone_set('UTC');
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
@@ -29,32 +32,46 @@ $app->singleton('config', fn () => new \Illuminate\Config\Repository([
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
+// Register our services
+$app->register(ApiCacheServiceProvider::class);
+
+// Set up test client config
+// We are not sending requests so most of these are not actually used
+$app['config']->set('api-cache.apis.test-client', [
+    'base_url'                 => 'http://test.local',
+    'api_key'                  => 'test-key',
+    'version'                  => 'v1',
+    'cache_ttl'                => null,
+    'compression_enabled'      => true,
+    'rate_limit_max_attempts'  => 1000,
+    'rate_limit_decay_seconds' => 60,
+]);
+
+// Get compression service from container
+$service = app(CompressionService::class);
+
 $clientName = 'test-client';
 
-// Override settings for testing
-$app['config']->set("api-cache.apis.{$clientName}.compression_enabled", true);
-
-// Create compression service using config
-$service = new CompressionService();
+echo "Testing CompressionService...\n";
+echo "--------------------------\n";
 
 // Test valid compression
 $data = "Hello, this is a test string that we'll compress and decompress";
 
-try {
-    echo "Original data: {$data}\n";
+echo "Original data: {$data}\n";
+echo 'Original size: ' . strlen($data) . " bytes\n\n";
 
-    // Test with context
-    $compressed = $service->compress($data, 'test-data');
-    echo 'Compressed (base64): ' . base64_encode($compressed) . "\n";
+// Test with context
+$compressed = $service->compress($clientName, $data, 'test-data');
+echo 'Compressed size: ' . strlen($compressed) . " bytes\n";
+echo 'Compressed (base64): ' . base64_encode($compressed) . "\n\n";
 
-    $decompressed = $service->decompress($clientName, $compressed);
-    echo "Decompressed: {$decompressed}\n";
+$decompressed = $service->decompress($clientName, $compressed);
+echo "Decompressed: {$decompressed}\n";
+echo 'Decompressed size: ' . strlen($decompressed) . " bytes\n\n";
 
-    // Verify
-    echo 'Compression successful: ' . ($data === $decompressed ? 'Yes' : 'No') . "\n";
-} catch (\Exception $e) {
-    echo 'Error: ' . $e->getMessage() . "\n";
-}
+// Verify
+echo 'Compression successful: ' . ($data === $decompressed ? 'Yes' : 'No') . "\n";
 
 // Test invalid data
 try {

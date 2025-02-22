@@ -6,6 +6,7 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Cache\RateLimiter;
+use Illuminate\Database\Capsule\Manager as Capsule;
 
 class ApiCacheServiceProvider extends ServiceProvider
 {
@@ -41,6 +42,25 @@ class ApiCacheServiceProvider extends ServiceProvider
                 $app->make(CacheRepository::class),
                 $app->make(RateLimitService::class)
             );
+        });
+    }
+
+    /**
+     * Register database connection for testing
+     *
+     * @param Capsule $capsule Database capsule instance
+     */
+    public function registerDatabase(Capsule $capsule): void
+    {
+        $capsule->setAsGlobal();
+        $capsule->bootEloquent();
+
+        $this->app->singleton('db', function () use ($capsule) {
+            return $capsule->getDatabaseManager();
+        });
+
+        $this->app->singleton('db.connection', function () use ($capsule) {
+            return $capsule->getDatabaseManager()->connection();
         });
     }
 

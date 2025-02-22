@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use FOfX\ApiCache\CacheRepository;
-use FOfX\ApiCache\CompressionService;
-use Illuminate\Database\Capsule\Manager as Capsule;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Foundation\Application;
-
-date_default_timezone_set('UTC');
+use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Database\Schema\Blueprint;
+use FOfX\ApiCache\CacheRepository;
+use FOfX\ApiCache\ApiCacheServiceProvider;
 
 /**
  * Create the response table with standard schema
@@ -43,59 +41,71 @@ function createResponseTable(Illuminate\Database\Schema\Builder $schema, string 
 }
 
 /**
- * Run the cache repository tests
+ * Run cache repository tests with the given compression setting
  */
-function runCacheTests(CacheRepository $repository, string $client, string $key, array $metadata, int $ttl = 2): void
-{
-    try {
-        // Test storing with TTL
-        echo "Storing test data with {$ttl} second TTL...\n";
-        $repository->store($client, $key, $metadata, $ttl);
-        echo "Store successful\n\n";
+function runCacheRepositoryTests(
+    Capsule $capsule,
+    CacheRepository $repository,
+    string $client,
+    string $key,
+    array $metadata,
+    bool $compressionEnabled,
+    int $ttl = 2
+): void {
+    // Create fresh table for this test run
+    $tableName = $repository->getTableName($client);
+    createResponseTable($capsule->schema(), $tableName);
 
-        // Test retrieval
-        echo "Retrieving stored data...\n";
-        $retrieved = $repository->get($client, $key);
-        if ($retrieved) {
-            echo "Retrieved successfully:\n";
-            echo "- Endpoint: {$retrieved['endpoint']}\n";
-            echo "- Method: {$retrieved['method']}\n";
-            echo "- Response body: {$retrieved['response_body']}\n";
+    echo 'Testing with compression ' . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
+    echo "------------------------------------------------\n";
 
-            // Format the expiry date nicely
-            if ($retrieved['expires_at']) {
-                // Use 'e' for timezone identifier
-                $expiresAt = date('Y-m-d H:i:s e', strtotime($retrieved['expires_at']));
-            } else {
-                $expiresAt = 'never';
-            }
+    // Test storing with TTL
+    echo "Storing test data with {$ttl} second TTL...\n";
+    $repository->store($client, $key, $metadata, $ttl);
+    echo "Store successful\n\n";
 
-            echo "- Expires at: {$expiresAt}\n\n";
+    // Test retrieval
+    echo "Retrieving stored data...\n";
+    $retrieved = $repository->get($client, $key);
+    if ($retrieved) {
+        echo "Retrieved successfully:\n";
+        echo "- Endpoint: {$retrieved['endpoint']}\n";
+        echo "- Method: {$retrieved['method']}\n";
+        echo "- Response body: {$retrieved['response_body']}\n";
+
+        // Format the expiry date nicely
+        if ($retrieved['expires_at']) {
+            // Use 'e' for timezone identifier
+            $expiresAt = date('Y-m-d H:i:s e', strtotime($retrieved['expires_at']));
         } else {
-            echo "Data not found in cache\n\n";
+            $expiresAt = 'never';
         }
 
-        // Wait for expiration
-        $waitTime = $ttl + 1;
-        echo "Waiting {$waitTime} seconds for data to expire...\n";
-        sleep($waitTime);
+        echo "- Expires at: {$expiresAt}\n\n";
+    } else {
+        echo "Data not found in cache\n\n";
+    }
 
-        // Test cleanup
-        echo "Testing cleanup...\n";
-        $repository->cleanup($client);
-        echo "Cleanup completed\n\n";
+    // Wait for expiration
+    $waitTime = $ttl + 1;
+    echo "Waiting {$waitTime} seconds for data to expire...\n";
+    sleep($waitTime);
 
-        // Verify cleanup
-        $retrieved = $repository->get($client, $key);
-        if ($retrieved) {
-            echo "After cleanup, data exists: Yes\n";
-        } else {
-            echo "After cleanup, data exists: No\n";
-        }
-    } catch (\Exception $e) {
-        echo 'Error: ' . $e->getMessage() . "\n";
+    // Test cleanup
+    echo "Testing cleanup...\n";
+    $repository->cleanup($client);
+    echo "Cleanup completed\n\n";
+
+    // Verify cleanup
+    $retrieved = $repository->get($client, $key);
+    if ($retrieved) {
+        echo "After cleanup, data exists: Yes\n";
+    } else {
+        echo "After cleanup, data exists: No\n";
     }
 }
+
+date_default_timezone_set('UTC');
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
@@ -118,14 +128,6 @@ $app->singleton('config', fn () => new \Illuminate\Config\Repository([
 $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
-// Override test client settings
-$app['config']->set('api-cache.apis.test-client', [
-    'compression_enabled'      => true,
-    'rate_limit_max_attempts'  => 1000,
-    'rate_limit_decay_seconds' => 60,
-    'cache_ttl'                => null,
-]);
-
 // Setup database
 $capsule = new Capsule();
 $capsule->addConnection(
@@ -134,32 +136,61 @@ $capsule->addConnection(
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 
+// Register database connection
+$app->singleton('db', function () use ($capsule) {
+    return $capsule->getDatabaseManager();
+});
+$app->singleton('db.connection', function () use ($capsule) {
+    return $capsule->getDatabaseManager()->connection();
+});
+
+// Register our services
+$app->register(ApiCacheServiceProvider::class);
+
+// Set up test client config
+// We are using store() and get() directly and not sendRequest() or sendCachedRequest()
+// so base_url etc. are not actually used here
+$app['config']->set('api-cache.apis.test-client', [
+    'base_url'                 => 'http://test.local',
+    'api_key'                  => 'test-key',
+    'version'                  => 'v1',
+    'cache_ttl'                => null,
+    'compression_enabled'      => false,
+    'rate_limit_max_attempts'  => 1000,
+    'rate_limit_decay_seconds' => 60,
+]);
+
+$repository = app(CacheRepository::class);
+
 // Test data
-$client   = 'test-client';
-$key      = 'test-key';
-$metadata = [
+$clientName = 'test-client';
+$key        = 'test-key';
+$metadata   = [
     'endpoint'         => '/api/test',
     'response_body'    => 'This is the response body for the test. It may or may not be stored compressed.',
     'response_headers' => ['Content-Type' => 'application/json'],
     'method'           => 'GET',
 ];
 
-// Run tests with compression enabled
-echo "\nTesting CacheRepository with compression enabled:\n";
-echo "------------------------------------------------\n";
-$repository = new CacheRepository(
-    $capsule->getDatabaseManager()->connection(),
-    new CompressionService()
+// Test with compression disabled
+$app['config']->set("api-cache.apis.{$clientName}.compression_enabled", false);
+runCacheRepositoryTests(
+    $capsule,
+    $repository,
+    $clientName,
+    $key,
+    $metadata,
+    false
 );
-createResponseTable($capsule->schema(), $repository->getTableName($client));
-runCacheTests($repository, $client, $key, $metadata);
 
-// Run tests with compression disabled
-echo "\n\nTesting CacheRepository with compression disabled:\n";
-echo "------------------------------------------------\n";
-$repository = new CacheRepository(
-    $capsule->getDatabaseManager()->connection(),
-    new CompressionService()
+echo "\n";
+// Test with compression enabled
+$app['config']->set("api-cache.apis.{$clientName}.compression_enabled", true);
+runCacheRepositoryTests(
+    $capsule,
+    $repository,
+    $clientName,
+    $key,
+    $metadata,
+    true
 );
-createResponseTable($capsule->schema(), $repository->getTableName($client));
-runCacheTests($repository, $client, $key, $metadata);

@@ -16,6 +16,22 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Foundation\Application;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
+use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
+
+// Create client instance with WSL support
+class TestDemoApiClient extends DemoApiClient
+{
+    use ApiCacheTestTrait;
+
+    public function buildUrl(string $endpoint): string
+    {
+        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
+
+        return $this->getWslAwareBaseUrl($url);
+    }
+}
+
+date_default_timezone_set('UTC');
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
@@ -69,13 +85,10 @@ $capsule = new Capsule();
 $capsule->addConnection(
     config('database.connections.sqlite_memory')
 );
-$capsule->setAsGlobal();
-$capsule->bootEloquent();
 
-// Register database in container
-$app->singleton('db', function () use ($capsule) {
-    return $capsule->getDatabaseManager();
-});
+/** @var ApiCacheServiceProvider $provider */
+$provider = $app->getProvider(ApiCacheServiceProvider::class);
+$provider->registerDatabase($capsule);
 
 // Create services
 $rateLimiter      = new RateLimiter(Cache::driver());
@@ -145,55 +158,48 @@ createResponseTable($capsule->schema(), $tableName);
 $app->singleton(ApiCacheManager::class, fn () => new ApiCacheManager($repository, $rateLimitService));
 
 // Create client instance
-$client = new DemoApiClient();
+$client = app(TestDemoApiClient::class);
 
 // Set shorter timeout for testing
 $client->setTimeout(2);
 
-echo "\n";
-
-try {
-    // Test predictions endpoint
-    echo "Testing predictions endpoint...\n";
-    $result = $client->predictions('test query', 5);
-    echo "Status code: {$result['response']->status()}\n";
-    echo "Response time: {$result['response_time']}s\n\n";
-    echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
-    echo "\n\n";
-
-    // Test cached predictions with same parameters
-    echo "Testing cached predictions...\n";
-    $result = $client->predictions('test query', 5);
-    echo "Status code: {$result['response']->status()}\n";
-    echo "Response time: {$result['response_time']}s\n\n";
-    echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
-    echo "\n\n";
-
-    // Test reports endpoint
-    echo "Testing reports endpoint...\n";
-    $result = $client->reports('monthly', 'sales');
-    echo "Status code: {$result['response']->status()}\n";
-    echo "Response time: {$result['response_time']}s\n\n";
-    echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
-    echo "\n\n";
-
-    // Test error handling
-    echo "Testing error handling...\n";
-
-    try {
-        $result = $client->predictions('', 0); // Invalid parameters
-        echo "Status code: {$result['response']->status()}\n";
-        $body = json_decode($result['response']->body(), true);
-        if (isset($body['error'])) {
-            echo "Error message: {$body['error']}\n";
-        } else {
-            echo 'Response body: ' . $result['response']->body() . "\n";
-        }
-    } catch (\Exception $e) {
-        echo "Error: {$e->getMessage()}\n";
-        echo "Make sure the demo server is running with: php -S 0.0.0.0:8000 -t public\n";
-    }
-} catch (\Exception $e) {
-    echo "Error: {$e->getMessage()}\n";
-    echo "Make sure the demo server is running with: php -S 0.0.0.0:8000 -t public\n";
+// Before the tests, add server check
+if (!$client->getHealth()['response']->successful()) {
+    echo "Error: Demo server is not running\n";
+    echo "Start the server with: php -S 0.0.0.0:8000 -t public\n";
+    exit(1);
 }
+
+echo "\nTesting DemoApiClient with compression...\n";
+echo "-------------------------------------\n";
+
+// Test predictions endpoint
+echo "Testing predictions endpoint...\n";
+$result = $client->predictions('test query', 5);
+echo "Status code: {$result['response']->status()}\n";
+echo "Response time: {$result['response_time']}s\n\n";
+echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
+echo "\n\n";
+
+// Test cached predictions with same parameters
+echo "Testing cached predictions...\n";
+$result = $client->predictions('test query', 5);
+echo "Status code: {$result['response']->status()}\n";
+echo "Response time: {$result['response_time']}s\n\n";
+echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
+echo "\n\n";
+
+// Test reports endpoint
+echo "Testing reports endpoint...\n";
+$result = $client->reports('monthly', 'sales');
+echo "Status code: {$result['response']->status()}\n";
+echo "Response time: {$result['response_time']}s\n\n";
+echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
+echo "\n\n";
+
+// Test error handling
+echo "Testing error handling...\n";
+$result = $client->predictions('', 0); // Invalid parameters
+echo "Status code: {$result['response']->status()}\n";
+$body = json_decode($result['response']->body(), true);
+echo "Error message: {$body['error']}\n";

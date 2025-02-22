@@ -8,26 +8,9 @@ use Illuminate\Support\Facades\Facade;
 use Illuminate\Foundation\Application;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Facades\Http;
-use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
+use FOfX\ApiCache\BaseApiClient;
 
-/**
- * Helper class to use ApiServerTestTrait for getWslAwareBaseUrl
- */
-class ServerTest
-{
-    use ApiServerTestTrait;
-
-    public function getWslAwareUrl(?string $url = null): string
-    {
-        if ($url) {
-            return $this->getWslAwareBaseUrl($url);
-        }
-
-        $configBaseUrl = config('api-cache.apis.demo.base_url');
-
-        return $this->getWslAwareBaseUrl($configBaseUrl);
-    }
-}
+date_default_timezone_set('UTC');
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
@@ -58,8 +41,8 @@ $capsule->addConnection(
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
 
-$serverTest = new ServerTest();
-$baseUrl    = $serverTest->getWslAwareUrl();
+$baseApiClient = new BaseApiClient('default');
+$baseUrl       = $baseApiClient->getWslAwareBaseUrl();
 
 // HTTP request for (on Windows) localhost:8000/demo-api-server.php/health
 $response = Http::get("{$baseUrl}/health");

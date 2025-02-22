@@ -9,21 +9,23 @@ use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\RateLimitException;
 use Mockery;
 use Orchestra\Testbench\TestCase;
-use PHPUnit\Framework\MockObject\MockObject;
-use FOfX\ApiCache\Tests\Traits\ApiServerTestTrait;
+use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class BaseApiClientTest extends TestCase
 {
-    use ApiServerTestTrait;
+    use ApiCacheTestTrait;
 
-    /** @var BaseApiClient&MockObject */
     protected BaseApiClient $client;
+
+    // Rename to apiBaseUrl to avoid conflict with TestBench $baseUrl
+    protected string $apiBaseUrl;
 
     /** @var ApiCacheManager&Mockery\MockInterface */
     protected ApiCacheManager $cacheManager;
 
     // Use constant so it can be used in static method data providers
-    protected const CLIENT_NAME  = 'test-client';
+    protected const CLIENT_NAME  = 'default';
     protected string $clientName = self::CLIENT_NAME;
     protected string $version    = 'v1';
 
@@ -43,30 +45,24 @@ class BaseApiClientTest extends TestCase
     {
         parent::setUp();
 
-        $baseUrl = config('api-cache.apis.demo.base_url');
-        $baseUrl = $this->getWslAwareBaseUrl($baseUrl);
+        // Get base URL from config
+        $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
 
-        $this->checkServerStatus($baseUrl);
-
+        // Set up cache manager mock
         $this->cacheManager = Mockery::mock(ApiCacheManager::class);
 
-        // Create partial mock, only mock buildUrl
-        $this->client = $this->getMockBuilder(BaseApiClient::class)
-            ->setConstructorArgs([
-                $this->clientName,
-                $baseUrl,
-                config('api-cache.apis.demo.api_key'),
-                $this->version,
-                $this->cacheManager,
-            ])
-            ->onlyMethods(['buildUrl'])
-            ->getMock();
+        // Create client with original URL and get WSL-aware version
+        $this->client = new BaseApiClient(
+            $this->clientName,
+            $baseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->cacheManager
+        );
 
-        // Configure buildUrl to work with demo server
-        $this->client->method('buildUrl')
-            ->willReturnCallback(function (string $endpoint) use ($baseUrl) {
-                return $baseUrl . '/' . ltrim($endpoint, '/');
-            });
+        // Update base URL to WSL-aware version
+        $this->apiBaseUrl = $this->client->getWslAwareBaseUrl($baseUrl);
+        $this->client->setBaseUrl($this->apiBaseUrl);
     }
 
     protected function tearDown(): void
@@ -78,6 +74,22 @@ class BaseApiClientTest extends TestCase
     public function test_getClientName_returns_correct_name(): void
     {
         $this->assertEquals($this->clientName, $this->client->getClientName());
+    }
+
+    public function test_getBaseUrl_returns_correct_url(): void
+    {
+        $this->assertEquals($this->apiBaseUrl, $this->client->getBaseUrl());
+    }
+
+    public function test_getApiKey_returns_correct_key(): void
+    {
+        $apiKey = config("api-cache.apis.{$this->clientName}.api_key");
+        $this->assertEquals($apiKey, $this->client->getApiKey());
+    }
+
+    public function test_getVersion_returns_correct_version(): void
+    {
+        $this->assertEquals($this->version, $this->client->getVersion());
     }
 
     public function test_getTableName_returns_correct_name(): void
@@ -95,14 +107,49 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals($expectedTable, $tableName);
     }
 
-    public function test_getVersion_returns_correct_version(): void
-    {
-        $this->assertEquals($this->version, $this->client->getVersion());
-    }
-
     public function test_getTimeout_returns_int(): void
     {
         $this->assertIsInt($this->client->getTimeout());
+    }
+
+    public function test_setClientName_updates_client_name(): void
+    {
+        $newName = 'new-client';
+
+        $result = $this->client->setClientName($newName);
+
+        $this->assertSame($this->client, $result, 'Method should return $this for chaining');
+        $this->assertEquals($newName, $this->client->getClientName());
+    }
+
+    public function test_setBaseUrl_updates_base_url(): void
+    {
+        $newUrl = 'http://api.newdomain.com/v2';
+
+        $result = $this->client->setBaseUrl($newUrl);
+
+        $this->assertSame($this->client, $result, 'Method should return $this for chaining');
+        $this->assertEquals($newUrl, $this->client->getBaseUrl());
+    }
+
+    public function test_setApiKey_updates_api_key(): void
+    {
+        $newKey = 'new-api-key';
+
+        $result = $this->client->setApiKey($newKey);
+
+        $this->assertSame($this->client, $result, 'Method should return $this for chaining');
+        $this->assertEquals($newKey, $this->client->getApiKey());
+    }
+
+    public function test_setVersion_updates_version(): void
+    {
+        $newVersion = 'v2';
+
+        $result = $this->client->setVersion($newVersion);
+
+        $this->assertSame($this->client, $result, 'Method should return $this for chaining');
+        $this->assertEquals($newVersion, $this->client->getVersion());
     }
 
     public function test_setTimeout_sets_timeout(): void
@@ -114,16 +161,14 @@ class BaseApiClientTest extends TestCase
 
     public function test_builds_url_with_leading_slash(): void
     {
-        $baseUrl = $this->getWslAwareBaseUrl(config('api-cache.apis.demo.base_url'));
-        $url     = $this->client->buildUrl('/predictions');
-        $this->assertEquals($baseUrl . '/predictions', $url);
+        $url = $this->client->buildUrl('/predictions');
+        $this->assertEquals($this->apiBaseUrl . '/predictions', $url);
     }
 
     public function test_builds_url_without_leading_slash(): void
     {
-        $baseUrl = $this->getWslAwareBaseUrl(config('api-cache.apis.demo.base_url'));
-        $url     = $this->client->buildUrl('predictions');
-        $this->assertEquals($baseUrl . '/predictions', $url);
+        $url = $this->client->buildUrl('predictions');
+        $this->assertEquals($this->apiBaseUrl . '/predictions', $url);
     }
 
     public function test_sendRequest_makes_real_http_call(): void
@@ -234,6 +279,78 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals(200, $result['response']->status());
         $this->assertArrayHasKey('status', $result['response']->json());
         $this->assertEquals('OK', $result['response']->json()['status']);
+    }
+
+    public static function urlProvider(): array
+    {
+        return [
+            'localhost_basic' => [
+                'url' => 'http://localhost/api',
+            ],
+            'localhost_with_port' => [
+                'url' => 'http://localhost:8000/api',
+            ],
+            'localhost_with_port_and_version' => [
+                'url' => 'http://localhost:10001/api/v1',
+            ],
+            'external_api' => [
+                'url' => 'http://api.example.com/v1',
+            ],
+            'ip_basic' => [
+                'url' => 'http://127.0.0.1/api',
+            ],
+            'ip_with_port' => [
+                'url' => 'http://172.20.128.1:8000/api',
+            ],
+            'ip_with_port_and_version' => [
+                'url' => 'http://172.20.128.1:10001/api/v1',
+            ],
+        ];
+    }
+
+    /**
+     * Test WSL-aware URL conversion based on actual environment
+     */
+    #[DataProvider('urlProvider')]
+    public function test_get_wsl_aware_base_url(string $url): void
+    {
+        $client = new BaseApiClient('default');
+        $result = $client->getWslAwareBaseUrl($url);
+
+        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
+            // In WSL environment
+            if (str_contains($url, 'localhost')) {
+                // Should convert localhost to IP
+                $this->assertStringNotContainsString(
+                    'localhost',
+                    $result,
+                    'WSL should convert localhost to IP address'
+                );
+
+                // Should preserve port if present
+                if (preg_match('/:\d+/', $url, $matches)) {
+                    $this->assertStringContainsString(
+                        $matches[0],
+                        $result,
+                        'WSL should preserve port number'
+                    );
+                }
+            } else {
+                // Non-localhost URLs should remain unchanged
+                $this->assertEquals(
+                    $url,
+                    $result,
+                    'Non-localhost URLs should not be modified in WSL'
+                );
+            }
+        } else {
+            // In Windows/non-WSL environment, so don't modify the URL
+            $this->assertEquals(
+                $url,
+                $result,
+                'URLs should remain unchanged in non-WSL environment'
+            );
+        }
     }
 
     /**

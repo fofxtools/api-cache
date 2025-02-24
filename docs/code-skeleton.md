@@ -1156,7 +1156,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index(['client', 'endpoint', 'version']);
+            // In MySQL, we might hit the 64 character limit for indexes. So manually set the index name.
+            $table->index(['client', 'endpoint', 'version'], 'client_endpoint_version_index');
             $table->index('expires_at');
         });
     }
@@ -1197,7 +1198,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index(['client', 'endpoint', 'version']);
+            // In MySQL, we might hit the 64 character limit for indexes. So manually set the index name.
+            $table->index(['client', 'endpoint', 'version'], 'client_endpoint_version_index');
             $table->index('expires_at');
         });
 

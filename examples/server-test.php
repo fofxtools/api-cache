@@ -42,7 +42,8 @@ $capsule->setAsGlobal();
 $capsule->bootEloquent();
 
 $baseApiClient = new BaseApiClient('default');
-$baseUrl       = $baseApiClient->getWslAwareBaseUrl();
+$baseApiClient->setWslEnabled(true);
+$baseUrl = $baseApiClient->getBaseUrl();
 
 // HTTP request for (on Windows) localhost:8000/demo-api-server.php/health
 $response = Http::get("{$baseUrl}/health");

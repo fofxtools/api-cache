@@ -46,12 +46,11 @@ class DemoApiClientTest extends TestCase
         // Create client
         $this->client = new DemoApiClient($this->cacheManager);
 
-        // Update to WSL-aware URL
-        $wslAwareUrl = $this->client->getWslAwareBaseUrl($baseUrl);
-        $this->client->setBaseUrl($wslAwareUrl);
+        // Enable WSL URL conversion
+        $this->client->setWslEnabled(true);
 
         // Check if server is accessible
-        $this->checkServerStatus($wslAwareUrl);
+        $this->checkServerStatus($this->client->getBaseUrl());
 
         // Set up mock expectations
         $this->cacheManager->shouldReceive('getCachedResponse')

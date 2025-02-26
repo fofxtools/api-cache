@@ -7,6 +7,7 @@ use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Facades\Facade;
+use FOfX\Helper;
 
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
@@ -61,7 +62,7 @@ echo 'OS : ' . PHP_OS_FAMILY . "\n";
 echo 'WSL: ' . (getenv('WSL_DISTRO_NAME') ?: 'No') . "\n\n";
 
 foreach ($urls as $url) {
-    $wslUrl = $client->getWslAwareBaseUrl($url);
+    $wslUrl = Helper\wsl_url($url);
     echo "Original : {$url}\n";
     echo "WSL-aware: {$wslUrl}\n\n";
 }

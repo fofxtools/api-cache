@@ -2,117 +2,34 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/bootstrap.php';
 
-use Illuminate\Support\Facades\Facade;
-use Illuminate\Foundation\Application;
-use Illuminate\Database\Capsule\Manager as Capsule;
-use Illuminate\Database\Schema\Blueprint;
-use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\BaseApiClient;
-use FOfX\ApiCache\ApiCacheManager;
 use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
 
 /**
  * Create a concrete implementation for testing
+ * Note: While BaseApiClient is no longer abstract, we keep this test class
+ * to include the ApiCacheTestTrait for testing utilities
  */
 class TestApiClient extends BaseApiClient
 {
     use ApiCacheTestTrait;
-
-    public function buildUrl(string $endpoint): string
-    {
-        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
-
-        return $this->getWslAwareBaseUrl($url);
-    }
 }
 
-/**
- * Create the response table with standard schema
- */
-function createResponseTable(Illuminate\Database\Schema\Builder $schema, string $tableName): void
-{
-    // Drop the table if it exists to ensure a clean state
-    $schema->dropIfExists($tableName);
-
-    $schema->create($tableName, function (Blueprint $table) {
-        $table->id();
-        $table->string('key')->unique();
-        $table->string('client');
-        $table->string('version')->nullable();
-        $table->string('endpoint');
-        $table->string('base_url')->nullable();
-        $table->string('full_url')->nullable();
-        $table->string('method')->nullable();
-        $table->mediumText('request_headers')->nullable();
-        $table->mediumText('request_body')->nullable();
-        $table->integer('response_status_code')->nullable();
-        $table->mediumText('response_headers')->nullable();
-        $table->mediumText('response_body')->nullable();
-        $table->integer('response_size')->nullable();
-        $table->double('response_time')->nullable();
-        $table->timestamp('expires_at')->nullable();
-        $table->timestamps();
-    });
-}
-
-date_default_timezone_set('UTC');
-
-// Bootstrap Laravel
-$app = new Application(dirname(__DIR__));
-$app->bootstrapWith([
-    \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
-    \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
-]);
-
-// Set up facades
-Facade::setFacadeApplication($app);
-
-// Register bindings
-$app->singleton('config', fn () => new \Illuminate\Config\Repository([
-    'api-cache' => require __DIR__ . '/../config/api-cache.php',
-    'app'       => require __DIR__ . '/../config/app.php',
-    'cache'     => require __DIR__ . '/../config/cache.php',
-    'database'  => require __DIR__ . '/../config/database.php',
-    'logging'   => require __DIR__ . '/../config/logging.php',
-]));
-$app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
-$app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
-
-// Override settings for testing
+// Test client configuration
 $clientName = 'demo';
-$app['config']->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 3);
-$app['config']->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 5);
+config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 3);
+config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 5);
 
-// Setup database
-$capsule = new Capsule();
-$capsule->addConnection(
-    config('database.connections.sqlite_memory')
-);
-$capsule->setAsGlobal();
-$capsule->bootEloquent();
-
-// Register database connection
-$app->singleton('db', function () use ($capsule) {
-    return $capsule->getDatabaseManager();
-});
-$app->singleton('db.connection', function () use ($capsule) {
-    return $capsule->getDatabaseManager()->connection();
-});
-
-// Register our services
-$app->register(ApiCacheServiceProvider::class);
+// Create response tables for the test client
+createClientTables($clientName);
 
 // Create client instance
 $client = new TestApiClient(
     $clientName
 );
 $client->setTimeout(2);
-
-// Create response table
-$tableName = app(ApiCacheManager::class)->getTableName($clientName);
-createResponseTable($capsule->schema(), $tableName);
 
 echo "Testing BaseApiClient...\n";
 echo "---------------------\n";

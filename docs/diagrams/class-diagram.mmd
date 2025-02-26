@@ -56,27 +56,35 @@ classDiagram
         #string baseUrl
         #string apiKey
         #string version
+        #bool wslEnabled
         #PendingRequest pendingRequest
         #ApiCacheManager cacheManager
         +getClientName() string
-        +getTableName(string) string
+        +getBaseUrl() string
+        +getApiKey() string
         +getVersion() string
+        +getTableName(string) string
         +getTimeout() int
+        +setClientName(string) self
+        +setBaseUrl(string) self
+        +setApiKey(string) self
+        +setVersion(string) self
+        +setWslEnabled(bool) self
         +setTimeout(int) self
+        +isWslEnabled() bool
         +buildUrl(string)* string
         +sendRequest(string, array, string) array
         +sendCachedRequest(string, array, string) array
         +getHealth() array
+        +resolveCacheManager(ApiCacheManager) ApiCacheManager
     }
     
     class DemoApiClient {
-        +buildUrl(string) string
         +predictions(string, int, array) array
         +reports(string, string, array) array
     }
     
     class OpenAIApiClient {
-        +buildUrl(string) string
         +completions(string, string, int, int, float, float, array) array
         +chatCompletions(array|string, string, int, int, float, float, array) array
     }

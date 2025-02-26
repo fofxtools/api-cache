@@ -15,6 +15,8 @@ class BaseApiClient
     protected string $baseUrl;
     protected ?string $apiKey;
     protected ?string $version;
+    protected bool $wslEnabled = false;
+
     protected PendingRequest $pendingRequest;
     protected ?ApiCacheManager $cacheManager;
 
@@ -66,12 +68,16 @@ class BaseApiClient
     }
 
     /**
-     * Get the base URL
+     * Get the base URL. Will be WSL aware if enabled.
      *
      * @return string The base URL
      */
     public function getBaseUrl(): string
     {
+        if ($this->wslEnabled) {
+            return Helper\wsl_url($this->baseUrl);
+        }
+
         return $this->baseUrl;
     }
 
@@ -172,6 +178,20 @@ class BaseApiClient
     }
 
     /**
+     * Set the WSL enabled flag
+     *
+     * @param bool $enabled Whether WSL aware URL is enabled
+     *
+     * @return self
+     */
+    public function setWslEnabled(bool $enabled = true): self
+    {
+        $this->wslEnabled = $enabled;
+
+        return $this;
+    }
+
+    /**
      * Set request timeout in seconds
      *
      * @param int $seconds Timeout in seconds
@@ -185,8 +205,13 @@ class BaseApiClient
         return $this;
     }
 
+    public function isWslEnabled(): bool
+    {
+        return $this->wslEnabled;
+    }
+
     /**
-     * Builds the full URL for an endpoint
+     * Builds the full URL for an endpoint. Will be WSL aware if enabled.
      *
      * @param string $endpoint The API endpoint (with or without leading slash)
      *
@@ -196,11 +221,16 @@ class BaseApiClient
     {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
 
+        if ($this->wslEnabled) {
+            $url = Helper\wsl_url($url);
+        }
+
         Log::debug('Built URL for API request', [
-            'client'   => $this->clientName,
-            'endpoint' => $endpoint,
-            'base_url' => $this->baseUrl,
-            'url'      => $url,
+            'client'      => $this->clientName,
+            'endpoint'    => $endpoint,
+            'base_url'    => $this->baseUrl,
+            'url'         => $url,
+            'wsl_enabled' => $this->wslEnabled,
         ]);
 
         return $url;
@@ -396,39 +426,6 @@ class BaseApiClient
     public function getHealth(): array
     {
         return $this->sendRequest('health');
-    }
-
-    /**
-     * Get WSL-aware base URL
-     *
-     * @param string|null $baseUrl The base URL to make WSL-aware
-     *
-     * @return string The WSL-aware base URL
-     */
-    public function getWslAwareBaseUrl(?string $baseUrl = null): string
-    {
-        $baseUrl = $baseUrl ?? $this->baseUrl;
-
-        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
-            // In WSL2, /etc/resolv.conf's nameserver points to the Windows host
-            $nameserver = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));
-
-            $wslAwareBaseUrl = preg_replace(
-                '#localhost(:\d+)?#',
-                $nameserver . '$1',
-                $baseUrl
-            );
-        } else {
-            $wslAwareBaseUrl = $baseUrl;
-        }
-
-        Log::debug('WSL-aware base URL', [
-            'client'        => $this->clientName,
-            'original_url'  => $baseUrl,
-            'wsl_aware_url' => $wslAwareBaseUrl,
-        ]);
-
-        return $wslAwareBaseUrl;
     }
 
     /**

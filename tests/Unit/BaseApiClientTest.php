@@ -10,7 +10,6 @@ use FOfX\ApiCache\RateLimitException;
 use Mockery;
 use Orchestra\Testbench\TestCase;
 use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 class BaseApiClientTest extends TestCase
 {
@@ -51,7 +50,7 @@ class BaseApiClientTest extends TestCase
         // Set up cache manager mock
         $this->cacheManager = Mockery::mock(ApiCacheManager::class);
 
-        // Create client with original URL and get WSL-aware version
+        // Create client instance
         $this->client = new BaseApiClient(
             $this->clientName,
             $baseUrl,
@@ -60,9 +59,11 @@ class BaseApiClientTest extends TestCase
             $this->cacheManager
         );
 
-        // Update base URL to WSL-aware version
-        $this->apiBaseUrl = $this->client->getWslAwareBaseUrl($baseUrl);
-        $this->client->setBaseUrl($this->apiBaseUrl);
+        // Enable WSL URL conversion
+        $this->client->setWslEnabled(true);
+
+        // Store the base URL (will be WSL-aware if needed)
+        $this->apiBaseUrl = $this->client->getBaseUrl();
     }
 
     protected function tearDown(): void
@@ -152,11 +153,33 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals($newVersion, $this->client->getVersion());
     }
 
+    public function test_setWslEnabled_updates_wsl_enabled(): void
+    {
+        $newWslEnabled = true;
+
+        $result = $this->client->setWslEnabled($newWslEnabled);
+
+        $this->assertSame($this->client, $result, 'Method should return $this for chaining');
+        $this->assertEquals($newWslEnabled, $this->client->isWslEnabled());
+    }
+
     public function test_setTimeout_sets_timeout(): void
     {
         $timeout = 2;
         $this->client->setTimeout($timeout);
         $this->assertEquals($timeout, $this->client->getTimeout());
+    }
+
+    public function test_isWslEnabled_updates_true(): void
+    {
+        $this->client->setWslEnabled(true);
+        $this->assertTrue($this->client->isWslEnabled());
+    }
+
+    public function test_isWslEnabled_updates_false(): void
+    {
+        $this->client->setWslEnabled(false);
+        $this->assertFalse($this->client->isWslEnabled());
     }
 
     public function test_builds_url_with_leading_slash(): void
@@ -279,78 +302,6 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals(200, $result['response']->status());
         $this->assertArrayHasKey('status', $result['response']->json());
         $this->assertEquals('OK', $result['response']->json()['status']);
-    }
-
-    public static function urlProvider(): array
-    {
-        return [
-            'localhost_basic' => [
-                'url' => 'http://localhost/api',
-            ],
-            'localhost_with_port' => [
-                'url' => 'http://localhost:8000/api',
-            ],
-            'localhost_with_port_and_version' => [
-                'url' => 'http://localhost:10001/api/v1',
-            ],
-            'external_api' => [
-                'url' => 'http://api.example.com/v1',
-            ],
-            'ip_basic' => [
-                'url' => 'http://127.0.0.1/api',
-            ],
-            'ip_with_port' => [
-                'url' => 'http://172.20.128.1:8000/api',
-            ],
-            'ip_with_port_and_version' => [
-                'url' => 'http://172.20.128.1:10001/api/v1',
-            ],
-        ];
-    }
-
-    /**
-     * Test WSL-aware URL conversion based on actual environment
-     */
-    #[DataProvider('urlProvider')]
-    public function test_get_wsl_aware_base_url(string $url): void
-    {
-        $client = new BaseApiClient('default');
-        $result = $client->getWslAwareBaseUrl($url);
-
-        if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
-            // In WSL environment
-            if (str_contains($url, 'localhost')) {
-                // Should convert localhost to IP
-                $this->assertStringNotContainsString(
-                    'localhost',
-                    $result,
-                    'WSL should convert localhost to IP address'
-                );
-
-                // Should preserve port if present
-                if (preg_match('/:\d+/', $url, $matches)) {
-                    $this->assertStringContainsString(
-                        $matches[0],
-                        $result,
-                        'WSL should preserve port number'
-                    );
-                }
-            } else {
-                // Non-localhost URLs should remain unchanged
-                $this->assertEquals(
-                    $url,
-                    $result,
-                    'Non-localhost URLs should not be modified in WSL'
-                );
-            }
-        } else {
-            // In Windows/non-WSL environment, so don't modify the URL
-            $this->assertEquals(
-                $url,
-                $result,
-                'URLs should remain unchanged in non-WSL environment'
-            );
-        }
     }
 
     /**

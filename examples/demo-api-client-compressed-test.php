@@ -17,6 +17,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
 use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
+use FOfX\Helper;
 
 // Create client instance with WSL support
 class TestDemoApiClient extends DemoApiClient
@@ -27,7 +28,7 @@ class TestDemoApiClient extends DemoApiClient
     {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
 
-        return $this->getWslAwareBaseUrl($url);
+        return Helper\wsl_url($url);
     }
 }
 

@@ -6,14 +6,13 @@ namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\DemoApiClient;
 use FOfX\ApiCache\ApiCacheManager;
-use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
 use Orchestra\Testbench\TestCase;
 use Mockery;
 
+use function FOfX\ApiCache\check_server_status;
+
 class DemoApiClientTest extends TestCase
 {
-    use ApiCacheTestTrait;
-
     protected DemoApiClient $client;
 
     /** @var ApiCacheManager&Mockery\MockInterface */
@@ -49,8 +48,11 @@ class DemoApiClientTest extends TestCase
         // Enable WSL URL conversion
         $this->client->setWslEnabled(true);
 
-        // Check if server is accessible
-        $this->checkServerStatus($this->client->getBaseUrl());
+        // Skip test if server is not accessible
+        $serverStatus = check_server_status($this->client->getBaseUrl());
+        if (!$serverStatus) {
+            $this->markTestSkipped('API server is not accessible at: ' . $this->client->getBaseUrl());
+        }
 
         // Set up mock expectations
         $this->cacheManager->shouldReceive('getCachedResponse')

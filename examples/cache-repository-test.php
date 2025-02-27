@@ -91,17 +91,26 @@ function runCacheRepositoryTests(
     echo "Waiting {$waitTime} seconds for data to expire...\n";
     sleep($waitTime);
 
-    // Test cleanup
-    echo "Testing cleanup...\n";
-    $repository->cleanup($client);
-    echo "Cleanup completed\n\n";
+    // Test deleteExpired
+    echo "Testing deleteExpired...\n";
+    // Get initial count
+    $beforeCount = $capsule->getDatabaseManager()->connection()->table($tableName)
+        ->count();
+    echo "Before deleteExpired, row count: {$beforeCount}\n";
 
-    // Verify cleanup
-    $retrieved = $repository->get($client, $key);
-    if ($retrieved) {
-        echo "After cleanup, data exists: Yes\n";
+    // Run deleteExpired
+    $repository->deleteExpired($client);
+
+    // Get final count
+    $afterCount = $capsule->getDatabaseManager()->connection()->table($tableName)
+        ->count();
+    echo "After deleteExpired, row count: {$afterCount}\n";
+
+    // Show what happened
+    if ($afterCount < $beforeCount) {
+        echo 'deleteExpired removed ' . ($beforeCount - $afterCount) . " expired rows\n\n";
     } else {
-        echo "After cleanup, data exists: No\n";
+        echo "deleteExpired did not remove any rows (none were expired)\n\n";
     }
 }
 

@@ -395,15 +395,15 @@ class CacheRepository
     }
 
     /**
-     * Cleanup expired responses
+     * Delete expired responses
      *
      * Algorithm:
-     * - If client specified, clean only that client's tables
-     * - Otherwise clean all clients from config
+     * - If client specified, delete only that client's expired responses
+     * - Otherwise delete all expired responses from all clients
      *
      * @param string|null $clientName Client name
      */
-    public function cleanup(?string $clientName = null): void
+    public function deleteExpired(?string $clientName = null): void
     {
         if ($clientName) {
             $clientsArray = [$clientName];
@@ -419,7 +419,7 @@ class CacheRepository
                 ->where('expires_at', '<=', $now)
                 ->delete();
 
-            Log::info('Cleaned up expired responses', [
+            Log::info('Deleted expired responses', [
                 'client'        => $clientElement,
                 'table'         => $table,
                 'deleted_count' => $deleted,

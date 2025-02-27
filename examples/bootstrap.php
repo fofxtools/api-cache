@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace FOfX\ApiCache;
+
 date_default_timezone_set('UTC');
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -9,10 +11,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Database\Capsule\Manager as Capsule;
-use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Log;
-use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
-use FOfX\ApiCache\CacheRepository;
 
 /**
  * Create both compressed and uncompressed tables for a client
@@ -22,11 +21,6 @@ use FOfX\ApiCache\CacheRepository;
  */
 function createClientTables(string $clientName, bool $verify = false): void
 {
-    // Get trait instance
-    $trait = new class () {
-        use ApiCacheTestTrait;
-    };
-
     $repository = app(CacheRepository::class);
     $schema     = app('db')->connection()->getSchemaBuilder();
 
@@ -35,12 +29,12 @@ function createClientTables(string $clientName, bool $verify = false): void
     // Create uncompressed table
     config(["api-cache.apis.{$clientName}.compression_enabled" => false]);
     $uncompressedTable = $repository->getTableName($clientName);
-    $trait->createResponseTable($schema, $uncompressedTable, false);
+    create_response_table($schema, $uncompressedTable, false, true, $verify);
 
     // Create compressed table
     config(["api-cache.apis.{$clientName}.compression_enabled" => true]);
     $compressedTable = $repository->getTableName($clientName);
-    $trait->createResponseTable($schema, $compressedTable, true);
+    create_response_table($schema, $compressedTable, true, true, $verify);
 
     // Reset compression
     config(["api-cache.apis.{$clientName}.compression_enabled" => $originalCompression]);
@@ -50,40 +44,6 @@ function createClientTables(string $clientName, bool $verify = false): void
         'uncompressed_table' => $uncompressedTable,
         'compressed_table'   => $compressedTable,
     ]);
-
-    // Verify tables were created if requested
-    if ($verify) {
-        foreach ([$uncompressedTable, $compressedTable] as $table) {
-            if (!$schema->hasTable($table)) {
-                throw new \RuntimeException("Table {$table} was not created successfully");
-            }
-
-            $columns = $schema->getColumnListing($table);
-
-            // Get table structure including indexes - handle different databases
-            $pdo    = $schema->getConnection()->getPdo();
-            $driver = $schema->getConnection()->getDriverName();
-
-            $tableInfo = [];
-            $indexInfo = [];
-
-            if ($driver === 'mysql') {
-                $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
-                $tableInfo = $result['Create Table'] ?? null;
-            } elseif ($driver === 'sqlite') {
-                $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
-                $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
-            }
-
-            Log::debug('Table structure', [
-                'table'      => $table,
-                'columns'    => $columns,
-                'compressed' => str_ends_with($table, '_compressed'),
-                'structure'  => $tableInfo,
-                'indexes'    => $indexInfo,
-            ]);
-        }
-    }
 }
 
 // Bootstrap Laravel

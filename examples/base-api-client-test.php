@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
+namespace FOfX\ApiCache;
+
 require_once __DIR__ . '/bootstrap.php';
 
-use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
 
 /**

@@ -20,9 +20,9 @@ return new class () extends Migration {
             $table->string('method')->nullable();
             $table->mediumText('request_headers')->charset('binary')->nullable();
             $table->mediumText('request_body')->charset('binary')->nullable();
-            $table->integer('response_status_code')->nullable();
             $table->mediumText('response_headers')->charset('binary')->nullable();
             $table->mediumText('response_body')->charset('binary')->nullable();
+            $table->integer('response_status_code')->nullable();
             $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();

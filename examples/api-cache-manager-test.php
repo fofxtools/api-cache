@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/bootstrap.php';
+namespace FOfX\ApiCache;
 
-use FOfX\ApiCache\ApiCacheManager;
+require_once __DIR__ . '/bootstrap.php';
 
 // Get manager instance from container
 $manager = app(ApiCacheManager::class);

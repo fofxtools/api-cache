@@ -9,12 +9,9 @@ use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\RateLimitException;
 use Mockery;
 use Orchestra\Testbench\TestCase;
-use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
 
 class BaseApiClientTest extends TestCase
 {
-    use ApiCacheTestTrait;
-
     protected BaseApiClient $client;
 
     // Rename to apiBaseUrl to avoid conflict with TestBench $baseUrl

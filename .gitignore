@@ -22,6 +22,9 @@ config.*.php
 /temp*.php
 /out*.txt
 
+# SQLite Files
+/database/*.sqlite*
+
 # IDE and Editor Files
 /.fleet
 /.idea

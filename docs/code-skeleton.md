@@ -1103,13 +1103,13 @@ class CacheRepository
     }
     
     /**
-     * Cleanup expired responses
+     * Delete expired responses
      * 
      * Algorithm:
-     * - If client specified, clean only that client's tables
-     * - Otherwise clean all clients from config
+     * - If client specified, delete only that client's expired responses
+     * - Otherwise delete all expired responses from all clients
      */
-    public function cleanup(?string $clientName = null): void
+    public function deleteExpired(?string $clientName = null): void
     {
         $clientsArray = $clientName
             ? [$clientName]

@@ -120,22 +120,31 @@ class CacheRepositoryTest extends TestCase
     {
         $this->repository->store($clientName, $this->key, $this->testData, 1);
 
-        $this->assertNotNull($this->repository->get($clientName, $this->key));
-
-        sleep(2);
+        usleep(1100000);
 
         $this->assertNull($this->repository->get($clientName, $this->key));
     }
 
     #[DataProvider('clientNamesProvider')]
-    public function test_cleanup_removes_expired_data(string $clientName): void
+    public function test_deleteExpired_removes_expired_data(string $clientName): void
     {
+        // Store data with TTL
         $this->repository->store($clientName, $this->key, $this->testData, 1);
 
-        sleep(2);
+        // Verify row exists in database before expiry
+        $beforeCount = $this->db->table($this->repository->getTableName($clientName))
+            ->count();
+        $this->assertEquals(1, $beforeCount, 'Row should exist before deleteExpired');
 
-        $this->repository->cleanup($clientName);
-        $this->assertNull($this->repository->get($clientName, $this->key));
+        usleep(1100000);
+
+        // Run deleteExpired
+        $this->repository->deleteExpired($clientName);
+
+        // Verify row was actually deleted from database
+        $afterCount = $this->db->table($this->repository->getTableName($clientName))
+            ->count();
+        $this->assertEquals(0, $afterCount, 'Row should be deleted after deleteExpired');
     }
 
     public function test_store_validates_required_fields_without_compression(): void

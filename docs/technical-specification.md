@@ -48,9 +48,9 @@ Create a Laravel-based PHP library for caching API responses, designed to work w
 - `method`
 - `request_headers` (mediumtext)
 - `request_body` (mediumtext)
-- `response_status_code`
 - `response_headers` (mediumtext)
 - `response_body` (mediumtext)
+- `response_status_code`
 - `response_size`
 - `response_time` (double)
 - `expires_at` (nullable, allows for permanent caching if `null`)
@@ -69,9 +69,9 @@ Create a Laravel-based PHP library for caching API responses, designed to work w
 - `method`
 - `request_headers` (binary)
 - `request_body` (binary)
-- `response_status_code`
 - `response_headers` (binary)
 - `response_body` (binary)
+- `response_status_code`
 - `response_size`
 - `response_time` (double)
 - `expires_at` (nullable, allows for permanent caching if `null`)

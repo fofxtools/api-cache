@@ -6,7 +6,10 @@
     "autoload": {
         "psr-4": {
             "FOfX\\ApiCache\\": "src/"
-        }
+        },
+        "files": [
+            "src/functions.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

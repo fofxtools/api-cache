@@ -563,9 +563,9 @@ class ApiCacheManager
      * 
      * Algorithm:
      * - Prepare response metadata (based on Laravel HTTP client's response):
-     *   - response_status_code (from $apiResult['response']->status())
      *   - response_headers (from $apiResult['response']->headers())
      *   - response_body (from $apiResult['response']->body())
+     *   - response_status_code (from $apiResult['response']->status())
      *   - response_size (calculated from response_body)
      *   - response_time (from $apiResult['response_time'])
      * - Store prepared response in repository
@@ -602,9 +602,9 @@ class ApiCacheManager
             'method' => $apiResult['request']['method'],
             'request_headers' => $apiResult['request']['headers'],
             'request_body' => $apiResult['request']['body'],
-            'response_status_code' => $response->status(),
             'response_headers' => $response->headers(),
             'response_body' => $response->body(),
+            'response_status_code' => $response->status(),
             'response_size' => strlen($response->body()),
             'response_time' => $apiResult['response_time'],
         ];
@@ -994,9 +994,9 @@ class CacheRepository
      * - Calculate expires_at from ttl
      * - Validate required fields
      * - Expected data structure:
-     *   - response_status_code: HTTP status code
      *   - response_headers: Array of headers
      *   - response_body: Raw response body
+     *   - response_status_code: HTTP status code
      *   - response_size: Body length in bytes
      *   - response_time: Request duration in seconds
      * - Prepare data for storage
@@ -1032,8 +1032,8 @@ class CacheRepository
             'method' => null,
             'request_headers' => null,
             'request_body' => null,
-            'response_status_code' => null,
             'response_headers' => null,
+            'response_status_code' => null,
             'response_size' => strlen($metadata['response_body'] ?? ''),
             'response_time' => null,
         ], $metadata);
@@ -1048,9 +1048,9 @@ class CacheRepository
             'method' => $metadata['method'],
             'request_headers' => $this->prepareHeaders($metadata['request_headers']),
             'request_body' => $this->prepareBody($metadata['request_body']),
-            'response_status_code' => $metadata['response_status_code'],
             'response_headers' => $this->prepareHeaders($metadata['response_headers']),
             'response_body' => $this->prepareBody($metadata['response_body']),
+            'response_status_code' => $metadata['response_status_code'],
             'response_size' => $metadata['response_size'],
             'response_time' => $metadata['response_time'],
             'expires_at' => $expiresAt,
@@ -1093,9 +1093,9 @@ class CacheRepository
             'method' => $data->method,
             'request_headers' => $this->retrieveHeaders($data->request_headers),
             'request_body' => $this->retrieveBody($data->request_body),
-            'response_status_code' => $data->response_status_code,
             'response_headers' => $this->retrieveHeaders($data->response_headers),
             'response_body' => $this->retrieveBody($data->response_body),
+            'response_status_code' => $data->response_status_code,
             'response_size' => $data->response_size,
             'response_time' => $data->response_time,
             'expires_at' => $data->expires_at,
@@ -1147,9 +1147,9 @@ return new class extends Migration
             $table->string('method')->nullable();
             $table->mediumText('request_headers')->nullable();
             $table->mediumText('request_body')->nullable();
-            $table->integer('response_status_code')->nullable();
             $table->mediumText('response_headers')->nullable();
             $table->mediumText('response_body')->nullable();
+            $table->integer('response_status_code')->nullable();
             $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
@@ -1189,9 +1189,9 @@ return new class extends Migration
             $table->string('method')->nullable();
             $table->binary('request_headers')->nullable();
             $table->binary('request_body')->nullable();
-            $table->integer('response_status_code')->nullable();
             $table->binary('response_headers')->nullable();
             $table->binary('response_body')->nullable();
+            $table->integer('response_status_code')->nullable();
             $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();

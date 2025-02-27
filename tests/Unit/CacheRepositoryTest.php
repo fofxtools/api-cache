@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 namespace FOfX\ApiCache\Tests\Unit;
 
+use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\CacheRepository;
-use FOfX\ApiCache\CompressionService;
-use Illuminate\Database\Connection;
-use Orchestra\Testbench\TestCase;
+use FOfX\ApiCache\Tests\TestCase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class CacheRepositoryTest extends TestCase
 {
-    protected Connection $db;
-    protected CompressionService $compressionService;
     protected CacheRepository $repository;
-    protected string $compressedClient   = 'compressed-client';
-    protected string $uncompressedClient = 'uncompressed-client';
+
+    // Use constant so it can be used in static method data providers
+    protected const COMPRESSED_CLIENT    = 'demo';
+    protected const UNCOMPRESSED_CLIENT  = 'openai';
+    protected string $compressedClient   = self::COMPRESSED_CLIENT;
+    protected string $uncompressedClient = self::UNCOMPRESSED_CLIENT;
     protected string $key                = 'test-key';
     protected array $testData;
 
@@ -24,82 +26,52 @@ class CacheRepositoryTest extends TestCase
     {
         parent::setUp();
 
-        // Setup database
-        $this->app['config']->set('database.default', 'testbench');
-        $this->app['config']->set('database.connections.testbench', [
-            'driver'   => 'sqlite',
-            'database' => ':memory:',
-        ]);
-
         // Configure compression for different clients
-        $this->app['config']->set("api-cache.apis.{$this->compressedClient}.compression_enabled", true);
-        $this->app['config']->set("api-cache.apis.{$this->uncompressedClient}.compression_enabled", false);
+        config()->set("api-cache.apis.{$this->compressedClient}.compression_enabled", true);
+        config()->set("api-cache.apis.{$this->uncompressedClient}.compression_enabled", false);
 
-        $this->db                 = $this->app['db']->connection();
-        $this->compressionService = new CompressionService();
-        $this->repository         = new CacheRepository(
-            $this->db,
-            $this->compressionService
-        );
-
-        // Create tables for both clients
-        $this->createTestTable($this->repository->getTableName($this->compressedClient));
-        $this->createTestTable($this->repository->getTableName($this->uncompressedClient));
+        // Let Laravel handle DI
+        $this->repository = app(CacheRepository::class);
 
         // Test data
         $this->testData = [
-            'endpoint'      => '/test',
-            'response_body' => 'This is the response body for the test. It may or may not be stored compressed.',
-            'method'        => 'GET',
+            'endpoint'         => '/test',
+            'response_body'    => 'This is the response body for the test. It may or may not be stored compressed.',
+            'response_headers' => ['Content-Type' => 'application/json'],
+            'method'           => 'GET',
         ];
     }
 
-    private function createTestTable(string $tableName): void
+    /**
+     * Get service providers to register for testing.
+     * Called implicitly by Orchestra TestCase to register providers before tests run.
+     *
+     * @param \Illuminate\Foundation\Application $app
+     *
+     * @return array
+     */
+    protected function getPackageProviders($app): array
     {
-        if (!$this->db->getSchemaBuilder()->hasTable($tableName)) {
-            $this->db->getSchemaBuilder()->create($tableName, function ($table) {
-                $table->id();
-                $table->string('key')->unique();
-                $table->string('client');
-                $table->string('version')->nullable();
-                $table->string('endpoint');
-                $table->string('base_url')->nullable();
-                $table->string('full_url')->nullable();
-                $table->string('method')->nullable();
-                $table->mediumText('request_headers')->nullable();
-                $table->mediumText('request_body')->nullable();
-                $table->integer('response_status_code')->nullable();
-                $table->mediumText('response_headers')->nullable();
-                $table->mediumText('response_body')->nullable();
-                $table->integer('response_size')->nullable();
-                $table->double('response_time')->nullable();
-                $table->timestamp('expires_at')->nullable();
-                $table->timestamps();
-            });
-        }
+        return [ApiCacheServiceProvider::class];
     }
 
     public function test_getTableName_without_compression(): void
     {
-        $this->assertEquals(
-            'api_cache_uncompressed_client_responses',
-            $this->repository->getTableName($this->uncompressedClient)
-        );
+        $tableName = $this->repository->getTableName($this->uncompressedClient);
+        $this->assertEquals('api_cache_' . $this->uncompressedClient . '_responses', $tableName);
     }
 
     public function test_getTableName_with_compression(): void
     {
-        $this->assertEquals(
-            'api_cache_compressed_client_responses_compressed',
-            $this->repository->getTableName($this->compressedClient)
-        );
+        $tableName = $this->repository->getTableName($this->compressedClient);
+        $this->assertEquals('api_cache_' . $this->compressedClient . '_responses_compressed', $tableName);
     }
 
     public static function clientNamesProvider(): array
     {
         return [
-            'uncompressed client' => ['uncompressed-client'],
-            'compressed client'   => ['compressed-client'],
+            'uncompressed client' => [self::UNCOMPRESSED_CLIENT],
+            'compressed client'   => [self::COMPRESSED_CLIENT],
         ];
     }
 
@@ -132,7 +104,7 @@ class CacheRepositoryTest extends TestCase
         $this->repository->store($clientName, $this->key, $this->testData, 1);
 
         // Verify row exists in database before expiry
-        $beforeCount = $this->db->table($this->repository->getTableName($clientName))
+        $beforeCount = DB::table($this->repository->getTableName($clientName))
             ->count();
         $this->assertEquals(1, $beforeCount, 'Row should exist before deleteExpired');
 
@@ -142,7 +114,7 @@ class CacheRepositoryTest extends TestCase
         $this->repository->deleteExpired($clientName);
 
         // Verify row was actually deleted from database
-        $afterCount = $this->db->table($this->repository->getTableName($clientName))
+        $afterCount = DB::table($this->repository->getTableName($clientName))
             ->count();
         $this->assertEquals(0, $afterCount, 'Row should be deleted after deleteExpired');
     }
@@ -224,7 +196,7 @@ class CacheRepositoryTest extends TestCase
         string $expected
     ): void {
         // Configure compression for this client
-        $this->app['config']->set("api-cache.apis.{$clientName}.compression_enabled", $isCompressed);
+        config()->set("api-cache.apis.{$clientName}.compression_enabled", $isCompressed);
 
         // Use existing repository
         $this->assertEquals($expected, $this->repository->getTableName($clientName));

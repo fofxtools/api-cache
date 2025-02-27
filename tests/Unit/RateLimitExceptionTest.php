@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\RateLimitException;
-use PHPUnit\Framework\TestCase;
+use FOfX\ApiCache\Tests\TestCase;
 
 class RateLimitExceptionTest extends TestCase
 {

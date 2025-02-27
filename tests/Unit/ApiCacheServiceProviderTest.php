@@ -10,7 +10,7 @@ use FOfX\ApiCache\CacheRepository;
 use FOfX\ApiCache\CompressionService;
 use FOfX\ApiCache\RateLimitService;
 use Illuminate\Cache\RateLimiter;
-use Orchestra\Testbench\TestCase;
+use FOfX\ApiCache\Tests\TestCase;
 
 class ApiCacheServiceProviderTest extends TestCase
 {

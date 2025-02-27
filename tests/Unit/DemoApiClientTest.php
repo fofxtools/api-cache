@@ -6,7 +6,8 @@ namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\DemoApiClient;
 use FOfX\ApiCache\ApiCacheManager;
-use Orchestra\Testbench\TestCase;
+use FOfX\ApiCache\ApiCacheServiceProvider;
+use FOfX\ApiCache\Tests\TestCase;
 use Mockery;
 
 use function FOfX\ApiCache\check_server_status;
@@ -21,15 +22,16 @@ class DemoApiClientTest extends TestCase
     protected string $version = 'v1';
 
     /**
-     * Get package providers.
+     * Get service providers to register for testing.
+     * Called implicitly by Orchestra TestCase to register providers before tests run.
      *
      * @param \Illuminate\Foundation\Application $app
      *
-     * @return array<int, class-string>
+     * @return array
      */
     protected function getPackageProviders($app): array
     {
-        return ['FOfX\ApiCache\ApiCacheServiceProvider'];
+        return [ApiCacheServiceProvider::class];
     }
 
     protected function setUp(): void

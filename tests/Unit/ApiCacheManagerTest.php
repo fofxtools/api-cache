@@ -9,7 +9,7 @@ use FOfX\ApiCache\CacheRepository;
 use FOfX\ApiCache\RateLimitService;
 use Illuminate\Http\Client\Response;
 use Mockery;
-use Orchestra\Testbench\TestCase;
+use FOfX\ApiCache\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class ApiCacheManagerTest extends TestCase
@@ -164,9 +164,9 @@ class ApiCacheManagerTest extends TestCase
                     'method'               => 'GET',
                     'request_headers'      => $requestHeaders,
                     'request_body'         => '{"query":"test"}',
-                    'response_status_code' => 200,
                     'response_headers'     => $responseHeaders,
                     'response_body'        => '{"test":"data"}',
+                    'response_status_code' => 200,
                     'response_size'        => 15,
                     'response_time'        => 0.5,
                 ],
@@ -212,8 +212,8 @@ class ApiCacheManagerTest extends TestCase
         $this->assertArrayHasKey('request', $result);
 
         // Verify response content
-        $this->assertEquals($expectedMetadata['response_status_code'], $result['response']->status());
         $this->assertEquals($expectedMetadata['response_body'], $result['response']->body());
+        $this->assertEquals($expectedMetadata['response_status_code'], $result['response']->status());
         $this->assertEquals(0, $result['response_time']);
 
         // Verify request data

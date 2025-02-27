@@ -9,7 +9,7 @@ use Illuminate\Cache\RateLimiter;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Mockery;
-use Orchestra\Testbench\TestCase;
+use FOfX\ApiCache\Tests\TestCase;
 
 class RateLimitServiceTest extends TestCase
 {
@@ -42,8 +42,12 @@ class RateLimitServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        // Note: Calling parent::tearDown(); causes "InvalidArgumentException: Database connection [] not configured." errors
+        // Thus it is ommitted.
+        // Remove exception handlers and error handlers to avoid warnings
+        restore_exception_handler();
+        restore_error_handler();
         Mockery::close();
-        parent::tearDown();
     }
 
     public function test_getRateLimitKey_generates_correct_key(): void

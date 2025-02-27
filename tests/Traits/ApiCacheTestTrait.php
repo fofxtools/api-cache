@@ -100,17 +100,16 @@ trait ApiCacheTestTrait
             if ($compressed) {
                 $table->binary('request_headers')->nullable();
                 $table->binary('request_body')->nullable();
-                $table->integer('response_status_code')->nullable();
                 $table->binary('response_headers')->nullable();
                 $table->binary('response_body')->nullable();
             } else {
                 $table->mediumText('request_headers')->nullable();
                 $table->mediumText('request_body')->nullable();
-                $table->integer('response_status_code')->nullable();
                 $table->mediumText('response_headers')->nullable();
                 $table->mediumText('response_body')->nullable();
             }
 
+            $table->integer('response_status_code')->nullable();
             $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();

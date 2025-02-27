@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\ApiCacheManager;
+use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\RateLimitException;
 use Mockery;
-use Orchestra\Testbench\TestCase;
+use FOfX\ApiCache\Tests\TestCase;
 
 class BaseApiClientTest extends TestCase
 {
@@ -21,21 +22,9 @@ class BaseApiClientTest extends TestCase
     protected ApiCacheManager $cacheManager;
 
     // Use constant so it can be used in static method data providers
-    protected const CLIENT_NAME  = 'default';
+    protected const CLIENT_NAME  = 'demo';
     protected string $clientName = self::CLIENT_NAME;
     protected string $version    = 'v1';
-
-    /**
-     * Get package providers.
-     *
-     * @param \Illuminate\Foundation\Application $app
-     *
-     * @return array<int, class-string>
-     */
-    protected function getPackageProviders($app): array
-    {
-        return ['FOfX\ApiCache\ApiCacheServiceProvider'];
-    }
 
     protected function setUp(): void
     {
@@ -67,6 +56,19 @@ class BaseApiClientTest extends TestCase
     {
         Mockery::close();
         parent::tearDown();
+    }
+
+    /**
+     * Get service providers to register for testing.
+     * Called implicitly by Orchestra TestCase to register providers before tests run.
+     *
+     * @param \Illuminate\Foundation\Application $app
+     *
+     * @return array
+     */
+    protected function getPackageProviders($app): array
+    {
+        return [ApiCacheServiceProvider::class];
     }
 
     public function test_getClientName_returns_correct_name(): void

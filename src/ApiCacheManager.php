@@ -173,7 +173,6 @@ class ApiCacheManager
         );
 
         // Return in same format as fresh responses
-        // response_time is set to 0 because it's cached
         return [
             'request' => [
                 'base_url' => $cached['base_url'],
@@ -182,8 +181,11 @@ class ApiCacheManager
                 'headers'  => $cached['request_headers'],
                 'body'     => $cached['request_body'],
             ],
-            'response'      => $response,
-            'response_time' => 0,
+            'response'             => $response,
+            'response_status_code' => $cached['response_status_code'],
+            'response_size'        => $cached['response_size'],
+            'response_time'        => $cached['response_time'],
+            'is_cached'            => true,
         ];
     }
 

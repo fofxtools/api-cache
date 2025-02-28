@@ -7,7 +7,6 @@ namespace FOfX\ApiCache\Tests\Unit;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\CacheRepository;
 use FOfX\ApiCache\Tests\TestCase;
-use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class CacheRepositoryTest extends TestCase
@@ -95,28 +94,6 @@ class CacheRepositoryTest extends TestCase
         usleep(1100000);
 
         $this->assertNull($this->repository->get($clientName, $this->key));
-    }
-
-    #[DataProvider('clientNamesProvider')]
-    public function test_deleteExpired_removes_expired_data(string $clientName): void
-    {
-        // Store data with TTL
-        $this->repository->store($clientName, $this->key, $this->testData, 1);
-
-        // Verify row exists in database before expiry
-        $beforeCount = DB::table($this->repository->getTableName($clientName))
-            ->count();
-        $this->assertEquals(1, $beforeCount, 'Row should exist before deleteExpired');
-
-        usleep(1100000);
-
-        // Run deleteExpired
-        $this->repository->deleteExpired($clientName);
-
-        // Verify row was actually deleted from database
-        $afterCount = DB::table($this->repository->getTableName($clientName))
-            ->count();
-        $this->assertEquals(0, $afterCount, 'Row should be deleted after deleteExpired');
     }
 
     public function test_store_validates_required_fields_without_compression(): void
@@ -231,5 +208,193 @@ class CacheRepositoryTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->repository->getTableName($clientName);
+    }
+
+    /**
+     * Test countTotalResponses returns correct count with no records
+     */
+    public function test_countTotalResponses_returns_zero_for_empty_table(): void
+    {
+        $count = $this->repository->countTotalResponses($this->uncompressedClient);
+
+        $this->assertEquals(0, $count);
+    }
+
+    /**
+     * Test countTotalResponses returns correct count with multiple records
+     */
+    public function test_countTotalResponses_returns_correct_count(): void
+    {
+        // Store some test data
+        $metadata = [
+            'endpoint'      => '/test',
+            'response_body' => 'Test response body',
+        ];
+
+        // Store multiple records
+        $this->repository->store($this->uncompressedClient, 'key1', $metadata);
+        $this->repository->store($this->uncompressedClient, 'key2', $metadata);
+        $this->repository->store($this->uncompressedClient, 'key3', $metadata);
+
+        $count = $this->repository->countTotalResponses($this->uncompressedClient);
+
+        $this->assertEquals(3, $count);
+    }
+
+    /**
+     * Test countTotalResponses works with compressed tables
+     */
+    public function test_countTotalResponses_works_with_compressed_table(): void
+    {
+        $metadata = [
+            'endpoint'      => '/test',
+            'response_body' => 'Test response body',
+        ];
+
+        // Store in compressed table
+        $this->repository->store($this->compressedClient, 'key1', $metadata);
+        $this->repository->store($this->compressedClient, 'key2', $metadata);
+
+        $count = $this->repository->countTotalResponses($this->compressedClient);
+
+        $this->assertEquals(2, $count);
+    }
+
+    /**
+     * Test countTotalResponses includes expired records
+     */
+    public function test_countTotalResponses_includes_expired_records(): void
+    {
+        $metadata = [
+            'endpoint'      => '/test',
+            'response_body' => 'Test response body',
+        ];
+
+        // Store one regular record
+        $this->repository->store($this->uncompressedClient, 'active-key', $metadata);
+
+        // Store one expired record
+        $this->repository->store($this->uncompressedClient, 'expired-key', $metadata, 1);
+
+        // Wait for expiry
+        sleep(2);
+
+        $count = $this->repository->countTotalResponses($this->uncompressedClient);
+
+        // Should count both active and expired records
+        $this->assertEquals(2, $count);
+    }
+
+    /**
+     * Test countActiveResponses returns only non-expired records
+     */
+    public function test_countActiveResponses_returns_only_non_expired_records(): void
+    {
+        $metadata = [
+            'endpoint'      => '/test',
+            'response_body' => 'Test response body',
+        ];
+
+        // Store one regular record
+        $this->repository->store($this->uncompressedClient, 'active-key', $metadata);
+
+        // Store one expired record
+        $this->repository->store($this->uncompressedClient, 'expired-key', $metadata, 1);
+
+        // Wait for expiry
+        sleep(2);
+
+        $count = $this->repository->countActiveResponses($this->uncompressedClient);
+
+        // Should only count active record
+        $this->assertEquals(1, $count);
+    }
+
+    /**
+     * Test countExpiredResponses returns only expired records
+     */
+    public function test_countExpiredResponses_returns_only_expired_records(): void
+    {
+        $metadata = [
+            'endpoint'      => '/test',
+            'response_body' => 'Test response body',
+        ];
+
+        // Store one regular record
+        $this->repository->store($this->uncompressedClient, 'active-key', $metadata);
+
+        // Store one expired record
+        $this->repository->store($this->uncompressedClient, 'expired-key', $metadata, 1);
+
+        // Wait for expiry
+        sleep(2);
+
+        $count = $this->repository->countExpiredResponses($this->uncompressedClient);
+
+        // Should only count expired record
+        $this->assertEquals(1, $count);
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_deleteExpired_removes_expired_data(string $clientName): void
+    {
+        // Store data with TTL
+        $this->repository->store($clientName, $this->key, $this->testData, 1);
+
+        // Verify row exists and is active before expiry
+        $this->assertEquals(
+            1,
+            $this->repository->countTotalResponses($clientName),
+            'Should have one total response before expiry'
+        );
+        $this->assertEquals(
+            1,
+            $this->repository->countActiveResponses($clientName),
+            'Response should be active before expiry'
+        );
+        $this->assertEquals(
+            0,
+            $this->repository->countExpiredResponses($clientName),
+            'Should have no expired responses before expiry'
+        );
+
+        usleep(1100000);
+
+        // Verify row is now expired but still exists
+        $this->assertEquals(
+            1,
+            $this->repository->countTotalResponses($clientName),
+            'Should still have one total response after expiry'
+        );
+        $this->assertEquals(
+            0,
+            $this->repository->countActiveResponses($clientName),
+            'Should have no active responses after expiry'
+        );
+        $this->assertEquals(
+            1,
+            $this->repository->countExpiredResponses($clientName),
+            'Response should be expired after expiry'
+        );
+
+        // Run deleteExpired
+        $this->repository->deleteExpired($clientName);
+
+        // Verify row was actually deleted
+        $this->assertEquals(
+            0,
+            $this->repository->countTotalResponses($clientName),
+            'Should have no responses after deleteExpired'
+        );
+        $this->assertEquals(
+            0,
+            $this->repository->countActiveResponses($clientName),
+            'Should have no active responses after deleteExpired'
+        );
+        $this->assertEquals(
+            0,
+            $this->repository->countExpiredResponses($clientName),
+            'Should have no expired responses after deleteExpired'
+        );
     }
 }

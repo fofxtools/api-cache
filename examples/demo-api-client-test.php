@@ -2,174 +2,73 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+namespace FOfX\ApiCache;
 
-use FOfX\ApiCache\DemoApiClient;
-use FOfX\ApiCache\ApiCacheServiceProvider;
-use FOfX\ApiCache\ApiCacheManager;
-use FOfX\ApiCache\CacheRepository;
-use FOfX\ApiCache\CompressionService;
-use FOfX\ApiCache\RateLimitService;
-use Illuminate\Cache\RateLimiter;
-use Illuminate\Support\Facades\Facade;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Foundation\Application;
-use Illuminate\Database\Capsule\Manager as Capsule;
-use Illuminate\Database\Schema\Blueprint;
-
-// Bootstrap Laravel
-$app = new Application(dirname(__DIR__));
-$app->bootstrapWith([
-    \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
-    \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
-]);
-
-// Set up facades
-Facade::setFacadeApplication($app);
-
-// Register bindings
-$app->singleton('config', fn () => new \Illuminate\Config\Repository([
-    'api-cache' => require __DIR__ . '/../config/api-cache.php',
-    'app'       => require __DIR__ . '/../config/app.php',
-    'cache'     => require __DIR__ . '/../config/cache.php',
-    'database'  => require __DIR__ . '/../config/database.php',
-    'logging'   => require __DIR__ . '/../config/logging.php',
-]));
-$app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
-$app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
-
-// Register our service provider
-$app->register(ApiCacheServiceProvider::class);
-
-// Get the appropriate host based on environment
-if (PHP_OS_FAMILY === 'Linux' && getenv('WSL_DISTRO_NAME')) {
-    // In WSL2, /etc/resolv.conf's nameserver points to the Windows host
-    $nameserver = trim(shell_exec("grep nameserver /etc/resolv.conf | awk '{print $2}'"));
-} else {
-    $nameserver = 'localhost';
-}
-
-$configBaseUrl = config('api-cache.apis.demo.base_url');
-
-// Replace localhost with appropriate nameserver for Ubuntu WSL
-$modifiedBaseUrl = preg_replace(
-    '#localhost(:\d+)?#',
-    $nameserver . '$1',
-    $configBaseUrl
-);
-
-// Update config with WSL-adjusted URL
-$app['config']->set('api-cache.apis.demo.base_url', $modifiedBaseUrl);
-
-// Setup database
-$capsule = new Capsule();
-$capsule->addConnection(
-    config('database.connections.sqlite_memory')
-);
-$capsule->setAsGlobal();
-$capsule->bootEloquent();
-
-// Register database in container
-$app->singleton('db', function () use ($capsule) {
-    return $capsule->getDatabaseManager();
-});
-
-// Create services
-$rateLimiter      = new RateLimiter(Cache::driver());
-$rateLimitService = new RateLimitService($rateLimiter);
-$compression      = new CompressionService();
-$repository       = new CacheRepository(
-    $capsule->getDatabaseManager()->connection(),
-    $compression
-);
+require_once __DIR__ . '/bootstrap.php';
 
 /**
- * Create the response table with standard schema
+ * Run demo API client tests with given compression setting
+ *
+ * @param bool $compression Whether to enable compression
  */
-function createResponseTable(Illuminate\Database\Schema\Builder $schema, string $tableName): void
+function runDemoApiClientTest(bool $compression): void
 {
-    // Drop the table if it exists to ensure a clean state
-    $schema->dropIfExists($tableName);
+    $clientName = 'demo';
 
-    $schema->create($tableName, function (Blueprint $table) {
-        $table->id();
-        $table->string('key')->unique();
-        $table->string('client');
-        $table->string('version')->nullable();
-        $table->string('endpoint');
-        $table->string('base_url')->nullable();
-        $table->string('full_url')->nullable();
-        $table->string('method')->nullable();
-        $table->mediumText('request_headers')->nullable();
-        $table->mediumText('request_body')->nullable();
-        $table->mediumText('response_headers')->nullable();
-        $table->mediumText('response_body')->nullable();
-        $table->integer('response_status_code')->nullable();
-        $table->integer('response_size')->nullable();
-        $table->double('response_time')->nullable();
-        $table->timestamp('expires_at')->nullable();
-        $table->timestamps();
-    });
-}
+    echo "\nTesting DemoApiClient " . ($compression ? 'with' : 'without') . " compression...\n";
+    echo str_repeat('-', 50) . "\n";
 
-// Create response table
-$tableName = $repository->getTableName('demo');
-echo "Creating table: {$tableName}\n";
-createResponseTable($capsule->schema(), $tableName);
+    // Configure client
+    config()->set("api-cache.apis.{$clientName}.compression_enabled", $compression);
 
-// Register ApiCacheManager
-$app->singleton(ApiCacheManager::class, fn () => new ApiCacheManager($repository, $rateLimitService));
+    // Create response tables
+    createClientTables($clientName);
 
-// Create client instance
-$client = new DemoApiClient();
+    // Create client instance
+    $client = new DemoApiClient();
+    $client->setTimeout(2);
+    $client->setWslEnabled(true);
 
-// Set shorter timeout for testing
-$client->setTimeout(2);
-
-echo "\n";
-
-try {
     // Test predictions endpoint
-    echo "Testing predictions endpoint...\n";
+    echo "\nTesting predictions endpoint...\n";
     $result = $client->predictions('test query', 5);
     echo "Status code: {$result['response']->status()}\n";
-    echo "Response time: {$result['response_time']}s\n\n";
+    echo "Response time: {$result['response_time']}s\n";
+    echo 'Is cached: ' . ($result['is_cached'] ? 'Yes' : 'No') . "\n\n";
     echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
-    echo "\n\n";
+    echo "\n";
 
     // Test cached predictions with same parameters
-    echo "Testing cached predictions...\n";
-    $result = $client->predictions('test query', 5);
+    echo "\nTesting cached request (same parameters)...\n";
+    $result           = $client->predictions('test query', 5);
+    $responseSize     = $result['response_size'];
+    $uncompressedSize = strlen($result['response']->body());
     echo "Status code: {$result['response']->status()}\n";
-    echo "Response time: {$result['response_time']}s\n\n";
+    echo "Response time: {$result['response_time']}s\n";
+    echo 'Is cached: ' . ($result['is_cached'] ? 'Yes' : 'No') . "\n";
+    echo "Stored size: {$responseSize} bytes\n";
+    echo "Uncompressed size: {$uncompressedSize} bytes\n";
+    echo 'Compression ratio: ' . round(($responseSize / $uncompressedSize), 2) . ":1\n\n";
     echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
-    echo "\n\n";
+    echo "\n";
 
     // Test reports endpoint
-    echo "Testing reports endpoint...\n";
+    echo "\nTesting reports endpoint...\n";
     $result = $client->reports('monthly', 'sales');
     echo "Status code: {$result['response']->status()}\n";
-    echo "Response time: {$result['response_time']}s\n\n";
+    echo "Response time: {$result['response_time']}s\n";
+    echo 'Is cached: ' . ($result['is_cached'] ? 'Yes' : 'No') . "\n\n";
     echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
-    echo "\n\n";
+    echo "\n";
 
     // Test error handling
-    echo "Testing error handling...\n";
-
-    try {
-        $result = $client->predictions('', 0); // Invalid parameters
-        echo "Status code: {$result['response']->status()}\n";
-        $body = json_decode($result['response']->body(), true);
-        if (isset($body['error'])) {
-            echo "Error message: {$body['error']}\n";
-        } else {
-            echo 'Response body: ' . $result['response']->body() . "\n";
-        }
-    } catch (\Exception $e) {
-        echo "Error: {$e->getMessage()}\n";
-        echo "Make sure the demo server is running with: php -S 0.0.0.0:8000 -t public\n";
-    }
-} catch (\Exception $e) {
-    echo "Error: {$e->getMessage()}\n";
-    echo "Make sure the demo server is running with: php -S 0.0.0.0:8000 -t public\n";
+    echo "\nTesting error handling...\n";
+    $result = $client->predictions('', 0); // Invalid parameters
+    echo "Status code: {$result['response']->status()}\n";
+    $body = json_decode($result['response']->body(), true);
+    echo "Error message: {$body['error']}\n";
 }
+
+// Run tests for both compression scenarios
+runDemoApiClientTest(false);
+runDemoApiClientTest(true);

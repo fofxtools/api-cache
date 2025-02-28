@@ -214,7 +214,7 @@ class ApiCacheManagerTest extends TestCase
         // Verify response content
         $this->assertEquals($expectedMetadata['response_body'], $result['response']->body());
         $this->assertEquals($expectedMetadata['response_status_code'], $result['response']->status());
-        $this->assertEquals(0, $result['response_time']);
+        $this->assertIsFloat($result['response_time']);
 
         // Verify request data
         $this->assertEquals($expectedMetadata['base_url'], $result['request']['base_url']);

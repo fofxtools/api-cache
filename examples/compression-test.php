@@ -2,81 +2,83 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+namespace FOfX\ApiCache;
 
-use FOfX\ApiCache\CompressionService;
-use FOfX\ApiCache\ApiCacheServiceProvider;
-use Illuminate\Support\Facades\Facade;
-use Illuminate\Foundation\Application;
+require_once __DIR__ . '/bootstrap.php';
 
-date_default_timezone_set('UTC');
+// Test client configuration
+$clientName = 'demo';
+config()->set("api-cache.apis.{$clientName}.compression_enabled", true);
 
-// Bootstrap Laravel
-$app = new Application(dirname(__DIR__));
-$app->bootstrapWith([
-    \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
-    \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
-]);
+// Create response tables for the test client
+createClientTables($clientName);
 
-// Set Facade root
-Facade::setFacadeApplication($app);
+// Get repository instance from container
+$repository = app(CacheRepository::class);
 
-// Register bindings
-$app->singleton('config', fn () => new \Illuminate\Config\Repository([
-    'api-cache' => require __DIR__ . '/../config/api-cache.php',
-    'app'       => require __DIR__ . '/../config/app.php',
-    'cache'     => require __DIR__ . '/../config/cache.php',
-    'database'  => require __DIR__ . '/../config/database.php',
-    'logging'   => require __DIR__ . '/../config/logging.php',
-]));
-$app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
-$app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
+echo "\nTesting Compression...\n";
+echo "-------------------\n";
 
-// Register our services
-$app->register(ApiCacheServiceProvider::class);
+// Test data with different characteristics
+$testCases = [
+    'small-text' => [
+        'data'        => 'Small piece of text',
+        'description' => 'Small text (no compression benefit)',
+    ],
+    'large-text' => [
+        'data'        => str_repeat('This is a repeating text that should compress well. ', 100),
+        'description' => 'Large repeating text (good compression)',
+    ],
+    'json-data' => [
+        'data'        => json_encode(array_fill(0, 100, ['test' => 'data', 'numbers' => range(1, 10)])),
+        'description' => 'JSON data (moderate compression)',
+    ],
+];
 
-// Set up test client config
-// We are not sending requests so most of these are not actually used
-$app['config']->set('api-cache.apis.test-client', [
-    'base_url'                 => 'http://test.local',
-    'api_key'                  => 'test-key',
-    'version'                  => 'v1',
-    'cache_ttl'                => null,
-    'compression_enabled'      => true,
-    'rate_limit_max_attempts'  => 1000,
-    'rate_limit_decay_seconds' => 60,
-]);
+foreach ($testCases as $name => $test) {
+    echo "\nTesting {$name}...\n";
+    echo "Description: {$test['description']}\n";
 
-// Get compression service from container
-$service = app(CompressionService::class);
+    $metadata = [
+        'endpoint'      => '/test',
+        'response_body' => $test['data'],
+    ];
 
-$clientName = 'test-client';
+    // Store the data
+    $key = "compression-test-{$name}";
+    $repository->store($clientName, $key, $metadata);
 
-echo "Testing CompressionService...\n";
-echo "--------------------------\n";
+    // Retrieve and verify
+    $retrieved = $repository->get($clientName, $key);
 
-// Test valid compression
-$data = "Hello, this is a test string that we'll compress and decompress";
+    // Calculate compression stats
+    $originalSize = strlen($test['data']);
+    $storedSize   = $retrieved['response_size'];
+    $ratio        = $storedSize > 0 ? round(($originalSize / $storedSize) * 100) / 100 : 0;
 
-echo "Original data: {$data}\n";
-echo 'Original size: ' . strlen($data) . " bytes\n\n";
+    echo 'Original size: ' . $originalSize . " bytes\n";
+    echo 'Stored size: ' . $storedSize . " bytes\n";
+    echo "Compression ratio: {$ratio}:1\n";
 
-// Test with context
-$compressed = $service->compress($clientName, $data, 'test-data');
-echo 'Compressed size: ' . strlen($compressed) . " bytes\n";
-echo 'Compressed (base64): ' . base64_encode($compressed) . "\n\n";
-
-$decompressed = $service->decompress($clientName, $compressed);
-echo "Decompressed: {$decompressed}\n";
-echo 'Decompressed size: ' . strlen($decompressed) . " bytes\n\n";
-
-// Verify
-echo 'Compression successful: ' . ($data === $decompressed ? 'Yes' : 'No') . "\n";
-
-// Test invalid data
-try {
-    echo "\nTesting invalid data...\n";
-    $service->decompress($clientName, 'not compressed data');
-} catch (\Exception $e) {
-    echo 'Expected error: ' . $e->getMessage() . "\n";
+    // Verify data integrity
+    $matches = $test['data'] === $retrieved['response_body'];
+    echo 'Data integrity check: ' . ($matches ? 'PASSED' : 'FAILED') . "\n";
 }
+
+// Test with compression disabled
+echo "\n\nTesting with compression disabled...\n";
+config()->set("api-cache.apis.{$clientName}.compression_enabled", false);
+
+$key      = 'no-compression-test';
+$data     = str_repeat('This should not be compressed. ', 50);
+$metadata = [
+    'endpoint'      => '/test',
+    'response_body' => $data,
+];
+
+$repository->store($clientName, $key, $metadata);
+$retrieved = $repository->get($clientName, $key);
+
+echo 'Original size: ' . strlen($data) . " bytes\n";
+echo 'Stored size: ' . $retrieved['response_size'] . " bytes\n";
+echo 'Data integrity check: ' . ($data === $retrieved['response_body'] ? 'PASSED' : 'FAILED') . "\n";

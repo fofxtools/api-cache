@@ -303,8 +303,11 @@ class BaseApiClient
                 'headers'  => $requestData['headers'],
                 'body'     => $requestData['body'],
             ],
-            'response'      => $response,
-            'response_time' => $responseTime,
+            'response'             => $response,
+            'response_status_code' => $response->status(),
+            'response_size'        => strlen($response->body()),
+            'response_time'        => $responseTime,
+            'is_cached'            => false,
         ];
     }
 

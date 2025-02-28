@@ -6,31 +6,20 @@ namespace FOfX\ApiCache;
 
 require_once __DIR__ . '/bootstrap.php';
 
-use FOfX\ApiCache\Tests\Traits\ApiCacheTestTrait;
-
-/**
- * Create a concrete implementation for testing
- * Note: While BaseApiClient is no longer abstract, we keep this test class
- * to include the ApiCacheTestTrait for testing utilities
- */
-class TestApiClient extends BaseApiClient
-{
-    use ApiCacheTestTrait;
-}
-
 // Test client configuration
 $clientName = 'demo';
 config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 3);
 config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 5);
+config()->set("api-cache.apis.{$clientName}.compression_enabled", false);
 
 // Create response tables for the test client
 createClientTables($clientName);
 
-// Create client instance
-$client = new TestApiClient(
-    $clientName
-);
+// Create client instance directly using BaseApiClient
+$client = new BaseApiClient($clientName);
 $client->setTimeout(2);
+// Enable WSL for local testing
+$client->setWslEnabled(true);
 
 echo "Testing BaseApiClient...\n";
 echo "---------------------\n";

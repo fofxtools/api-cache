@@ -7,6 +7,7 @@ namespace FOfX\ApiCache;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Log;
 use FOfX\Helper;
+use Illuminate\Support\Facades\DB;
 
 class CacheRepository
 {
@@ -289,9 +290,17 @@ class CacheRepository
             'request_body'         => null,
             'response_headers'     => null,
             'response_status_code' => null,
-            'response_size'        => strlen($metadata['response_body']),
             'response_time'        => null,
         ], $metadata);
+
+        // Prepare data for storage
+        $preparedRequestHeaders  = $this->prepareHeaders($clientName, $metadata['request_headers']);
+        $preparedRequestBody     = $this->prepareBody($clientName, $metadata['request_body']);
+        $preparedResponseHeaders = $this->prepareHeaders($clientName, $metadata['response_headers']);
+        $preparedResponseBody    = $this->prepareBody($clientName, $metadata['response_body']);
+
+        // Add response size to metadata
+        $metadata['response_size'] = strlen($preparedResponseBody);
 
         $this->db->table($table)->insert([
             'client'               => $clientName,
@@ -301,10 +310,10 @@ class CacheRepository
             'base_url'             => $metadata['base_url'],
             'full_url'             => $metadata['full_url'],
             'method'               => $metadata['method'],
-            'request_headers'      => $this->prepareHeaders($clientName, $metadata['request_headers']),
-            'request_body'         => $this->prepareBody($clientName, $metadata['request_body']),
-            'response_headers'     => $this->prepareHeaders($clientName, $metadata['response_headers']),
-            'response_body'        => $this->prepareBody($clientName, $metadata['response_body']),
+            'request_headers'      => $preparedRequestHeaders,
+            'request_body'         => $preparedRequestBody,
+            'response_headers'     => $preparedResponseHeaders,
+            'response_body'        => $preparedResponseBody,
             'response_status_code' => $metadata['response_status_code'],
             'response_size'        => $metadata['response_size'],
             'response_time'        => $metadata['response_time'],
@@ -392,6 +401,58 @@ class CacheRepository
             'response_time'        => $data->response_time,
             'expires_at'           => $data->expires_at,
         ];
+    }
+
+    /**
+     * Count all cached responses (active and expired) for a client
+     *
+     * @param string $clientName Client identifier
+     *
+     * @return int Total number of responses
+     */
+    public function countTotalResponses(string $clientName): int
+    {
+        $table = $this->getTableName($clientName);
+
+        return DB::table($table)->count();
+    }
+
+    /**
+     * Count only active (non-expired) cached responses for a client
+     *
+     * @param string $clientName Client identifier
+     *
+     * @return int Number of active responses
+     */
+    public function countActiveResponses(string $clientName): int
+    {
+        $table = $this->getTableName($clientName);
+        $now   = now();
+
+        return DB::table($table)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', $now);
+            })
+            ->count();
+    }
+
+    /**
+     * Count only expired cached responses for a client
+     *
+     * @param string $clientName Client identifier
+     *
+     * @return int Number of expired responses
+     */
+    public function countExpiredResponses(string $clientName): int
+    {
+        $table = $this->getTableName($clientName);
+        $now   = now();
+
+        return DB::table($table)
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', $now)
+            ->count();
     }
 
     /**

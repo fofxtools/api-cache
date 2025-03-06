@@ -190,3 +190,65 @@ function create_response_table(
         ]);
     }
 }
+
+/**
+ * Format an API response in a clean, readable way
+ *
+ * @param array $result  The API response array from BaseApiClient or its children
+ * @param bool  $verbose Whether to include detailed information like headers and request details
+ *
+ * @return string Formatted response details
+ */
+function format_api_response(array $result, bool $verbose = false): string
+{
+    $output = [];
+
+    // Basic info (always shown)
+    $output[] = 'Status code: ' . ($result['response_status_code'] ?? 'N/A');
+    $output[] = 'Response time (seconds): ' . number_format($result['response_time'] ?? 0, 4);
+    $output[] = 'Response size (bytes): ' . ($result['response_size'] ?? 0);
+    $output[] = 'Is cached: ' . ($result['is_cached'] ?? false ? 'Yes' : 'No');
+
+    // Detailed info (only if verbose)
+    if ($verbose) {
+        // Request details
+        if (isset($result['request'])) {
+            $output[] = "\nRequest details:";
+            $output[] = 'URL: ' . ($result['request']['full_url'] ?? 'N/A');
+            $output[] = 'Method: ' . ($result['request']['method'] ?? 'N/A');
+
+            if (!empty($result['request']['headers'])) {
+                $output[] = "\nRequest headers:";
+                foreach ($result['request']['headers'] as $key => $value) {
+                    $output[] = "$key: " . (is_array($value) ? implode(', ', $value) : $value);
+                }
+            }
+
+            if (!empty($result['request']['body'])) {
+                $output[] = "\nRequest body:";
+                $output[] = json_encode(
+                    json_decode($result['request']['body']),
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+                ) ?: $result['request']['body'];
+            }
+        }
+    }
+
+    if (isset($result['response']) && ($result['response'] instanceof \Illuminate\Http\Client\Response)) {
+        // Response headers
+        $output[] = "\nResponse headers:";
+        foreach ($result['response']->headers() as $key => $values) {
+            $output[] = "$key: " . implode(', ', (array) $values);
+        }
+
+        // Response body
+        $output[] = "\nResponse body:";
+        $output[] = json_encode(
+            json_decode($result['response']->body()),
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    // Add leading and trailing newlines for cleaner output formatting
+    return "\n" . implode("\n", $output) . "\n";
+}

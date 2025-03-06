@@ -134,6 +134,23 @@ class ApiCacheManagerTest extends TestCase
         $this->assertEquals(5, $this->manager->getRemainingAttempts($this->clientName));
     }
 
+    public function test_clearRateLimit_clears_rate_limit(): void
+    {
+        // Setup - Check remaining attempts before clear
+        $this->rateLimiter->shouldReceive('getRemainingAttempts')
+            ->twice()
+            ->with($this->clientName)
+            ->andReturn(1, 3);  // First call returns 1 (before clear), second returns 3 (after clear)
+
+        $this->rateLimiter->shouldReceive('clear')
+            ->once()
+            ->with($this->clientName);
+
+        $this->assertEquals(1, $this->manager->getRemainingAttempts($this->clientName));
+        $this->manager->clearRateLimit($this->clientName);
+        $this->assertEquals(3, $this->manager->getRemainingAttempts($this->clientName));
+    }
+
     public static function apiResponseProvider(): array
     {
         $requestHeaders  = ['Accept' => 'application/json'];

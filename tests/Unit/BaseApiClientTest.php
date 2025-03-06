@@ -181,6 +181,17 @@ class BaseApiClientTest extends TestCase
         $this->assertFalse($this->client->isWslEnabled());
     }
 
+    public function test_clearRateLimit_called(): void
+    {
+        $this->cacheManager->shouldReceive('clearRateLimit')
+            ->once()
+            ->with($this->clientName);
+
+        $this->client->clearRateLimit();
+        // @phpstan-ignore-next-line
+        $this->assertTrue(true);
+    }
+
     public function test_builds_url_with_leading_slash(): void
     {
         $url = $this->client->buildUrl('/predictions');

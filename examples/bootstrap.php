@@ -16,10 +16,11 @@ use Illuminate\Support\Facades\Log;
 /**
  * Create both compressed and uncompressed tables for a client
  *
- * @param string $clientName The API client identifier
- * @param bool   $verify     Whether to verify the table creation with detailed structure checks
+ * @param string $clientName   The API client identifier
+ * @param bool   $dropExisting Whether to drop existing tables
+ * @param bool   $verify       Whether to verify the table creation with detailed structure checks
  */
-function createClientTables(string $clientName, bool $verify = false): void
+function createClientTables(string $clientName, bool $dropExisting = false, bool $verify = false): void
 {
     $repository = app(CacheRepository::class);
     $schema     = app('db')->connection()->getSchemaBuilder();
@@ -29,12 +30,12 @@ function createClientTables(string $clientName, bool $verify = false): void
     // Create uncompressed table
     config(["api-cache.apis.{$clientName}.compression_enabled" => false]);
     $uncompressedTable = $repository->getTableName($clientName);
-    create_response_table($schema, $uncompressedTable, false, true, $verify);
+    create_response_table($schema, $uncompressedTable, false, $dropExisting, $verify);
 
     // Create compressed table
     config(["api-cache.apis.{$clientName}.compression_enabled" => true]);
     $compressedTable = $repository->getTableName($clientName);
-    create_response_table($schema, $compressedTable, true, true, $verify);
+    create_response_table($schema, $compressedTable, true, $dropExisting, $verify);
 
     // Reset compression
     config(["api-cache.apis.{$clientName}.compression_enabled" => $originalCompression]);
@@ -68,9 +69,10 @@ $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
 // Setup database
-$capsule = new Capsule();
+$databaseConnection = 'sqlite_memory';
+$capsule            = new Capsule();
 $capsule->addConnection(
-    config('database.connections.sqlite_memory')
+    config("database.connections.{$databaseConnection}")
 );
 $capsule->setAsGlobal();
 $capsule->bootEloquent();

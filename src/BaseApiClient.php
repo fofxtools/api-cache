@@ -211,6 +211,14 @@ class BaseApiClient
     }
 
     /**
+     * Clear the rate limit for the client
+     */
+    public function clearRateLimit(): void
+    {
+        $this->cacheManager->clearRateLimit($this->clientName);
+    }
+
+    /**
      * Builds the full URL for an endpoint. Will be WSL aware if enabled.
      *
      * @param string $endpoint The API endpoint (with or without leading slash)

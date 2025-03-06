@@ -90,6 +90,16 @@ class ApiCacheManager
     }
 
     /**
+     * Clear rate limits for a client
+     *
+     * @param string $clientName Client identifier
+     */
+    public function clearRateLimit(string $clientName): void
+    {
+        $this->rateLimiter->clear($clientName);
+    }
+
+    /**
      * Cache the API response
      *
      * Algorithm:

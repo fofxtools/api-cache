@@ -85,12 +85,13 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\PendingRequest;
 use FOfX\Helper;
 
-abstract class BaseApiClient
+class BaseApiClient
 {
     protected string $clientName;
     protected string $baseUrl;
     protected string $apiKey;
     protected ?string $version;
+
     protected PendingRequest $pendingRequest;
     protected ?ApiCacheManager $cacheManager;
     
@@ -126,7 +127,53 @@ abstract class BaseApiClient
     }
 
     /**
-     * Get the table name for a client
+     * Get the client name
+     *
+     * @return string The client name
+     */
+    public function getClientName(): string
+    {
+        return $this->clientName;
+    }
+
+    /**
+     * Get the base URL. Will be WSL aware if enabled.
+     *
+     * @return string The base URL
+     */
+    public function getBaseUrl(): string
+    {
+        if ($this->wslEnabled) {
+            return Helper\wsl_url($this->baseUrl);
+        }
+
+        return $this->baseUrl;
+    }
+
+    /**
+     * Get the API key
+     *
+     * @return string|null The API key
+     */
+    public function getApiKey(): ?string
+    {
+        return $this->apiKey;
+    }
+
+    /**
+     * Get the API version
+     *
+     * @return string|null The API version
+     */
+    public function getVersion(): ?string
+    {
+        return $this->version;
+    }
+
+    /**
+     * Get the table name for this client
+     *
+     * @return string The table name
      */
     public function getTableName(string $clientName): string
     {
@@ -134,28 +181,125 @@ abstract class BaseApiClient
     }
 
     /**
-     * Builds the full URL for an endpoint
+     * Get the current request timeout in seconds
      *
-     * @param string $endpoint The API endpoint
+     * @return int|null Timeout in seconds, or null if no timeout set
+     */
+    public function getTimeout(): ?int
+    {
+        return $this->pendingRequest->getOptions()['timeout'] ?? null;
+    }
+
+    /**
+     * Set the client name
+     *
+     * @param string $clientName The client name
+     *
+     * @return self
+     */
+    public function setClientName(string $clientName): self
+    {
+        $this->clientName = $clientName;
+
+        return $this;
+    }
+
+    /**
+     * Set the base URL
+     *
+     * @param string $baseUrl The base URL
+     *
+     * @return self
+     */
+    public function setBaseUrl(string $baseUrl): self
+    {
+        $this->baseUrl = $baseUrl;
+
+        return $this;
+    }
+
+    /**
+     * Set the API key
+     *
+     * @param string $apiKey The API key
+     *
+     * @return self
+     */
+    public function setApiKey(string $apiKey): self
+    {
+        $this->apiKey = $apiKey;
+
+        return $this;
+    }
+
+    /**
+     * Set the API version
+     *
+     * @param string $version The API version
+     *
+     * @return self
+     */
+    public function setVersion(string $version): self
+    {
+        $this->version = $version;
+
+        return $this;
+    }
+
+    /**
+     * Set the WSL enabled flag
+     *
+     * @param bool $enabled Whether WSL aware URL is enabled
+     *
+     * @return self
+     */
+    public function setWslEnabled(bool $enabled = true): self
+    {
+        $this->wslEnabled = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Set request timeout in seconds
+     *
+     * @param int $seconds Timeout in seconds
+     *
+     * @return self
+     */
+    public function setTimeout(int $seconds): self
+    {
+        $this->pendingRequest->timeout($seconds);
+
+        return $this;
+    }
+
+    public function isWslEnabled(): bool
+    {
+        return $this->wslEnabled;
+    }
+
+    /**
+     * Builds the full URL for an endpoint. Will be WSL aware if enabled.
+     *
+     * @param string $endpoint The API endpoint (with or without leading slash)
+     *
      * @return string The complete URL
      */
-    abstract public function buildUrl(string $endpoint): string;
-    
-    public function getClientName(): string {
-        return $this->clientName;
-    }
-    
-    /**
-     * Get the API version
-     */
-    public function getVersion(): ?string
+    public function buildUrl(string $endpoint): string
     {
-        return $this->version;
+        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
+
+        if ($this->wslEnabled) {
+            $url = Helper\wsl_url($url);
+        }
+
+        return $url;
     }
     
     /**
      * Sends an API request
-     * 
+     *
      * Algorithm:
      * - Build full URL from endpoint
      * - Track request timing
@@ -166,43 +310,52 @@ abstract class BaseApiClient
      */
     public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array
     {
-        $url = $this->buildUrl($endpoint);
-        $startTime = microtime(true);
+        $url         = $this->buildUrl($endpoint);
+        $startTime   = microtime(true);
         $requestData = [];
-        
+
         // Add request capture middleware to pending request
         $request = $this->pendingRequest->withMiddleware(
-            function ($request, $next) use (&$requestData) {
-                // Capture full request details
-                $requestData['method'] = $request->getMethod();
-                $requestData['url'] = (string) $request->getUri();
-                $requestData['headers'] = $request->getHeaders();
-                $requestData['body'] = (string) $request->getBody();
-                return $next($request);
+            function (callable $handler) use (&$requestData) {
+                return function (\Psr\Http\Message\RequestInterface $request, array $options) use ($handler, &$requestData) {
+                    // Capture full request details
+                    $requestData['method']  = $request->getMethod();
+                    $requestData['url']     = (string) $request->getUri();
+                    $requestData['headers'] = $request->getHeaders();
+                    $requestData['body']    = (string) $request->getBody();
+
+                    // Pass both request and options to next handler
+                    return $handler($request, $options);
+                };
             }
         );
-        
+
         /** @var \Illuminate\Http\Client\Response $response */
         $response = match($method) {
-            'HEAD' => $request->head($url, $params),
-            'GET' => $request->get($url, $params),
-            'POST' => $request->post($url, $params),
-            'PUT' => $request->put($url, $params),
-            'PATCH' => $request->patch($url, $params),
+            'HEAD'   => $request->head($url, $params),
+            'GET'    => $request->get($url, $params),
+            'POST'   => $request->post($url, $params),
+            'PUT'    => $request->put($url, $params),
+            'PATCH'  => $request->patch($url, $params),
             'DELETE' => $request->delete($url, $params),
-            default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}")
+            default  => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}")
         };
-        
+
+        $responseTime = microtime(true) - $startTime;
+
         return [
             'request' => [
                 'base_url' => $this->baseUrl,
                 'full_url' => $requestData['url'],
-                'method' => $requestData['method'],
-                'headers' => $requestData['headers'],
-                'body' => $requestData['body'],
+                'method'   => $requestData['method'],
+                'headers'  => $requestData['headers'],
+                'body'     => $requestData['body'],
             ],
-            'response' => $response,
-            'response_time' => microtime(true) - $startTime
+            'response'             => $response,
+            'response_status_code' => $response->status(),
+            'response_size'        => strlen($response->body()),
+            'response_time'        => $responseTime,
+            'is_cached'            => false,
         ];
     }
 
@@ -230,6 +383,11 @@ abstract class BaseApiClient
      */
     public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET'): array
     {
+        // Make sure $this->cacheManager is not null
+        if ($this->cacheManager === null) {
+            throw new \RuntimeException('Cache manager is not initialized');
+        }
+        
         // Generate cache key
         $cacheKey = $this->cacheManager->generateCacheKey(
             $this->clientName,

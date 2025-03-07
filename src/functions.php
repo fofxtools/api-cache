@@ -203,11 +203,21 @@ function format_api_response(array $result, bool $verbose = false): string
 {
     $output = [];
 
+    // Show N/A if the value is null
+    $statusCodeString   = $result['response_status_code'] ?? 'N/A';
+    $responseTimeString = array_key_exists('response_time', $result) && $result['response_time'] !== null
+        ? number_format($result['response_time'], 4)
+        : 'N/A';
+    $responseSizeString = $result['response_size'] ?? 'N/A';
+    $isCachedString     = array_key_exists('is_cached', $result) && $result['is_cached'] !== null
+        ? ($result['is_cached'] ? 'Yes' : 'No')
+        : 'N/A';
+
     // Basic info (always shown)
-    $output[] = 'Status code: ' . ($result['response_status_code'] ?? 'N/A');
-    $output[] = 'Response time (seconds): ' . number_format($result['response_time'] ?? 0, 4);
-    $output[] = 'Response size (bytes): ' . ($result['response_size'] ?? 0);
-    $output[] = 'Is cached: ' . ($result['is_cached'] ?? false ? 'Yes' : 'No');
+    $output[] = 'Status code: ' . $statusCodeString;
+    $output[] = 'Response time (seconds): ' . $responseTimeString;
+    $output[] = 'Response size (bytes): ' . $responseSizeString;
+    $output[] = 'Is cached: ' . $isCachedString;
 
     // Detailed info (only if verbose)
     if ($verbose) {
@@ -224,12 +234,20 @@ function format_api_response(array $result, bool $verbose = false): string
                 }
             }
 
+            $output[] = "\nRequest body:";
             if (!empty($result['request']['body'])) {
-                $output[] = "\nRequest body:";
-                $output[] = json_encode(
-                    json_decode($result['request']['body']),
-                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                ) ?: $result['request']['body'];
+                $decodedRequestBody = json_decode($result['request']['body']);
+                $encodedRequestBody = json_encode($decodedRequestBody, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+                // json_encode() returns 'null', as a string, if decodedRequestBody is null.
+                // If encodedRequestBody is not 'null', add it. Else add the original request body.
+                if ($encodedRequestBody !== 'null') {
+                    $output[] = $encodedRequestBody;
+                } else {
+                    $output[] = $result['request']['body'];
+                }
+            } else {
+                $output[] = 'N/A';
             }
         }
     }
@@ -242,11 +260,20 @@ function format_api_response(array $result, bool $verbose = false): string
         }
 
         // Response body
-        $output[] = "\nResponse body:";
-        $output[] = json_encode(
-            json_decode($result['response']->body()),
+        $output[]            = "\nResponse body:";
+        $decodedResponseBody = json_decode($result['response']->body());
+        $encodedResponseBody = json_encode(
+            $decodedResponseBody,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
+
+        // json_encode() returns 'null', as a string, if decodedResponseBody is null.
+        // If encodedResponseBody is not 'null', add it. Else add the original response body.
+        if ($encodedResponseBody !== 'null') {
+            $output[] = $encodedResponseBody;
+        } else {
+            $output[] = $result['response']->body();
+        }
     }
 
     // Add leading and trailing newlines for cleaner output formatting

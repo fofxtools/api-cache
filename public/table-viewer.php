@@ -17,10 +17,6 @@ $databaseConnection = 'mysql';
 $capsule->addConnection(
     config("database.connections.{$databaseConnection}")
 );
-// @phpstan-ignore-next-line
-$capsule->setAsGlobal();
-// @phpstan-ignore-next-line
-$capsule->bootEloquent();
 
 // Configuration
 $defaultLimit  = 20;

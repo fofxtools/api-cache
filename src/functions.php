@@ -7,6 +7,7 @@ namespace FOfX\ApiCache;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Check if a server is accessible and healthy
@@ -278,4 +279,38 @@ function format_api_response(array $result, bool $verbose = false): string
 
     // Add leading and trailing newlines for cleaner output formatting
     return "\n" . implode("\n", $output) . "\n";
+}
+
+/**
+ * List all tables in the database in driver agnostic way
+ *
+ * @throws \Exception If the database driver is not supported
+ *
+ * @return array List of table names
+ */
+function get_tables(): array
+{
+    $connection = DB::connection();
+    $driver     = $connection->getDriverName();
+
+    switch ($driver) {
+        case 'sqlite':
+            $tables = DB::select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+
+            return array_map(fn ($table) => $table->name, $tables);
+        case 'mysql':
+            $tables = DB::select('SHOW TABLES');
+
+            return array_map(fn ($table) => array_values((array) $table)[0], $tables);
+        case 'pgsql':
+            $tables = DB::select("SELECT tablename FROM pg_tables WHERE schemaname='public'");
+
+            return array_map(fn ($table) => $table->tablename, $tables);
+        case 'sqlsrv':
+            $tables = DB::select("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'");
+
+            return array_map(fn ($table) => $table->TABLE_NAME, $tables);
+        default:
+            throw new \Exception("Unsupported database driver: $driver");
+    }
 }

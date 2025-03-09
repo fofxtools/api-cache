@@ -63,6 +63,22 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | OpenRouter API
+        |--------------------------------------------------------------------------
+        */
+        'openrouter' => [
+            'api_key'                  => env('OPENROUTER_API_KEY', null),
+            'base_url'                 => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+            'version'                  => env('OPENROUTER_VERSION', null),
+            'cache_ttl'                => env('OPENROUTER_CACHE_TTL', null),
+            'compression_enabled'      => env('OPENROUTER_COMPRESSION_ENABLED', false),
+            'default_endpoint'         => env('OPENROUTER_DEFAULT_ENDPOINT', 'chat/completions'),
+            'rate_limit_max_attempts'  => env('OPENROUTER_RATE_LIMIT_MAX_ATTEMPTS', 60),
+            'rate_limit_decay_seconds' => env('OPENROUTER_RATE_LIMIT_DECAY_SECONDS', 60),
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
         | Pixabay API
         |--------------------------------------------------------------------------
         */

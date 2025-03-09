@@ -11,7 +11,7 @@ return new class () extends Migration {
     {
         $driver = Schema::getConnection()->getDriverName();
 
-        Schema::create('api_cache_openai_responses', function (Blueprint $table) use ($driver) {
+        Schema::create('api_cache_openrouter_responses', function (Blueprint $table) use ($driver) {
             $table->id();
             $table->string('key')->unique();
             $table->string('client');
@@ -44,6 +44,6 @@ return new class () extends Migration {
 
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_openai_responses');
+        Schema::dropIfExists('api_cache_openrouter_responses');
     }
 };

@@ -14,6 +14,7 @@ use FOfX\Helper;
 use function FOfX\ApiCache\check_server_status;
 use function FOfX\ApiCache\create_response_table;
 use function FOfX\ApiCache\format_api_response;
+use function FOfX\ApiCache\get_tables;
 
 class FunctionsTest extends TestCase
 {
@@ -268,5 +269,49 @@ class FunctionsTest extends TestCase
         $this->assertStringContainsString('Response time (seconds): N/A', $output);
         $this->assertStringContainsString('Response size (bytes): N/A', $output);
         $this->assertStringContainsString('Is cached: N/A', $output);
+    }
+
+    public function test_get_tables_returns_array_of_tables(): void
+    {
+        // Create some test tables
+        Schema::create('test_table1', function ($table) {
+            $table->id();
+        });
+        Schema::create('test_table2', function ($table) {
+            $table->id();
+        });
+
+        $tables = get_tables();
+
+        $this->assertContains('test_table1', $tables);
+        $this->assertContains('test_table2', $tables);
+    }
+
+    public function test_get_tables_throws_exception_for_unsupported_driver(): void
+    {
+        // Create a mock connection that will return an unsupported driver name
+        $mockConnection = \Mockery::mock();
+        $mockConnection->shouldReceive('getDriverName')
+            ->once()
+            ->andReturn('unsupportedDriverName');
+
+        // Ensure getSchemaBuilder() exists, even if not used
+        $mockConnection->shouldReceive('getSchemaBuilder')->andReturnSelf();
+
+        // Mock Schema facade to prevent errors related to dropIfExists()
+        Schema::shouldReceive('dropIfExists')->andReturnTrue();
+
+        // Mock DB facade to return the mock connection
+        DB::shouldReceive('connection')
+            ->andReturn($mockConnection);
+
+        // Ensure DB::select() is never called since the exception should occur first
+        $mockConnection->shouldNotReceive('select');
+
+        // Expect an exception when calling get_tables()
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Unsupported database driver: unsupported');
+
+        get_tables();
     }
 }

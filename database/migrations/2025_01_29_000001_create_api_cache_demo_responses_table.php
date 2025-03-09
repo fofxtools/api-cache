@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::create('api_cache_demo_responses', function (Blueprint $table) {
+        $driver = Schema::getConnection()->getDriverName();
+
+        Schema::create('api_cache_demo_responses', function (Blueprint $table) use ($driver) {
             $table->id();
             $table->string('key')->unique();
             $table->string('client');
@@ -28,8 +30,14 @@ return new class () extends Migration {
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
-            // Indexes for performance
-            $table->index(['client', 'endpoint', 'version']);
+            // Add indexes for better performance
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->index(['client', 'endpoint', 'version'], 'client_endpoint_version_index');
+            } else {
+                $table->index(['client', 'endpoint', 'version']);
+            }
             $table->index('expires_at');
         });
     }

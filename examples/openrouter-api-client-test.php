@@ -7,20 +7,20 @@ namespace FOfX\ApiCache;
 require_once __DIR__ . '/bootstrap.php';
 
 /**
- * Run OpenAI API client tests
+ * Run OpenRouter API client tests
  *
  * @param bool $compressionEnabled Whether to enable compression for the test
  * @param bool $verbose            Whether to enable verbose output
  *
  * @return void
  */
-function runOpenAITests(bool $compressionEnabled, $verbose = true): void
+function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
 {
-    echo "\nRunning OpenAI API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
+    echo "\nRunning OpenRouter API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
 
     // Test client configuration
-    $clientName = 'openai';
+    $clientName = 'openrouter';
     config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 5);
     config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 10);
     config()->set("api-cache.apis.{$clientName}.compression_enabled", $compressionEnabled);
@@ -33,12 +33,12 @@ function runOpenAITests(bool $compressionEnabled, $verbose = true): void
     createClientTables($clientName, $dropExisting);
 
     // Create client instance.  Clear rate limit since we might have run tests before.
-    $client = new OpenAIApiClient();
+    $client = new OpenRouterApiClient();
     $client->setTimeout(10);
     $client->clearRateLimit();
 
     // Test completions endpoint
-    $model = 'gpt-3.5-turbo-instruct';
+    $model = 'meta-llama/llama-3.3-70b-instruct:free';
     echo "\nTesting completions endpoint with model: {$model}...\n";
 
     try {
@@ -55,7 +55,7 @@ function runOpenAITests(bool $compressionEnabled, $verbose = true): void
     }
 
     // Test chat completions endpoint with string input
-    $model = 'gpt-4o-mini';
+    $model = 'google/gemini-2.0-pro-exp-02-05:free';
     echo "\nTesting chat completions endpoint with model: {$model}...\n";
 
     try {
@@ -142,7 +142,7 @@ function runOpenAITests(bool $compressionEnabled, $verbose = true): void
 }
 
 // Run tests without compression
-runOpenAITests(false);
+runOpenRouterTests(false);
 
 // Run tests with compression
-runOpenAITests(true);
+runOpenRouterTests(true);

@@ -112,6 +112,26 @@ class BaseApiClientTest extends TestCase
         $this->assertIsInt($this->client->getTimeout());
     }
 
+    public function test_getUseCache_returns_true(): void
+    {
+        $this->assertTrue($this->client->getUseCache());
+    }
+
+    public function test_getAuthHeaders_returns_default_headers(): void
+    {
+        $headers = $this->client->getAuthHeaders();
+        $this->assertEquals([
+            'Authorization' => 'Bearer ' . $this->client->getApiKey(),
+            'Accept'        => 'application/json',
+        ], $headers);
+    }
+
+    public function test_getAuthParams_returns_default_params(): void
+    {
+        $params = $this->client->getAuthParams();
+        $this->assertEquals([], $params);
+    }
+
     public function test_setClientName_updates_client_name(): void
     {
         $newName = 'new-client';
@@ -167,6 +187,13 @@ class BaseApiClientTest extends TestCase
         $timeout = 2;
         $this->client->setTimeout($timeout);
         $this->assertEquals($timeout, $this->client->getTimeout());
+    }
+
+    public function test_setUseCache_updates_use_cache(): void
+    {
+        $newUseCache = false;
+        $this->client->setUseCache($newUseCache);
+        $this->assertEquals($newUseCache, $this->client->getUseCache());
     }
 
     public function test_isWslEnabled_updates_true(): void
@@ -303,6 +330,42 @@ class BaseApiClientTest extends TestCase
 
         $this->assertArrayHasKey('response', $result);
         $this->assertArrayHasKey('response_time', $result);
+    }
+
+    public function test_sendCachedRequest_bypasses_cache_when_disabled(): void
+    {
+        // Disable caching
+        $this->client->setUseCache(false);
+
+        // Cache-specific methods should not be called
+        $this->cacheManager->shouldNotReceive('getCachedResponse');
+        $this->cacheManager->shouldNotReceive('storeResponse');
+
+        // Rate limiting should still be checked
+        $this->cacheManager->shouldReceive('allowRequest')
+            ->once()
+            ->with($this->clientName)
+            ->andReturnTrue();
+
+        $this->cacheManager->shouldReceive('incrementAttempts')
+            ->once()
+            ->with($this->clientName);
+
+        // Cache key is still needed for rate limiting
+        $this->cacheManager->shouldReceive('generateCacheKey')
+            ->once()
+            ->andReturn('test-cache-key');
+
+        // Make request with cache disabled
+        $result = $this->client->sendCachedRequest('predictions', ['query' => 'test']);
+
+        // Verify it's a direct request
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('response_time', $result);
+        $this->assertFalse($result['is_cached']);
+
+        // Verify the setting persists
+        $this->assertFalse($this->client->getUseCache());
     }
 
     public function test_getHealth_returns_health_endpoint_response(): void

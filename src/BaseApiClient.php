@@ -16,6 +16,7 @@ class BaseApiClient
     protected ?string $apiKey;
     protected ?string $version;
     protected bool $wslEnabled = false;
+    protected bool $useCache   = true;
 
     protected PendingRequest $pendingRequest;
     protected ?ApiCacheManager $cacheManager;
@@ -44,11 +45,11 @@ class BaseApiClient
         $this->apiKey     = $apiKey ?? config("api-cache.apis.{$this->clientName}.api_key");
         $this->version    = $version ?? config("api-cache.apis.{$this->clientName}.version");
 
-        $this->cacheManager   = $this->resolveCacheManager($cacheManager);
-        $this->pendingRequest = Http::withHeaders([
-            'Authorization' => "Bearer {$this->apiKey}",
-            'Accept'        => 'application/json',
-        ]);
+        $this->cacheManager = $this->resolveCacheManager($cacheManager);
+
+        // Set the auth headers with cookies disabled
+        // Cookies may cause issues with the cache key being unique each time
+        $this->pendingRequest = Http::withHeaders($this->getAuthHeaders())->withOptions(['cookies' => false]);
 
         Log::debug('API client initialized', [
             'client'   => $this->clientName,
@@ -119,6 +120,43 @@ class BaseApiClient
     public function getTimeout(): ?int
     {
         return $this->pendingRequest->getOptions()['timeout'] ?? null;
+    }
+
+    /**
+     * Get the use cache flag
+     *
+     * @return bool The use cache flag
+     */
+    public function getUseCache(): bool
+    {
+        return $this->useCache;
+    }
+
+    /**
+     * Get authentication headers for the API request
+     *
+     * Child classes can override this to provide their own auth headers
+     *
+     * @return array Authentication headers
+     */
+    public function getAuthHeaders(): array
+    {
+        return [
+            'Authorization' => 'Bearer ' . $this->apiKey,
+            'Accept'        => 'application/json',
+        ];
+    }
+
+    /**
+     * Get authentication parameters for the API request
+     *
+     * Child classes can override this to provide their own auth parameters
+     *
+     * @return array Authentication parameters
+     */
+    public function getAuthParams(): array
+    {
+        return [];
     }
 
     /**
@@ -201,6 +239,20 @@ class BaseApiClient
     public function setTimeout(int $seconds): self
     {
         $this->pendingRequest->timeout($seconds);
+
+        return $this;
+    }
+
+    /**
+     * Set the use cache flag
+     *
+     * @param bool $useCache Whether to use cache
+     *
+     * @return self
+     */
+    public function setUseCache(bool $useCache): self
+    {
+        $this->useCache = $useCache;
 
         return $this;
     }
@@ -324,11 +376,11 @@ class BaseApiClient
      *
      * Algorithm:
      * - Generate cache key
-     * - Check cache
+     * - Check cache (if caching is enabled)
      * - Check rate limit
      * - Make request if needed
      * - Track rate limit usage
-     * - Store in cache
+     * - Store in cache (if caching is enabled and request was successful)
      * - Return response
      *
      * @param string $endpoint API endpoint to call
@@ -354,6 +406,9 @@ class BaseApiClient
             'method'   => $method,
         ]);
 
+        // Merge auth params with request params
+        $params = array_merge($this->getAuthParams(), $params);
+
         // Generate cache key
         $cacheKey = $this->cacheManager->generateCacheKey(
             $this->clientName,
@@ -364,7 +419,13 @@ class BaseApiClient
         );
 
         // Check cache
-        if ($cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey)) {
+        if (!$this->useCache) {
+            Log::debug('Caching disabled for this request', [
+                'client'   => $this->clientName,
+                'endpoint' => $endpoint,
+                'method'   => $method,
+            ]);
+        } elseif ($cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey)) {
             Log::debug('Cache hit', [
                 'client'    => $this->clientName,
                 'endpoint'  => $endpoint,
@@ -400,7 +461,13 @@ class BaseApiClient
         $this->cacheManager->incrementAttempts($this->clientName);
 
         // Store in cache if response is successful
-        if ($apiResult['response']->successful()) {
+        if (!$this->useCache) {
+            Log::debug('Caching disabled for this request', [
+                'client'   => $this->clientName,
+                'endpoint' => $endpoint,
+                'method'   => $method,
+            ]);
+        } elseif ($apiResult['response']->successful()) {
             $this->cacheManager->storeResponse(
                 $this->clientName,
                 $cacheKey,

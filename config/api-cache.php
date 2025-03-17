@@ -84,7 +84,7 @@ return [
         */
         'pixabay' => [
             'api_key'                  => env('PIXABAY_API_KEY', null),
-            'base_url'                 => env('PIXABAY_BASE_URL', 'https://pixabay.com/api'),
+            'base_url'                 => env('PIXABAY_BASE_URL', 'https://pixabay.com'),
             'version'                  => env('PIXABAY_VERSION', null),
             'cache_ttl'                => env('PIXABAY_CACHE_TTL', null),
             'compression_enabled'      => env('PIXABAY_COMPRESSION_ENABLED', false),

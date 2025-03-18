@@ -16,7 +16,7 @@ This document tracks various issues encountered during development and their sol
 
 #### HeidiSQL Database Visibility (3-16-25)
 - **Issue**: HeidiSQL showing Ubuntu WSL databases instead of Windows ones.
-- **Solution**: Switch HeidiSQL Hostname from `127.0.0.1` to `localhost`
+- **Solution**: Added HeidiSQL profiles with Hostname `localhost` for Windows and `127.0.0.1` for WSL
 - **Verification**: Run this query to check which database you're connected to:
   ```sql
   SELECT @@hostname, @@version, @@datadir;

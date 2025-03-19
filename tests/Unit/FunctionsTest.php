@@ -15,6 +15,7 @@ use function FOfX\ApiCache\check_server_status;
 use function FOfX\ApiCache\create_response_table;
 use function FOfX\ApiCache\format_api_response;
 use function FOfX\ApiCache\get_tables;
+use function FOfX\ApiCache\create_pixabay_images_table;
 
 class FunctionsTest extends TestCase
 {
@@ -179,6 +180,62 @@ class FunctionsTest extends TestCase
 
         // Table should be empty
         $this->assertEquals(0, DB::table($this->testTable)->count());
+    }
+
+    /**
+     * Tests for create_pixabay_images_table function
+     */
+    public function test_create_pixabay_images_table_creates_table(): void
+    {
+        $schema    = Schema::connection(null);
+        $testTable = 'api_cache_test_pixabay_images';
+        create_pixabay_images_table($schema, $testTable);
+
+        $this->assertTrue($schema->hasTable($testTable));
+
+        // Verify essential columns
+        $columns = $schema->getColumnListing($testTable);
+        $this->assertContains('row_id', $columns);
+        $this->assertContains('id', $columns);
+        $this->assertContains('pageURL', $columns);
+        $this->assertContains('type', $columns);
+        $this->assertContains('tags', $columns);
+        $this->assertContains('previewURL', $columns);
+        $this->assertContains('webformatURL', $columns);
+        $this->assertContains('largeImageURL', $columns);
+        $this->assertContains('file_contents_preview', $columns);
+        $this->assertContains('file_contents_webformat', $columns);
+        $this->assertContains('file_contents_largeImage', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+    }
+
+    public function test_create_pixabay_images_table_respects_drop_existing_parameter(): void
+    {
+        $schema    = Schema::connection(null);
+        $testTable = 'api_cache_test_pixabay_images';
+
+        // Create table first time
+        create_pixabay_images_table($schema, $testTable);
+
+        // Insert a record
+        DB::table($testTable)->insert([
+            'id'      => 123456,
+            'pageURL' => 'https://example.com/image',
+            'type'    => 'photo',
+        ]);
+
+        // Create table again without drop
+        create_pixabay_images_table($schema, $testTable, false, false);
+
+        // Record should still exist
+        $this->assertEquals(1, DB::table($testTable)->count());
+
+        // Create table again with drop
+        create_pixabay_images_table($schema, $testTable, true, false);
+
+        // Table should be empty
+        $this->assertEquals(0, DB::table($testTable)->count());
     }
 
     /**

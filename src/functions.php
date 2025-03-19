@@ -183,11 +183,174 @@ function create_response_table(
             $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
         }
 
-        Log::debug('Table structure verified', [
+        Log::debug('Table verified', [
             'table'      => $table,
             'compressed' => $compressed,
             'structure'  => $tableInfo,
             'indexes'    => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create Pixabay images table for testing
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_pixabay_images_table(
+    Builder $schema,
+    string $table,
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing Pixabay images table', [
+            'table' => $table,
+        ]);
+
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    // Create table if it doesn't exist
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating Pixabay images table for testing', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            // Primary field to auto increment the row number
+            $table->id('row_id');
+
+            // The Pixabay API response ID
+            $table->unsignedBigInteger('id')->unique();
+
+            // Other API response fields
+            $table->string('pageURL')->nullable();
+            $table->string('type')->nullable()->index();
+            $table->text('tags')->nullable();
+
+            // Preview image data
+            $table->string('previewURL')->nullable();
+            $table->unsignedInteger('previewWidth')->nullable();
+            $table->unsignedInteger('previewHeight')->nullable();
+
+            // Web format image data
+            $table->string('webformatURL')->nullable();
+            $table->unsignedInteger('webformatWidth')->nullable();
+            $table->unsignedInteger('webformatHeight')->nullable();
+
+            // Large image data
+            $table->string('largeImageURL')->nullable();
+
+            // Full API access fields
+            $table->string('fullHDURL')->nullable();
+            $table->string('imageURL')->nullable();
+            $table->string('vectorURL')->nullable();
+
+            // Image dimensions and size
+            $table->unsignedInteger('imageWidth')->nullable();
+            $table->unsignedInteger('imageHeight')->nullable();
+            $table->unsignedInteger('imageSize')->nullable()->index();
+
+            // Statistics
+            $table->unsignedBigInteger('views')->nullable()->index();
+            $table->unsignedBigInteger('downloads')->nullable()->index();
+            $table->unsignedBigInteger('collections')->nullable()->index();
+            $table->unsignedBigInteger('likes')->nullable()->index();
+            $table->unsignedBigInteger('comments')->nullable()->index();
+
+            // User information
+            $table->unsignedBigInteger('user_id')->nullable()->index();
+            $table->string('user')->nullable()->index();
+            $table->string('userImageURL')->nullable();
+
+            // Timestamps
+            $table->timestamps();
+
+            // Local storage fields
+            $table->binary('file_contents_preview')->nullable();
+            $table->binary('file_contents_webformat')->nullable();
+            $table->binary('file_contents_largeImage')->nullable();
+
+            // File metadata
+            $table->unsignedInteger('filesize_preview')->nullable()->index();
+            $table->unsignedInteger('filesize_webformat')->nullable()->index();
+            $table->unsignedInteger('filesize_largeImage')->nullable()->index();
+            $table->string('mime_type')->nullable();
+
+            // Local storage paths
+            $table->string('storage_filepath_preview')->nullable();
+            $table->string('storage_filepath_webformat')->nullable();
+            $table->string('storage_filepath_largeImage')->nullable();
+
+            // Add indexes
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->fullText('tags');
+            }
+        });
+
+        // Modify binary columns based on database driver
+        if ($driver === 'mysql') {
+            Log::debug('Altering table columns for MySQL MEDIUMBLOB/LONGBLOB', [
+                'table' => $table,
+            ]);
+
+            $schema->getConnection()->statement("
+                ALTER TABLE {$table}
+                MODIFY file_contents_preview MEDIUMBLOB,
+                MODIFY file_contents_webformat MEDIUMBLOB,
+                MODIFY file_contents_largeImage LONGBLOB
+            ");
+        } elseif ($driver === 'sqlsrv') {
+            Log::debug('Altering table columns for SQL Server VARBINARY(MAX)', [
+                'table' => $table,
+            ]);
+
+            $schema->getConnection()->statement("
+                ALTER TABLE {$table}
+                ALTER COLUMN file_contents_preview VARBINARY(MAX),
+                ALTER COLUMN file_contents_webformat VARBINARY(MAX),
+                ALTER COLUMN file_contents_largeImage VARBINARY(MAX)
+            ");
+        }
+
+        Log::debug('Pixabay images table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        // Get table structure including indexes
+        $pdo    = $schema->getConnection()->getPdo();
+        $driver = $schema->getConnection()->getDriverName();
+
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
         ]);
     }
 }

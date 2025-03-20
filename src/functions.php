@@ -115,6 +115,7 @@ function create_response_table(
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
+            $table->timestamp('processed_at')->nullable();
 
             // Add indexes for better performance
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
@@ -125,6 +126,7 @@ function create_response_table(
                 $table->index(['client', 'endpoint', 'version']);
             }
             $table->index('expires_at');
+            $table->index('processed_at');
         });
 
         // For compressed tables, modify column types based on database driver
@@ -290,7 +292,7 @@ function create_pixabay_images_table(
             $table->string('storage_filepath_webformat')->nullable();
             $table->string('storage_filepath_largeImage')->nullable();
 
-            // Add indexes
+            // Add fulltext indexes
             if ($driver === 'mysql' || $driver === 'pgsql') {
                 $table->fullText('tags');
             }

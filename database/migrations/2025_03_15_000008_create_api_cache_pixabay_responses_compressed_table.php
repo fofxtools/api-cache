@@ -29,6 +29,7 @@ return new class () extends Migration {
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
+            $table->timestamp('processed_at')->nullable();
 
             // Add indexes for better performance
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
@@ -39,13 +40,14 @@ return new class () extends Migration {
                 $table->index(['client', 'endpoint', 'version']);
             }
             $table->index('expires_at');
+            $table->index('processed_at');
         });
 
         // Alter the request and response headers and body columns
         // For MySQL use MEDIUMBLOB, for SQL Server use VARBINARY(MAX)
         if ($driver === 'mysql') {
             Schema::getConnection()->statement('
-                ALTER TABLE api_cache_demo_responses_compressed
+                ALTER TABLE api_cache_pixabay_responses_compressed
                 MODIFY request_headers MEDIUMBLOB,
                 MODIFY request_body MEDIUMBLOB,
                 MODIFY response_headers MEDIUMBLOB,
@@ -53,7 +55,7 @@ return new class () extends Migration {
             ');
         } elseif ($driver === 'sqlsrv') {
             Schema::getConnection()->statement('
-                ALTER TABLE api_cache_demo_responses_compressed
+                ALTER TABLE api_cache_pixabay_responses_compressed
                 ALTER COLUMN request_headers VARBINARY(MAX),
                 ALTER COLUMN request_body VARBINARY(MAX),
                 ALTER COLUMN response_headers VARBINARY(MAX),

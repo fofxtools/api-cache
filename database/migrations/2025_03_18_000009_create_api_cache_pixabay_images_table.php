@@ -77,7 +77,7 @@ return new class () extends Migration {
             $table->string('storage_filepath_webformat')->nullable();
             $table->string('storage_filepath_largeImage')->nullable();
 
-            // Add indexes
+            // Add fulltext indexes
             if ($driver === 'mysql' || $driver === 'pgsql') {
                 $table->fullText('tags');
             }

@@ -13,7 +13,10 @@ require_once __DIR__ . '/../examples/bootstrap.php';
 
 // Override database configuration to use MySQL
 $databaseConnection = 'mysql';
-// @phpstan-ignore-next-line
+
+// Use global to avoid PHPStan error
+global $capsule;
+
 $capsule->addConnection(
     config("database.connections.{$databaseConnection}")
 );

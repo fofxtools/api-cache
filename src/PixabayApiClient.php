@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class PixabayApiClient extends BaseApiClient
 {
@@ -206,5 +207,112 @@ class PixabayApiClient extends BaseApiClient
         ];
 
         return $this->sendCachedRequest('api/videos', $params, 'GET');
+    }
+
+    /**
+     * Process unprocessed image responses and insert them into the pixabay_images table.
+     *
+     * @param int|null $limit Maximum number of rows to process. Null for unlimited.
+     *
+     * @return array{processed: int, duplicates: int} Statistics about the processing.
+     */
+    public function processResponses(?int $limit = 1): array
+    {
+        // Get unprocessed responses for images API only
+        $query = DB::table('api_cache_pixabay_responses')
+            ->whereNull('processed_at')
+            ->where('endpoint', 'api')
+            ->where('response_status_code', 200);
+
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
+        $responses = $query->get();
+
+        Log::info('Processing ' . $responses->count() . ' Pixabay responses');
+
+        $processed  = 0;
+        $duplicates = 0;
+
+        foreach ($responses as $response) {
+            try {
+                $data         = json_decode($response->response_body, true);
+                $hasValidHits = isset($data['hits']) && is_array($data['hits']) && !empty($data['hits']);
+
+                if ($hasValidHits) {
+                    // Process images
+                    $images = [];
+                    foreach ($data['hits'] as $image) {
+                        $images[] = [
+                            'id'              => $image['id'],
+                            'pageURL'         => $image['pageURL'] ?? null,
+                            'type'            => $image['type'] ?? null,
+                            'tags'            => $image['tags'] ?? null,
+                            'previewURL'      => $image['previewURL'] ?? null,
+                            'previewWidth'    => $image['previewWidth'] ?? null,
+                            'previewHeight'   => $image['previewHeight'] ?? null,
+                            'webformatURL'    => $image['webformatURL'] ?? null,
+                            'webformatWidth'  => $image['webformatWidth'] ?? null,
+                            'webformatHeight' => $image['webformatHeight'] ?? null,
+                            'largeImageURL'   => $image['largeImageURL'] ?? null,
+                            'fullHDURL'       => $image['fullHDURL'] ?? null,
+                            'imageURL'        => $image['imageURL'] ?? null,
+                            'vectorURL'       => $image['vectorURL'] ?? null,
+                            'imageWidth'      => $image['imageWidth'] ?? null,
+                            'imageHeight'     => $image['imageHeight'] ?? null,
+                            'imageSize'       => $image['imageSize'] ?? null,
+                            'views'           => $image['views'] ?? null,
+                            'downloads'       => $image['downloads'] ?? null,
+                            'collections'     => $image['collections'] ?? null,
+                            'likes'           => $image['likes'] ?? null,
+                            'comments'        => $image['comments'] ?? null,
+                            'user_id'         => $image['user_id'] ?? null,
+                            'user'            => $image['user'] ?? null,
+                            'userImageURL'    => $image['userImageURL'] ?? null,
+                            'updated_at'      => now(),
+                        ];
+                    }
+
+                    if (!empty($images)) {
+                        foreach (array_chunk($images, 100) as $chunk) {
+                            try {
+                                // Attempt bulk insert
+                                $insertedCount = DB::table('api_cache_pixabay_images')->insertOrIgnore($chunk);
+                                $processed += $insertedCount;
+                                $duplicates += count($chunk) - $insertedCount;
+                            } catch (\Exception $e) {
+                                // Fallback: Use updateOrInsert() in bulk
+                                foreach ($chunk as $image) {
+                                    DB::table('api_cache_pixabay_images')->updateOrInsert(['id' => $image['id']], $image);
+                                }
+                                $processed += count($chunk);
+                            }
+                        }
+                    }
+                }
+
+                // Mark response as processed regardless of hits
+                DB::table('api_cache_pixabay_responses')
+                    ->where('id', $response->id)
+                    ->update(['processed_at' => now()]);
+            } catch (\Exception $e) {
+                Log::error('Failed to process Pixabay response', [
+                    'response_id' => $response->id,
+                    'error'       => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('Pixabay response processing completed', [
+            'processed'           => $processed,
+            'duplicates'          => $duplicates,
+            'responses_processed' => $responses->count(),
+        ]);
+
+        return [
+            'processed'  => $processed,
+            'duplicates' => $duplicates,
+        ];
     }
 }

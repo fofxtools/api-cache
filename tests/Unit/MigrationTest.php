@@ -23,14 +23,14 @@ class MigrationTest extends TestCase
         // Check if key columns exist in regular table
         $this->assertTrue(
             Schema::hasColumns('api_cache_demo_responses', [
-                'id', 'key', 'client', 'endpoint', 'response_body',
+                'id', 'key', 'client', 'endpoint', 'response_body', 'processed_at',
             ])
         );
 
         // Check if key columns exist in compressed table
         $this->assertTrue(
             Schema::hasColumns('api_cache_demo_responses_compressed', [
-                'id', 'key', 'client', 'endpoint', 'response_body',
+                'id', 'key', 'client', 'endpoint', 'response_body', 'processed_at',
             ])
         );
     }

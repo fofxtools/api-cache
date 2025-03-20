@@ -29,6 +29,7 @@ return new class () extends Migration {
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
+            $table->timestamp('processed_at')->nullable();
 
             // Add indexes for better performance
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
@@ -39,6 +40,7 @@ return new class () extends Migration {
                 $table->index(['client', 'endpoint', 'version']);
             }
             $table->index('expires_at');
+            $table->index('processed_at');
         });
     }
 

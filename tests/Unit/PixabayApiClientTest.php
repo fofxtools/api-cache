@@ -10,9 +10,13 @@ use FOfX\ApiCache\RateLimitException;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class PixabayApiClientTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected PixabayApiClient $client;
     protected string $apiKey     = 'test-api-key';
     protected string $apiBaseUrl = 'https://pixabay.com';
@@ -275,5 +279,141 @@ class PixabayApiClientTest extends TestCase
         $authParams = $this->client->getAuthParams();
         $this->assertArrayHasKey('key', $authParams);
         $this->assertEquals($this->apiKey, $authParams['key']);
+    }
+
+    public function test_processResponses()
+    {
+        // Arrange
+        $responseBody = json_encode([
+            'hits' => [
+                [
+                    'id'           => 123,
+                    'pageURL'      => 'https://example.com/123',
+                    'previewURL'   => 'https://example.com/preview/123',
+                    'webformatURL' => 'https://example.com/web/123',
+                    'user'         => 'testuser',
+                    'views'        => 100,
+                    'downloads'    => 50,
+                ],
+                [
+                    'id'           => 456,
+                    'pageURL'      => 'https://example.com/456',
+                    'previewURL'   => 'https://example.com/preview/456',
+                    'webformatURL' => 'https://example.com/web/456',
+                    'user'         => 'testuser2',
+                    'views'        => 200,
+                    'downloads'    => 100,
+                ],
+            ],
+        ]);
+
+        $now = now();
+
+        // Insert test response
+        DB::table('api_cache_pixabay_responses')->insert([
+            'key'                  => 'test_key_1',
+            'client'               => 'pixabay',
+            'endpoint'             => 'api',
+            'response_status_code' => 200,
+            'response_body'        => $responseBody,
+            'created_at'           => $now,
+            'updated_at'           => $now,
+        ]);
+
+        // Act
+        $result = $this->client->processResponses(1);
+
+        // Assert
+        $this->assertEquals(2, $result['processed']);
+        $this->assertEquals(0, $result['duplicates']);
+
+        // Verify images were inserted
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'      => 123,
+            'pageURL' => 'https://example.com/123',
+            'user'    => 'testuser',
+        ]);
+
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'      => 456,
+            'pageURL' => 'https://example.com/456',
+            'user'    => 'testuser2',
+        ]);
+
+        // Verify response was marked as processed
+        $this->assertDatabaseHas('api_cache_pixabay_responses', [
+            'key'          => 'test_key_1',
+            'endpoint'     => 'api',
+            'processed_at' => $now,
+        ]);
+    }
+
+    public function test_processResponses_handles_empty_hits_array()
+    {
+        // Arrange
+        $responseBody = json_encode([
+            'total'     => 0,
+            'totalHits' => 0,
+            'hits'      => [],
+        ]);
+
+        $now = now();
+
+        // Insert test response
+        DB::table('api_cache_pixabay_responses')->insert([
+            'key'                  => 'test_key_2',
+            'client'               => 'pixabay',
+            'endpoint'             => 'api',
+            'response_status_code' => 200,
+            'response_body'        => $responseBody,
+            'created_at'           => $now,
+            'updated_at'           => $now,
+        ]);
+
+        // Act
+        $result = $this->client->processResponses(1);
+
+        // Assert
+        $this->assertEquals(0, $result['processed']);
+        $this->assertEquals(0, $result['duplicates']);
+
+        // Verify no images were inserted
+        $this->assertDatabaseCount('api_cache_pixabay_images', 0);
+
+        // Verify response was marked as processed
+        $this->assertDatabaseHas('api_cache_pixabay_responses', [
+            'key'          => 'test_key_2',
+            'endpoint'     => 'api',
+            'processed_at' => $now,
+        ]);
+    }
+
+    public function test_processResponses_handles_invalid_response_body()
+    {
+        // Arrange
+        $responseBody = 'invalid json';
+
+        $now = now();
+
+        // Insert test response
+        DB::table('api_cache_pixabay_responses')->insert([
+            'key'                  => 'test_key_3',
+            'client'               => 'pixabay',
+            'endpoint'             => 'api',
+            'response_status_code' => 200,
+            'response_body'        => $responseBody,
+            'created_at'           => $now,
+            'updated_at'           => $now,
+        ]);
+
+        // Act
+        $result = $this->client->processResponses(1);
+
+        // Assert
+        $this->assertEquals(0, $result['processed']);
+        $this->assertEquals(0, $result['duplicates']);
+
+        // Verify no images were inserted
+        $this->assertDatabaseCount('api_cache_pixabay_images', 0);
     }
 }

@@ -60,7 +60,7 @@ This document tracks various issues encountered during development and their sol
 
 #### MySQL Index Name Limitations (2-23-25)
 - **Issue**: MySQL 64-char index name limit vs SQLite naming constraints
-- **Solution**: Modified migration files and `create_response_table()` function to set index names based on database driver
+- **Solution**: Modified migration files and `create_responses_table()` function to set index names based on database driver
 
 #### BaseApiClient Refactoring (2-21-25)
 - **Change**: Converted from abstract to concrete class

@@ -98,6 +98,6 @@ $params = [
     'page' => 1,
 ];
 
-$normalized = $manager->normalizeParams($params);
+$normalized = normalize_params($params);
 echo "Normalized parameters:\n";
 print_r($normalized);

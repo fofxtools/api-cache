@@ -12,6 +12,8 @@ use Mockery;
 use FOfX\ApiCache\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+use function FOfX\ApiCache\normalize_params;
+
 class ApiCacheManagerTest extends TestCase
 {
     protected ApiCacheManager $manager;
@@ -249,97 +251,6 @@ class ApiCacheManagerTest extends TestCase
         $this->assertNull($this->manager->getCachedResponse($this->clientName, 'test-key'));
     }
 
-    /**
-     * Generate a nested array of specified depth
-     */
-    private static function generateNestedArray(int $depth): array
-    {
-        if ($depth === 0) {
-            return ['value' => true];
-        }
-
-        return ['next' => self::generateNestedArray($depth - 1)];
-    }
-
-    public static function normalizeParamsProvider(): array
-    {
-        return [
-            // Happy Paths
-            'simple scalars' => [
-                'input'    => ['a' => 1, 'b' => 'string', 'c' => true, 'd' => 1.5],
-                'expected' => ['a' => 1, 'b' => 'string', 'c' => true, 'd' => 1.5],
-            ],
-            'nested arrays' => [
-                'input'    => ['a' => ['b' => 2, 'a' => 1], 'c' => 3],
-                'expected' => ['a' => ['a' => 1, 'b' => 2], 'c' => 3],
-            ],
-            'empty arrays' => [
-                'input'    => ['a' => [], 'b' => [[], []]],
-                'expected' => ['a' => [], 'b' => [[], []]],
-            ],
-            'zero and false values' => [
-                'input'    => ['zero' => 0, 'false' => false, 'empty_string' => '', 'space' => ' '],
-                'expected' => ['zero' => 0, 'false' => false, 'empty_string' => '', 'space' => ' '],
-            ],
-            'special characters in keys' => [
-                'input'    => ['key-with-dash' => 1, 'key_with_underscore' => 2, 'key.with.dots' => 3],
-                'expected' => ['key-with-dash' => 1, 'key_with_underscore' => 2, 'key.with.dots' => 3],
-            ],
-            'unicode strings' => [
-                'input'    => ['utf8' => 'Hello 世界', 'emoji' => '👋 🌍'],
-                'expected' => ['utf8' => 'Hello 世界', 'emoji' => '👋 🌍'],
-            ],
-            'maximum depth' => [
-                'input'    => self::generateNestedArray(19),
-                'expected' => self::generateNestedArray(19),
-            ],
-            'mixed numeric and string keys' => [
-                'input'    => [0 => 'zero', '1' => 'one', 'two' => 2],
-                'expected' => [0 => 'zero', 1 => 'one', 'two' => 2],
-            ],
-            'null values removed' => [
-                'input'    => ['a' => 1, 'b' => null, 'c' => ['d' => null, 'e' => 2]],
-                'expected' => ['a' => 1, 'c' => ['e' => 2]],
-            ],
-            'numeric string keys' => [
-                'input'    => ['123' => 'value'],
-                'expected' => [123 => 'value'],
-            ],
-        ];
-    }
-
-    #[DataProvider('normalizeParamsProvider')]
-    public function test_normalize_params_handles_various_inputs(array $input, array $expected): void
-    {
-        $this->assertEquals($expected, $this->manager->normalizeParams($input));
-    }
-
-    public function test_normalize_params_throws_on_object(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->manager->normalizeParams(['obj' => new \stdClass()]);
-    }
-
-    public function test_normalize_params_throws_on_resource(): void
-    {
-        $resource = fopen('php://memory', 'r');
-        $this->expectException(\InvalidArgumentException::class);
-        $this->manager->normalizeParams(['resource' => $resource]);
-        fclose($resource);
-    }
-
-    public function test_normalize_params_throws_on_closure(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->manager->normalizeParams(['closure' => function () {}]);
-    }
-
-    public function test_normalize_params_throws_on_deep_nesting(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->manager->normalizeParams(self::generateNestedArray(21));
-    }
-
     public function test_generate_cache_key_creates_consistent_keys(): void
     {
         $key1 = $this->manager->generateCacheKey(
@@ -358,7 +269,7 @@ class ApiCacheManagerTest extends TestCase
     }
 
     /**
-     * Calculate expected hash for parameters using the same normalization as ApiCacheManager
+     * Calculate expected hash for parameters using normalize_params
      *
      * @param array $params Parameters to hash
      *
@@ -366,14 +277,7 @@ class ApiCacheManagerTest extends TestCase
      */
     private static function calculateExpectedHash(array $params): string
     {
-        /** @var \Mockery\MockInterface&CacheRepository */
-        $repository = Mockery::mock(CacheRepository::class);
-
-        /** @var \Mockery\MockInterface&RateLimitService */
-        $rateLimiter = Mockery::mock(RateLimitService::class);
-
-        $normalized = (new ApiCacheManager($repository, $rateLimiter))
-            ->normalizeParams($params);
+        $normalized = normalize_params($params);
 
         return sha1(json_encode($normalized, JSON_THROW_ON_ERROR));
     }

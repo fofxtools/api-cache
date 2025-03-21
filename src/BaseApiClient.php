@@ -327,7 +327,7 @@ class BaseApiClient
         ]);
 
         // Merge auth params with request params
-        $params = array_merge($this->getAuthParams(), $params);
+        $paramsWithAuth = array_merge($this->getAuthParams(), $params);
 
         // Add request capture middleware to pending request
         $request = $this->pendingRequest->withMiddleware(
@@ -347,12 +347,12 @@ class BaseApiClient
 
         /** @var \Illuminate\Http\Client\Response $response */
         $response = match($method) {
-            'HEAD'   => $request->head($url, $params),
-            'GET'    => $request->get($url, $params),
-            'POST'   => $request->post($url, $params),
-            'PUT'    => $request->put($url, $params),
-            'PATCH'  => $request->patch($url, $params),
-            'DELETE' => $request->delete($url, $params),
+            'HEAD'   => $request->head($url, $paramsWithAuth),
+            'GET'    => $request->get($url, $paramsWithAuth),
+            'POST'   => $request->post($url, $paramsWithAuth),
+            'PUT'    => $request->put($url, $paramsWithAuth),
+            'PATCH'  => $request->patch($url, $paramsWithAuth),
+            'DELETE' => $request->delete($url, $paramsWithAuth),
             default  => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}")
         };
 
@@ -364,7 +364,9 @@ class BaseApiClient
             'response_time' => round($responseTime, 3),
         ]);
 
+        // Return original params, request data, response data, and whether the cache was used or not
         return [
+            'params'  => $params,
             'request' => [
                 'base_url' => $this->baseUrl,
                 'full_url' => $requestData['url'],

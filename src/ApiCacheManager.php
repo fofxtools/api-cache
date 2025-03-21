@@ -200,67 +200,6 @@ class ApiCacheManager
     }
 
     /**
-     * Normalize parameters for consistent cache keys.
-     *
-     * Rules:
-     *  - Remove null values
-     *  - Recursively handle arrays (keeping empty arrays in case they matter)
-     *  - Sort keys for consistent ordering
-     *  - Forbid objects/resources (throw exception)
-     *  - Include a depth check to prevent infinite recursion
-     *
-     * @param array $params Parameters to normalize
-     * @param int   $depth  Current recursion depth
-     *
-     * @throws \InvalidArgumentException When encountering unsupported types or exceeding max depth
-     *
-     * @return array Normalized parameters
-     */
-    public function normalizeParams(array $params, int $depth = 0): array
-    {
-        $maxDepth = 20;
-
-        if ($depth > $maxDepth) {
-            throw new \InvalidArgumentException(
-                "Maximum recursion depth ({$maxDepth}) exceeded in parameters: {$depth}"
-            );
-        }
-
-        // Filter out nulls first
-        $filtered = [];
-        foreach ($params as $key => $value) {
-            if ($value !== null) {
-                $filtered[$key] = $value;
-            }
-        }
-
-        // Sort keys for stable ordering
-        ksort($filtered);
-
-        $normalized = [];
-        foreach ($filtered as $key => $value) {
-            if (is_array($value)) {
-                // Recurse
-                $normalized[$key] = $this->normalizeParams($value, $depth + 1);
-            } elseif (is_scalar($value)) {
-                // Keep scalars as-is: bool, int, float, string
-                $normalized[$key] = $value;
-            } else {
-                // Throw on objects, resources, closures, etc.
-                $type = gettype($value);
-                Log::warning('Unsupported parameter type', [
-                    'type' => $type,
-                    'key'  => $key,
-                ]);
-
-                throw new \InvalidArgumentException("Unsupported parameter type: {$type}");
-            }
-        }
-
-        return $normalized;
-    }
-
-    /**
      * Generate a unique cache key for the request.
      *
      * Format: "{client}.{method}.{endpoint}.{params_hash}.{version}"
@@ -295,7 +234,7 @@ class ApiCacheManager
 
         try {
             // Normalize parameters for stable ordering
-            $normalizedParams = $this->normalizeParams($params);
+            $normalizedParams = normalize_params($params);
 
             // Encode normalized parameters to JSON
             $jsonParams = json_encode($normalizedParams, JSON_THROW_ON_ERROR);

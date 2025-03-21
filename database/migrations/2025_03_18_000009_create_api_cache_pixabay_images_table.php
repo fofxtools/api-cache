@@ -77,6 +77,10 @@ return new class () extends Migration {
             $table->string('storage_filepath_webformat')->nullable();
             $table->string('storage_filepath_largeImage')->nullable();
 
+            // Processing information
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->json('processed_status')->nullable()->index();
+
             // Add fulltext indexes
             if ($driver === 'mysql' || $driver === 'pgsql') {
                 $table->fullText('tags');

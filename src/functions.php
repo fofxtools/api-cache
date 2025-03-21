@@ -53,7 +53,7 @@ function check_server_status(string $baseUrl, int $timeout = 2): bool
 }
 
 /**
- * Create response table for testing
+ * Create responses table for testing
  *
  * @param Builder $schema       Schema builder instance
  * @param string  $table        Table name
@@ -63,7 +63,7 @@ function check_server_status(string $baseUrl, int $timeout = 2): bool
  *
  * @throws \RuntimeException When table creation fails
  */
-function create_response_table(
+function create_responses_table(
     Builder $schema,
     string $table,
     bool $compressed = false,
@@ -96,6 +96,7 @@ function create_response_table(
             $table->string('base_url')->nullable();
             $table->string('full_url')->nullable();
             $table->string('method')->nullable();
+            $table->json('request_params_summary')->nullable();
 
             // Use binary/blob for compressed tables
             if ($compressed) {
@@ -116,6 +117,7 @@ function create_response_table(
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
             $table->timestamp('processed_at')->nullable();
+            $table->json('processed_status')->nullable();
 
             // Add indexes for better performance
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
@@ -355,6 +357,108 @@ function create_pixabay_images_table(
             'indexes'   => $indexInfo,
         ]);
     }
+}
+
+/**
+ * Normalize parameters for consistent cache keys.
+ *
+ * Rules:
+ *  - Remove null values
+ *  - Recursively handle arrays (keeping empty arrays in case they matter)
+ *  - Sort keys for consistent ordering
+ *  - Forbid objects/resources (throw exception)
+ *  - Include a depth check to prevent infinite recursion
+ *
+ * @param array $params Parameters to normalize
+ * @param int   $depth  Current recursion depth
+ *
+ * @throws \InvalidArgumentException When encountering unsupported types or exceeding max depth
+ *
+ * @return array Normalized parameters
+ */
+function normalize_params(array $params, int $depth = 0): array
+{
+    $maxDepth = 20;
+
+    if ($depth > $maxDepth) {
+        throw new \InvalidArgumentException(
+            "Maximum recursion depth ({$maxDepth}) exceeded in parameters: {$depth}"
+        );
+    }
+
+    // Filter out nulls first
+    $filtered = [];
+    foreach ($params as $key => $value) {
+        if ($value !== null) {
+            $filtered[$key] = $value;
+        }
+    }
+
+    // Sort keys for stable ordering
+    ksort($filtered);
+
+    $normalized = [];
+    foreach ($filtered as $key => $value) {
+        if (is_array($value)) {
+            // Recurse
+            $normalized[$key] = normalize_params($value, $depth + 1);
+        } elseif (is_scalar($value)) {
+            // Keep scalars as-is: bool, int, float, string
+            $normalized[$key] = $value;
+        } else {
+            // Throw on objects, resources, closures, etc.
+            $type = gettype($value);
+            Log::warning('Unsupported parameter type', [
+                'type' => $type,
+                'key'  => $key,
+            ]);
+
+            throw new \InvalidArgumentException("Unsupported parameter type: {$type}");
+        }
+    }
+
+    return $normalized;
+}
+
+/**
+ * Summarize parameters by truncating each parameter to 50 characters. Return as JSON string.
+ *
+ * @param array $params    Parameters to summarize
+ * @param bool  $normalize Whether to normalize the parameters first
+ *
+ * @throws \InvalidArgumentException If JSON encoding fails
+ *
+ * @return string Summarized parameters as JSON string
+ */
+function summarize_params(array $params, bool $normalize = true): string
+{
+    // Normalize parameters if requested
+    if ($normalize) {
+        $params = normalize_params($params);
+    }
+
+    $summary = [];
+
+    foreach ($params as $key => $value) {
+        // Recurse if array
+        if (is_array($value)) {
+            // Since normalize_params() already recurses, we don't need to do it again.
+            // So set $normalize to false.
+            $value = summarize_params($value, false);
+        }
+
+        // Ensure UTF-8 encoding
+        $value     = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        $summary[] = $key . ': ' . mb_substr($value, 0, 50);
+    }
+
+    // Throw exception if JSON encoding fails
+    $encoded = json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new \InvalidArgumentException('Failed to encode summary as JSON: ' . json_last_error_msg());
+    }
+
+    return $encoded;
 }
 
 /**

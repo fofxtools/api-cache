@@ -30,12 +30,12 @@ function createClientTables(string $clientName, bool $dropExisting = false, bool
     // Create uncompressed table
     config(["api-cache.apis.{$clientName}.compression_enabled" => false]);
     $uncompressedTable = $repository->getTableName($clientName);
-    create_response_table($schema, $uncompressedTable, false, $dropExisting, $verify);
+    create_responses_table($schema, $uncompressedTable, false, $dropExisting, $verify);
 
     // Create compressed table
     config(["api-cache.apis.{$clientName}.compression_enabled" => true]);
     $compressedTable = $repository->getTableName($clientName);
-    create_response_table($schema, $compressedTable, true, $dropExisting, $verify);
+    create_responses_table($schema, $compressedTable, true, $dropExisting, $verify);
 
     // Reset compression
     config(["api-cache.apis.{$clientName}.compression_enabled" => $originalCompression]);

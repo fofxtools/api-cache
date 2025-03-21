@@ -10,12 +10,15 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use FOfX\Helper;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 use function FOfX\ApiCache\check_server_status;
-use function FOfX\ApiCache\create_response_table;
+use function FOfX\ApiCache\create_responses_table;
 use function FOfX\ApiCache\format_api_response;
 use function FOfX\ApiCache\get_tables;
 use function FOfX\ApiCache\create_pixabay_images_table;
+use function FOfX\ApiCache\normalize_params;
+use function FOfX\ApiCache\summarize_params;
 
 class FunctionsTest extends TestCase
 {
@@ -74,6 +77,18 @@ class FunctionsTest extends TestCase
     }
 
     /**
+     * Generate a nested array of specified depth
+     */
+    private static function generateNestedArray(int $depth): array
+    {
+        if ($depth === 0) {
+            return ['value' => true];
+        }
+
+        return ['next' => self::generateNestedArray($depth - 1)];
+    }
+
+    /**
      * Tests for check_server_status function
      */
     public function test_check_server_status_returns_true_for_healthy_server(): void
@@ -101,12 +116,12 @@ class FunctionsTest extends TestCase
     }
 
     /**
-     * Tests for create_response_table function
+     * Tests for create_responses_table function
      */
-    public function test_create_response_table_creates_uncompressed_table(): void
+    public function test_create_responses_table_creates_uncompressed_table(): void
     {
         $schema = Schema::connection(null);
-        create_response_table($schema, $this->testTable);
+        create_responses_table($schema, $this->testTable);
 
         $this->assertTrue($schema->hasTable($this->testTable));
 
@@ -129,10 +144,10 @@ class FunctionsTest extends TestCase
         $this->assertContains('updated_at', $columns);
     }
 
-    public function test_create_response_table_creates_compressed_table(): void
+    public function test_create_responses_table_creates_compressed_table(): void
     {
         $schema = Schema::connection(null);
-        create_response_table($schema, $this->testTable . '_compressed', true);
+        create_responses_table($schema, $this->testTable . '_compressed', true);
 
         $this->assertTrue($schema->hasTable($this->testTable . '_compressed'));
 
@@ -155,12 +170,12 @@ class FunctionsTest extends TestCase
         $this->assertContains('updated_at', $columns);
     }
 
-    public function test_create_response_table_respects_drop_existing_parameter(): void
+    public function test_create_responses_table_respects_drop_existing_parameter(): void
     {
         $schema = Schema::connection(null);
 
         // Create table first time
-        create_response_table($schema, $this->testTable);
+        create_responses_table($schema, $this->testTable);
 
         // Insert a record
         DB::table($this->testTable)->insert([
@@ -170,13 +185,13 @@ class FunctionsTest extends TestCase
         ]);
 
         // Create table again without drop
-        create_response_table($schema, $this->testTable, false, false);
+        create_responses_table($schema, $this->testTable, false, false);
 
         // Record should still exist
         $this->assertEquals(1, DB::table($this->testTable)->count());
 
         // Create table again with drop
-        create_response_table($schema, $this->testTable, false, true);
+        create_responses_table($schema, $this->testTable, false, true);
 
         // Table should be empty
         $this->assertEquals(0, DB::table($this->testTable)->count());
@@ -236,6 +251,136 @@ class FunctionsTest extends TestCase
 
         // Table should be empty
         $this->assertEquals(0, DB::table($testTable)->count());
+    }
+
+    public static function normalize_params_provider(): array
+    {
+        return [
+            // Happy Paths
+            'simple scalars' => [
+                'input'    => ['a' => 1, 'b' => 'string', 'c' => true, 'd' => 1.5],
+                'expected' => ['a' => 1, 'b' => 'string', 'c' => true, 'd' => 1.5],
+            ],
+            'nested arrays' => [
+                'input'    => ['a' => ['b' => 2, 'a' => 1], 'c' => 3],
+                'expected' => ['a' => ['a' => 1, 'b' => 2], 'c' => 3],
+            ],
+            'empty arrays' => [
+                'input'    => ['a' => [], 'b' => [[], []]],
+                'expected' => ['a' => [], 'b' => [[], []]],
+            ],
+            'zero and false values' => [
+                'input'    => ['zero' => 0, 'false' => false, 'empty_string' => '', 'space' => ' '],
+                'expected' => ['zero' => 0, 'false' => false, 'empty_string' => '', 'space' => ' '],
+            ],
+            'special characters in keys' => [
+                'input'    => ['key-with-dash' => 1, 'key_with_underscore' => 2, 'key.with.dots' => 3],
+                'expected' => ['key-with-dash' => 1, 'key_with_underscore' => 2, 'key.with.dots' => 3],
+            ],
+            'unicode strings' => [
+                'input'    => ['utf8' => 'Hello 世界', 'emoji' => '👋 🌍'],
+                'expected' => ['utf8' => 'Hello 世界', 'emoji' => '👋 🌍'],
+            ],
+            'maximum depth' => [
+                'input'    => self::generateNestedArray(19),
+                'expected' => self::generateNestedArray(19),
+            ],
+            'mixed numeric and string keys' => [
+                'input'    => [0 => 'zero', '1' => 'one', 'two' => 2],
+                'expected' => [0 => 'zero', 1 => 'one', 'two' => 2],
+            ],
+            'null values removed' => [
+                'input'    => ['a' => 1, 'b' => null, 'c' => ['d' => null, 'e' => 2]],
+                'expected' => ['a' => 1, 'c' => ['e' => 2]],
+            ],
+            'numeric string keys' => [
+                'input'    => ['123' => 'value'],
+                'expected' => [123 => 'value'],
+            ],
+        ];
+    }
+
+    #[DataProvider('normalize_params_provider')]
+    public function test_normalize_params_handles_various_inputs(array $input, array $expected): void
+    {
+        $this->assertEquals($expected, normalize_params($input));
+    }
+
+    public function test_normalize_params_throws_on_object(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        normalize_params(['obj' => new \stdClass()]);
+    }
+
+    public function test_normalize_params_throws_on_resource(): void
+    {
+        $resource = fopen('php://memory', 'r');
+        $this->expectException(\InvalidArgumentException::class);
+        normalize_params(['resource' => $resource]);
+        fclose($resource);
+    }
+
+    public function test_normalize_params_throws_on_closure(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        normalize_params(['closure' => function () {}]);
+    }
+
+    public function test_normalize_params_throws_on_deep_nesting(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        normalize_params(self::generateNestedArray(21));
+    }
+
+    public static function summarize_params_provider(): array
+    {
+        return [
+            'empty array' => [
+                'input'    => [],
+                'expected' => '[]',
+            ],
+            'simple string truncation' => [
+                'input' => [
+                    'query' => str_repeat('a', 100),
+                ],
+                'expected' => "[\n    \"query: " . str_repeat('a', 50) . "\"\n]",
+            ],
+            'nested array' => [
+                'input' => [
+                    'filters' => [
+                        'type'   => str_repeat('b', 100),
+                        'status' => 'active',
+                    ],
+                ],
+                'expected' => "[\n    \"filters: [\\n    \\\"status: active\\\",\\n    \\\"type: " . str_repeat('b', 15) . "\"\n]",
+            ],
+            'string values only' => [
+                'input' => [
+                    'string1' => str_repeat('c', 100),
+                    'string2' => 'short',
+                ],
+                'expected' => "[\n    \"string1: " . str_repeat('c', 50) . "\",\n    \"string2: short\"\n]",
+            ],
+            'utf-8 characters' => [
+                'input' => [
+                    'text' => str_repeat('测试', 50),
+                ],
+                'expected' => "[\n    \"text: " . str_repeat('测试', 25) . "\"\n]",
+            ],
+            'special characters' => [
+                'input' => [
+                    'url' => 'https://example.com/path?param=' . str_repeat('x', 100),
+                ],
+                'expected' => "[\n    \"url: https://example.com/path?param=" . str_repeat('x', 19) . "\"\n]",
+            ],
+        ];
+    }
+
+    #[DataProvider('summarize_params_provider')]
+    public function test_summarize_params_truncates_values(array $input, string $expected): void
+    {
+        $result = summarize_params($input);
+        $this->assertEquals($expected, $result);
     }
 
     /**

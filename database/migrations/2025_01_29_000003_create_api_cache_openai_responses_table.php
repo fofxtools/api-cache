@@ -20,6 +20,7 @@ return new class () extends Migration {
             $table->string('base_url')->nullable();
             $table->string('full_url')->nullable();
             $table->string('method')->nullable();
+            $table->json('request_params_summary')->nullable();
             $table->mediumText('request_headers')->nullable();
             $table->mediumText('request_body')->nullable();
             $table->mediumText('response_headers')->nullable();
@@ -30,6 +31,7 @@ return new class () extends Migration {
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
             $table->timestamp('processed_at')->nullable();
+            $table->json('processed_status')->nullable();
 
             // Add indexes for better performance
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.

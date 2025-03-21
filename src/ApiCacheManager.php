@@ -177,8 +177,8 @@ class ApiCacheManager
         $response = new \Illuminate\Http\Client\Response(
             new \GuzzleHttp\Psr7\Response(
                 $cached['response_status_code'],
-                $cached['response_headers'],
-                $cached['response_body']
+                $cached['response_headers'] ?? [],
+                $cached['response_body'] ?? ''
             )
         );
 

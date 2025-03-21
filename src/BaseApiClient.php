@@ -105,10 +105,16 @@ class BaseApiClient
     /**
      * Get the table name for this client
      *
+     * @param string|null $clientName The client name
+     *
      * @return string The table name
      */
-    public function getTableName(string $clientName): string
+    public function getTableName(?string $clientName = null): string
     {
+        if ($clientName === null) {
+            $clientName = $this->clientName;
+        }
+
         return $this->cacheManager->getTableName($clientName);
     }
 
@@ -320,6 +326,9 @@ class BaseApiClient
             'url'      => $url,
         ]);
 
+        // Merge auth params with request params
+        $params = array_merge($this->getAuthParams(), $params);
+
         // Add request capture middleware to pending request
         $request = $this->pendingRequest->withMiddleware(
             function (callable $handler) use (&$requestData) {
@@ -405,9 +414,6 @@ class BaseApiClient
             'endpoint' => $endpoint,
             'method'   => $method,
         ]);
-
-        // Merge auth params with request params
-        $params = array_merge($this->getAuthParams(), $params);
 
         // Generate cache key
         $cacheKey = $this->cacheManager->generateCacheKey(

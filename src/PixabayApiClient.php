@@ -218,11 +218,15 @@ class PixabayApiClient extends BaseApiClient
      */
     public function processResponses(?int $limit = 1): array
     {
-        // Get unprocessed responses for images API only
-        $query = DB::table('api_cache_pixabay_responses')
+        $tableName       = $this->getTableName();
+        $imagesTableName = 'api_cache_' . $this->clientName . '_images';
+
+        // Get the cache keys of unprocessed responses for images endpoint only
+        $query = DB::table($tableName)
             ->whereNull('processed_at')
             ->where('endpoint', 'api')
-            ->where('response_status_code', 200);
+            ->where('response_status_code', 200)
+            ->select('id', 'key');
 
         if ($limit !== null) {
             $query->limit($limit);
@@ -236,8 +240,12 @@ class PixabayApiClient extends BaseApiClient
         $duplicates = 0;
 
         foreach ($responses as $response) {
+            // Use cache manager to get the response body given the cache key
+            $cachedResponse = $this->cacheManager->getCachedResponse($this->clientName, $response->key);
+            $responseBody   = $cachedResponse['response']->body();
+
             try {
-                $data         = json_decode($response->response_body, true);
+                $data         = json_decode($responseBody, true);
                 $hasValidHits = isset($data['hits']) && is_array($data['hits']) && !empty($data['hits']);
 
                 if ($hasValidHits) {
@@ -278,13 +286,17 @@ class PixabayApiClient extends BaseApiClient
                         foreach (array_chunk($images, 100) as $chunk) {
                             try {
                                 // Attempt bulk insert
-                                $insertedCount = DB::table('api_cache_pixabay_images')->insertOrIgnore($chunk);
+                                $insertedCount = DB::table($imagesTableName)->insertOrIgnore($chunk);
                                 $processed += $insertedCount;
                                 $duplicates += count($chunk) - $insertedCount;
                             } catch (\Exception $e) {
+                                Log::warning('insertOrIgnore() failed, falling back to updateOrInsert()', [
+                                    'error' => $e->getMessage(),
+                                ]);
+
                                 // Fallback: Use updateOrInsert() in bulk
                                 foreach ($chunk as $image) {
-                                    DB::table('api_cache_pixabay_images')->updateOrInsert(['id' => $image['id']], $image);
+                                    DB::table($imagesTableName)->updateOrInsert(['id' => $image['id']], $image);
                                 }
                                 $processed += count($chunk);
                             }
@@ -293,7 +305,7 @@ class PixabayApiClient extends BaseApiClient
                 }
 
                 // Mark response as processed regardless of hits
-                DB::table('api_cache_pixabay_responses')
+                DB::table($tableName)
                     ->where('id', $response->id)
                     ->update(['processed_at' => now()]);
             } catch (\Exception $e) {

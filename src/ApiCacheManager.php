@@ -113,6 +113,7 @@ class ApiCacheManager
      *
      * @param string      $clientName The API client identifier
      * @param string      $cacheKey   Cache key
+     * @param array       $params     Request parameters
      * @param array       $apiResult  API response data
      * @param string      $endpoint   The API endpoint
      * @param string|null $version    API version
@@ -121,6 +122,7 @@ class ApiCacheManager
     public function storeResponse(
         string $clientName,
         string $cacheKey,
+        array $params,
         array $apiResult,
         string $endpoint,
         ?string $version = null,
@@ -135,18 +137,19 @@ class ApiCacheManager
         $response = $apiResult['response'];
 
         $metadata = [
-            'endpoint'             => $endpoint,
-            'version'              => $version,
-            'base_url'             => $apiResult['request']['base_url'],
-            'full_url'             => $apiResult['request']['full_url'],
-            'method'               => $apiResult['request']['method'],
-            'request_headers'      => $apiResult['request']['headers'],
-            'request_body'         => $apiResult['request']['body'],
-            'response_headers'     => $response->headers(),
-            'response_body'        => $response->body(),
-            'response_status_code' => $response->status(),
-            'response_size'        => strlen($response->body()),
-            'response_time'        => $apiResult['response_time'],
+            'endpoint'               => $endpoint,
+            'version'                => $version,
+            'base_url'               => $apiResult['request']['base_url'],
+            'full_url'               => $apiResult['request']['full_url'],
+            'method'                 => $apiResult['request']['method'],
+            'request_params_summary' => summarize_params($params),
+            'request_headers'        => $apiResult['request']['headers'],
+            'request_body'           => $apiResult['request']['body'],
+            'response_headers'       => $response->headers(),
+            'response_body'          => $response->body(),
+            'response_status_code'   => $response->status(),
+            'response_size'          => strlen($response->body()),
+            'response_time'          => $apiResult['response_time'],
         ];
 
         $this->repository->store($clientName, $cacheKey, $metadata, $ttl);

@@ -74,7 +74,7 @@ $apiResult = [
     'response_time' => 0.5,
 ];
 
-$manager->storeResponse($clientName, $key1, $apiResult, '/users');
+$manager->storeResponse($clientName, $key1, $params1, $apiResult, '/users');
 
 // Retrieve cached response
 $cached = $manager->getCachedResponse($clientName, $key1);

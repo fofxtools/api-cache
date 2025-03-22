@@ -13,6 +13,7 @@ use FOfX\ApiCache\Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 use function FOfX\ApiCache\normalize_params;
+use function FOfX\ApiCache\summarize_params;
 
 class ApiCacheManagerTest extends TestCase
 {
@@ -157,6 +158,7 @@ class ApiCacheManagerTest extends TestCase
     {
         $requestHeaders  = ['Accept' => 'application/json'];
         $responseHeaders = ['Content-Type' => 'application/json'];
+        $params          = ['query' => 'test'];
 
         return [
             'simple json response' => [
@@ -175,26 +177,28 @@ class ApiCacheManagerTest extends TestCase
                     ),
                     'response_time' => 0.5,
                 ],
+                'params'           => $params,
                 'expectedMetadata' => [
-                    'endpoint'             => '/test',
-                    'version'              => null,
-                    'base_url'             => 'https://api.test',
-                    'full_url'             => 'https://api.test/endpoint',
-                    'method'               => 'GET',
-                    'request_headers'      => $requestHeaders,
-                    'request_body'         => '{"query":"test"}',
-                    'response_headers'     => $responseHeaders,
-                    'response_body'        => '{"test":"data"}',
-                    'response_status_code' => 200,
-                    'response_size'        => 15,
-                    'response_time'        => 0.5,
+                    'endpoint'               => '/test',
+                    'version'                => null,
+                    'base_url'               => 'https://api.test',
+                    'full_url'               => 'https://api.test/endpoint',
+                    'method'                 => 'GET',
+                    'request_params_summary' => summarize_params($params),
+                    'request_headers'        => $requestHeaders,
+                    'request_body'           => '{"query":"test"}',
+                    'response_headers'       => $responseHeaders,
+                    'response_body'          => '{"test":"data"}',
+                    'response_status_code'   => 200,
+                    'response_size'          => 15,
+                    'response_time'          => 0.5,
                 ],
             ],
         ];
     }
 
     #[DataProvider('apiResponseProvider')]
-    public function test_store_response_saves_correct_metadata(array $apiResult, array $expectedMetadata): void
+    public function test_store_response_saves_correct_metadata(array $apiResult, array $params, array $expectedMetadata): void
     {
         $this->repository->shouldReceive('store')
             ->once()
@@ -210,13 +214,14 @@ class ApiCacheManagerTest extends TestCase
         $this->manager->storeResponse(
             $this->clientName,
             'test-key',
+            $params,
             $apiResult,
             $this->endpoint
         );
     }
 
     #[DataProvider('apiResponseProvider')]
-    public function test_get_cached_response_returns_response_when_found(array $apiResult, array $expectedMetadata): void
+    public function test_get_cached_response_returns_response_when_found(array $apiResult, array $params, array $expectedMetadata): void
     {
         $this->repository->shouldReceive('get')
             ->once()

@@ -282,15 +282,16 @@ class CacheRepository
 
         // Set defaults for optional fields
         $metadata = array_merge([
-            'version'              => null,
-            'base_url'             => null,
-            'full_url'             => null,
-            'method'               => null,
-            'request_headers'      => null,
-            'request_body'         => null,
-            'response_headers'     => null,
-            'response_status_code' => null,
-            'response_time'        => null,
+            'version'                => null,
+            'base_url'               => null,
+            'full_url'               => null,
+            'method'                 => null,
+            'request_params_summary' => null,
+            'request_headers'        => null,
+            'request_body'           => null,
+            'response_headers'       => null,
+            'response_status_code'   => null,
+            'response_time'          => null,
         ], $metadata);
 
         // Prepare data for storage
@@ -303,23 +304,24 @@ class CacheRepository
         $metadata['response_size'] = strlen($preparedResponseBody);
 
         $this->db->table($table)->insert([
-            'client'               => $clientName,
-            'key'                  => $key,
-            'version'              => $metadata['version'],
-            'endpoint'             => $metadata['endpoint'],
-            'base_url'             => $metadata['base_url'],
-            'full_url'             => $metadata['full_url'],
-            'method'               => $metadata['method'],
-            'request_headers'      => $preparedRequestHeaders,
-            'request_body'         => $preparedRequestBody,
-            'response_headers'     => $preparedResponseHeaders,
-            'response_body'        => $preparedResponseBody,
-            'response_status_code' => $metadata['response_status_code'],
-            'response_size'        => $metadata['response_size'],
-            'response_time'        => $metadata['response_time'],
-            'expires_at'           => $expiresAt,
-            'created_at'           => $now,
-            'updated_at'           => $now,
+            'client'                 => $clientName,
+            'key'                    => $key,
+            'version'                => $metadata['version'],
+            'endpoint'               => $metadata['endpoint'],
+            'base_url'               => $metadata['base_url'],
+            'full_url'               => $metadata['full_url'],
+            'method'                 => $metadata['method'],
+            'request_params_summary' => $metadata['request_params_summary'],
+            'request_headers'        => $preparedRequestHeaders,
+            'request_body'           => $preparedRequestBody,
+            'response_headers'       => $preparedResponseHeaders,
+            'response_body'          => $preparedResponseBody,
+            'response_status_code'   => $metadata['response_status_code'],
+            'response_size'          => $metadata['response_size'],
+            'response_time'          => $metadata['response_time'],
+            'expires_at'             => $expiresAt,
+            'created_at'             => $now,
+            'updated_at'             => $now,
         ]);
 
         Log::info('Stored response in cache', [
@@ -387,19 +389,20 @@ class CacheRepository
         ]);
 
         return [
-            'version'              => $data->version,
-            'endpoint'             => $data->endpoint,
-            'base_url'             => $data->base_url,
-            'full_url'             => $data->full_url,
-            'method'               => $data->method,
-            'request_headers'      => $this->retrieveHeaders($clientName, $data->request_headers),
-            'request_body'         => $this->retrieveBody($clientName, $data->request_body),
-            'response_headers'     => $this->retrieveHeaders($clientName, $data->response_headers),
-            'response_body'        => $this->retrieveBody($clientName, $data->response_body),
-            'response_status_code' => $data->response_status_code,
-            'response_size'        => $data->response_size,
-            'response_time'        => $data->response_time,
-            'expires_at'           => $data->expires_at,
+            'version'                => $data->version,
+            'endpoint'               => $data->endpoint,
+            'base_url'               => $data->base_url,
+            'full_url'               => $data->full_url,
+            'method'                 => $data->method,
+            'request_params_summary' => $data->request_params_summary,
+            'request_headers'        => $this->retrieveHeaders($clientName, $data->request_headers),
+            'request_body'           => $this->retrieveBody($clientName, $data->request_body),
+            'response_headers'       => $this->retrieveHeaders($clientName, $data->response_headers),
+            'response_body'          => $this->retrieveBody($clientName, $data->response_body),
+            'response_status_code'   => $data->response_status_code,
+            'response_size'          => $data->response_size,
+            'response_time'          => $data->response_time,
+            'expires_at'             => $data->expires_at,
         ];
     }
 

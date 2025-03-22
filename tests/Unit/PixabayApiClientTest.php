@@ -11,12 +11,9 @@ use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class PixabayApiClientTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected PixabayApiClient $client;
     protected string $apiKey     = 'test-api-key';
     protected string $apiBaseUrl = 'https://pixabay.com';

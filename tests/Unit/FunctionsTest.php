@@ -343,7 +343,7 @@ class FunctionsTest extends TestCase
                 'input' => [
                     'query' => str_repeat('a', 100),
                 ],
-                'expected' => "[\n    \"query: " . str_repeat('a', 50) . "\"\n]",
+                'expected' => '["query: ' . str_repeat('a', 50) . '"]',
             ],
             'nested array' => [
                 'input' => [
@@ -352,34 +352,52 @@ class FunctionsTest extends TestCase
                         'status' => 'active',
                     ],
                 ],
-                'expected' => "[\n    \"filters: [\\n    \\\"status: active\\\",\\n    \\\"type: " . str_repeat('b', 15) . "\"\n]",
+                'expected' => '["filters: {\"status\":\"active\",\"type\":\"' . str_repeat('b', 23) . '"]',
             ],
             'string values only' => [
                 'input' => [
                     'string1' => str_repeat('c', 100),
                     'string2' => 'short',
                 ],
-                'expected' => "[\n    \"string1: " . str_repeat('c', 50) . "\",\n    \"string2: short\"\n]",
+                'expected' => '["string1: ' . str_repeat('c', 50) . '","string2: short"]',
             ],
             'utf-8 characters' => [
                 'input' => [
                     'text' => str_repeat('测试', 50),
                 ],
-                'expected' => "[\n    \"text: " . str_repeat('测试', 25) . "\"\n]",
+                'expected' => '["text: ' . str_repeat('测试', 25) . '"]',
             ],
             'special characters' => [
                 'input' => [
                     'url' => 'https://example.com/path?param=' . str_repeat('x', 100),
                 ],
-                'expected' => "[\n    \"url: https://example.com/path?param=" . str_repeat('x', 19) . "\"\n]",
+                'expected' => '["url: https://example.com/path?param=' . str_repeat('x', 19) . '"]',
+            ],
+            'mixed types' => [
+                'input' => [
+                    'string' => 'test',
+                    'int'    => 123,
+                    'float'  => 45.67,
+                    'bool'   => true,
+                    'null'   => null,
+                    'array'  => ['key' => 'value'],
+                ],
+                'expected' => '["array: {\"key\":\"value\"}","bool: 1","float: 45.67","int: 123","string: test"]',
+            ],
+            'pretty print' => [
+                'input' => [
+                    'key' => 'value',
+                ],
+                'expected'    => "[\n    \"key: value\"\n]",
+                'prettyPrint' => true,
             ],
         ];
     }
 
     #[DataProvider('summarize_params_provider')]
-    public function test_summarize_params_truncates_values(array $input, string $expected): void
+    public function test_summarize_params_truncates_values(array $input, string $expected, bool $prettyPrint = false): void
     {
-        $result = summarize_params($input);
+        $result = summarize_params($input, true, $prettyPrint);
         $this->assertEquals($expected, $result);
     }
 

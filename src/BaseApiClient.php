@@ -479,6 +479,7 @@ class BaseApiClient
             $this->cacheManager->storeResponse(
                 $this->clientName,
                 $cacheKey,
+                $params,
                 $apiResult,
                 $endpoint,
                 $this->version

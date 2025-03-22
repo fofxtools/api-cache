@@ -315,18 +315,20 @@ class BaseApiClientTest extends TestCase
             ->once()
             ->with($this->clientName);
 
+        $params = ['query' => 'test'];
         $this->cacheManager->shouldReceive('storeResponse')
             ->once()
-            ->withArgs(function ($client, $key, $result, $endpoint, $version) {
+            ->withArgs(function ($client, $key, $params, $result, $endpoint, $version) {
                 return $client === $this->clientName &&
                        $key === 'test-cache-key' &&
+                       $params === ['query' => 'test'] &&
                        $endpoint === 'predictions' &&
                        $version === $this->version &&
                        isset($result['response']) &&
                        isset($result['response_time']);
             });
 
-        $result = $this->client->sendCachedRequest('predictions', ['query' => 'test']);
+        $result = $this->client->sendCachedRequest('predictions', $params);
 
         $this->assertArrayHasKey('response', $result);
         $this->assertArrayHasKey('response_time', $result);

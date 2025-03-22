@@ -422,17 +422,19 @@ function normalize_params(array $params, int $depth = 0): array
 
 /**
  * Summarize parameters by truncating each parameter to 50 characters. Return as JSON string.
+ * Arrays will be single-line JSON, truncated at 50 characters.
  *
- * @param array $params    Parameters to summarize
- * @param bool  $normalize Whether to normalize the parameters first
+ * @param array $params      Parameters to summarize
+ * @param bool  $normalize   Whether to normalize the parameters first (optional)
+ * @param bool  $prettyPrint Whether to pretty print the JSON (optional)
  *
  * @throws \InvalidArgumentException If JSON encoding fails
  *
  * @return string Summarized parameters as JSON string
  */
-function summarize_params(array $params, bool $normalize = true): string
+function summarize_params(array $params, bool $normalize = true, bool $prettyPrint = false): string
 {
-    // Normalize parameters if requested
+    // Optionally normalize (remove nulls, sort keys, etc.)
     if ($normalize) {
         $params = normalize_params($params);
     }
@@ -440,20 +442,33 @@ function summarize_params(array $params, bool $normalize = true): string
     $summary = [];
 
     foreach ($params as $key => $value) {
-        // Recurse if array
+        // For arrays, convert to single-line JSON then truncate
         if (is_array($value)) {
-            // Since normalize_params() already recurses, we don't need to do it again.
-            // So set $normalize to false.
-            $value = summarize_params($value, false);
-        }
+            $json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        // Ensure UTF-8 encoding
-        $value     = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
-        $summary[] = $key . ': ' . mb_substr($value, 0, 50);
+            // Throw an exception if the array cannot be encoded to JSON
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \InvalidArgumentException('Failed to encode array to JSON.');
+            }
+
+            // Truncate the JSON string to 50 characters
+            $truncated = mb_substr($json, 0, 50);
+            $summary[] = $key . ': ' . $truncated;
+        } else {
+            // Cast scalars to string, then truncate
+            $stringVal = (string) $value;
+            $truncated = mb_substr($stringVal, 0, 50);
+            $summary[] = $key . ': ' . $truncated;
+        }
     }
 
-    // Throw exception if JSON encoding fails
-    $encoded = json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    // Convert the final summary array
+    if ($prettyPrint) {
+        $encoded = json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    } else {
+        $encoded = json_encode($summary, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     if (json_last_error() !== JSON_ERROR_NONE) {
         throw new \InvalidArgumentException('Failed to encode summary as JSON: ' . json_last_error_msg());
     }

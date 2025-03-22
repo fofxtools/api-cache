@@ -9,10 +9,7 @@ A Laravel-based PHP library for caching API responses. Currently in early develo
 Please see the [docs](docs) folder for:
 - [Technical Specification](docs/technical-specification.md)
 - [Usage](docs/usage.md)
-- [System Blueprint](docs/system-blueprint.md)
 - [Code Skeleton](docs/code-skeleton.md)
-- [Roadmap](docs/roadmap.md)
-- [Work Breakdown Structure](docs/work-breakdown-structure.md)
 
 ### Diagrams
 - [Class Diagram](docs/diagrams/class-diagram.mmd)

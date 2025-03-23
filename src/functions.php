@@ -111,7 +111,7 @@ function create_responses_table(
                 $table->mediumText('response_body')->nullable();
             }
 
-            $table->integer('response_status_code')->nullable();
+            $table->integer('response_status_code');
             $table->integer('response_size')->nullable();
             $table->double('response_time')->nullable();
             $table->timestamp('expires_at')->nullable();
@@ -208,7 +208,7 @@ function create_responses_table(
  */
 function create_pixabay_images_table(
     Builder $schema,
-    string $table,
+    string $table = 'api_cache_pixabay_images',
     bool $dropExisting = false,
     bool $verify = false
 ): void {

@@ -182,6 +182,7 @@ class FunctionsTest extends TestCase
             'key'      => 'test-key',
             'client'   => 'test-client',
             'endpoint' => 'test-endpoint',
+            'response_status_code' => 200,
         ]);
 
         // Create table again without drop

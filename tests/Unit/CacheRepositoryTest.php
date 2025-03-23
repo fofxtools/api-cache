@@ -35,9 +35,10 @@ class CacheRepositoryTest extends TestCase
         // Test data
         $this->testData = [
             'endpoint'         => '/test',
+            'method'           => 'GET',
             'response_body'    => 'This is the response body for the test. It may or may not be stored compressed.',
             'response_headers' => ['Content-Type' => 'application/json'],
-            'method'           => 'GET',
+            'response_status_code' => 200,
         ];
     }
 
@@ -229,6 +230,7 @@ class CacheRepositoryTest extends TestCase
         $metadata = [
             'endpoint'      => '/test',
             'response_body' => 'Test response body',
+            'response_status_code' => 200,
         ];
 
         // Store multiple records
@@ -249,6 +251,7 @@ class CacheRepositoryTest extends TestCase
         $metadata = [
             'endpoint'      => '/test',
             'response_body' => 'Test response body',
+            'response_status_code' => 200,
         ];
 
         // Store in compressed table
@@ -268,6 +271,7 @@ class CacheRepositoryTest extends TestCase
         $metadata = [
             'endpoint'      => '/test',
             'response_body' => 'Test response body',
+            'response_status_code' => 200,
         ];
 
         // Store one regular record
@@ -293,6 +297,7 @@ class CacheRepositoryTest extends TestCase
         $metadata = [
             'endpoint'      => '/test',
             'response_body' => 'Test response body',
+            'response_status_code' => 200,
         ];
 
         // Store one regular record
@@ -318,6 +323,7 @@ class CacheRepositoryTest extends TestCase
         $metadata = [
             'endpoint'      => '/test',
             'response_body' => 'Test response body',
+            'response_status_code' => 200,
         ];
 
         // Store one regular record

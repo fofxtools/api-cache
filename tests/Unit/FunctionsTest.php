@@ -179,9 +179,9 @@ class FunctionsTest extends TestCase
 
         // Insert a record
         DB::table($this->testTable)->insert([
-            'key'      => 'test-key',
-            'client'   => 'test-client',
-            'endpoint' => 'test-endpoint',
+            'key'                  => 'test-key',
+            'client'               => 'test-client',
+            'endpoint'             => 'test-endpoint',
             'response_status_code' => 200,
         ]);
 

@@ -34,10 +34,10 @@ class CacheRepositoryTest extends TestCase
 
         // Test data
         $this->testData = [
-            'endpoint'         => '/test',
-            'method'           => 'GET',
-            'response_body'    => 'This is the response body for the test. It may or may not be stored compressed.',
-            'response_headers' => ['Content-Type' => 'application/json'],
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'This is the response body for the test. It may or may not be stored compressed.',
+            'response_headers'     => ['Content-Type' => 'application/json'],
             'response_status_code' => 200,
         ];
     }
@@ -228,8 +228,8 @@ class CacheRepositoryTest extends TestCase
     {
         // Store some test data
         $metadata = [
-            'endpoint'      => '/test',
-            'response_body' => 'Test response body',
+            'endpoint'             => '/test',
+            'response_body'        => 'Test response body',
             'response_status_code' => 200,
         ];
 
@@ -249,8 +249,8 @@ class CacheRepositoryTest extends TestCase
     public function test_countTotalResponses_works_with_compressed_table(): void
     {
         $metadata = [
-            'endpoint'      => '/test',
-            'response_body' => 'Test response body',
+            'endpoint'             => '/test',
+            'response_body'        => 'Test response body',
             'response_status_code' => 200,
         ];
 
@@ -269,8 +269,8 @@ class CacheRepositoryTest extends TestCase
     public function test_countTotalResponses_includes_expired_records(): void
     {
         $metadata = [
-            'endpoint'      => '/test',
-            'response_body' => 'Test response body',
+            'endpoint'             => '/test',
+            'response_body'        => 'Test response body',
             'response_status_code' => 200,
         ];
 
@@ -295,8 +295,8 @@ class CacheRepositoryTest extends TestCase
     public function test_countActiveResponses_returns_only_non_expired_records(): void
     {
         $metadata = [
-            'endpoint'      => '/test',
-            'response_body' => 'Test response body',
+            'endpoint'             => '/test',
+            'response_body'        => 'Test response body',
             'response_status_code' => 200,
         ];
 
@@ -321,8 +321,8 @@ class CacheRepositoryTest extends TestCase
     public function test_countExpiredResponses_returns_only_expired_records(): void
     {
         $metadata = [
-            'endpoint'      => '/test',
-            'response_body' => 'Test response body',
+            'endpoint'             => '/test',
+            'response_body'        => 'Test response body',
             'response_status_code' => 200,
         ];
 

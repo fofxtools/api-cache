@@ -275,9 +275,6 @@ function create_pixabay_images_table(
             $table->string('user')->nullable()->index();
             $table->string('userImageURL')->nullable();
 
-            // Timestamps
-            $table->timestamps();
-
             // Local storage fields
             $table->binary('file_contents_preview')->nullable();
             $table->binary('file_contents_webformat')->nullable();
@@ -293,6 +290,13 @@ function create_pixabay_images_table(
             $table->string('storage_filepath_preview')->nullable();
             $table->string('storage_filepath_webformat')->nullable();
             $table->string('storage_filepath_largeImage')->nullable();
+
+            // Timestamps
+            $table->timestamps();
+
+            // Processing information
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->json('processed_status')->nullable();
 
             // Add fulltext indexes
             if ($driver === 'mysql' || $driver === 'pgsql') {

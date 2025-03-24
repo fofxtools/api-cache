@@ -26,5 +26,5 @@ createClientTables($clientName, $dropExisting);
 create_pixabay_images_table(schema: $capsule->schema(), dropExisting: $dropExisting);
 
 $pixabay = new PixabayApiClient();
-$stats = $pixabay->processResponses(null);
+$stats   = $pixabay->processResponses(null);
 print_r($stats);

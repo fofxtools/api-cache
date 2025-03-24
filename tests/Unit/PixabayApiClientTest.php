@@ -339,9 +339,15 @@ class PixabayApiClientTest extends TestCase
 
         // Verify response was marked as processed
         $this->assertDatabaseHas('api_cache_pixabay_responses', [
-            'key'          => 'test_key_1',
-            'endpoint'     => 'api',
-            'processed_at' => $now,
+            'key'              => 'test_key_1',
+            'endpoint'         => 'api',
+            'processed_at'     => $now,
+            'processed_status' => json_encode([
+                'status'     => 'OK',
+                'error'      => null,
+                'processed'  => 2,
+                'duplicates' => 0,
+            ]),
         ]);
     }
 
@@ -379,18 +385,23 @@ class PixabayApiClientTest extends TestCase
 
         // Verify response was marked as processed
         $this->assertDatabaseHas('api_cache_pixabay_responses', [
-            'key'          => 'test_key_2',
-            'endpoint'     => 'api',
-            'processed_at' => $now,
+            'key'              => 'test_key_2',
+            'endpoint'         => 'api',
+            'processed_at'     => $now,
+            'processed_status' => json_encode([
+                'status'     => 'OK',
+                'error'      => null,
+                'processed'  => 0,
+                'duplicates' => 0,
+            ]),
         ]);
     }
 
-    public function test_processResponses_handles_invalid_response_body()
+    public function test_processResponses_handles_invalid_json_response()
     {
         // Arrange
-        $responseBody = 'invalid json';
-
-        $now = now();
+        $responseBody = '{"hits": [{"id": 123, "pageURL": "https://example.com/123"}], invalid json}';
+        $now          = now();
 
         // Insert test response
         DB::table('api_cache_pixabay_responses')->insert([
@@ -412,5 +423,24 @@ class PixabayApiClientTest extends TestCase
 
         // Verify no images were inserted
         $this->assertDatabaseCount('api_cache_pixabay_images', 0);
+
+        // Verify response was marked as processed with error
+        $this->assertDatabaseHas('api_cache_pixabay_responses', [
+            'key'              => 'test_key_3',
+            'endpoint'         => 'api',
+            'processed_status' => json_encode([
+                'status'     => 'ERROR',
+                'error'      => 'Failed to decode response body: Syntax error',
+                'processed'  => 0,
+                'duplicates' => 0,
+            ]),
+        ]);
+
+        // Verify processed_at is not null
+        $this->assertNotNull(
+            DB::table('api_cache_pixabay_responses')
+                ->where('key', 'test_key_3')
+                ->value('processed_at')
+        );
     }
 }

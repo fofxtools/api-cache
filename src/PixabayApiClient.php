@@ -245,7 +245,11 @@ class PixabayApiClient extends BaseApiClient
             $responseBody   = $cachedResponse['response']->body();
 
             try {
-                $data         = json_decode($responseBody, true);
+                $data = json_decode($responseBody, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new \Exception('Failed to decode response body: ' . json_last_error_msg());
+                }
+
                 $hasValidHits = isset($data['hits']) && is_array($data['hits']) && !empty($data['hits']);
 
                 if ($hasValidHits) {
@@ -304,15 +308,36 @@ class PixabayApiClient extends BaseApiClient
                     }
                 }
 
-                // Mark response as processed regardless of hits
+                // Mark response as processed and update status
                 DB::table($tableName)
                     ->where('id', $response->id)
-                    ->update(['processed_at' => now()]);
+                    ->update([
+                        'processed_at'     => now(),
+                        'processed_status' => json_encode([
+                            'status'     => 'OK',
+                            'error'      => null,
+                            'processed'  => $processed,
+                            'duplicates' => $duplicates,
+                        ]),
+                    ]);
             } catch (\Exception $e) {
                 Log::error('Failed to process Pixabay response', [
                     'response_id' => $response->id,
                     'error'       => $e->getMessage(),
                 ]);
+
+                // Update status with error but keep actual counts
+                DB::table($tableName)
+                    ->where('id', $response->id)
+                    ->update([
+                        'processed_at'     => now(),
+                        'processed_status' => json_encode([
+                            'status'     => 'ERROR',
+                            'error'      => $e->getMessage(),
+                            'processed'  => $processed,
+                            'duplicates' => $duplicates,
+                        ]),
+                    ]);
             }
         }
 

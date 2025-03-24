@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Schema;
+
 use function FOfX\ApiCache\create_pixabay_images_table;
 
 return new class () extends Migration {

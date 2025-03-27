@@ -284,7 +284,6 @@ function create_pixabay_images_table(
             $table->unsignedInteger('filesize_preview')->nullable()->index();
             $table->unsignedInteger('filesize_webformat')->nullable()->index();
             $table->unsignedInteger('filesize_largeImage')->nullable()->index();
-            $table->string('mime_type')->nullable();
 
             // Local storage paths
             $table->string('storage_filepath_preview')->nullable();

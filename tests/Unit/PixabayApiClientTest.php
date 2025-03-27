@@ -443,4 +443,217 @@ class PixabayApiClientTest extends TestCase
                 ->value('processed_at')
         );
     }
+
+    public function test_downloadImage_downloads_specific_image_type()
+    {
+        // Arrange
+        $imageId   = 4384750;
+        $imageType = 'preview';
+        $now       = now();
+        $imageData = 'fake image data';
+
+        // Insert test image
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'            => $imageId,
+            'previewURL'    => 'https://example.com/preview.jpg',
+            'webformatURL'  => 'https://example.com/webformat.jpg',
+            'largeImageURL' => 'https://example.com/large.jpg',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ]);
+
+        // Mock HTTP response
+        Http::fake([
+            'https://example.com/preview.jpg' => Http::response($imageData, 200, [
+                'Content-Type' => 'image/jpeg',
+            ]),
+        ]);
+
+        // Act
+        $result = $this->client->downloadImage($imageId, $imageType);
+
+        // Assert
+        $this->assertTrue($result['success']);
+        $this->assertEquals('Successfully downloaded 1 images', $result['message']);
+        $this->assertEquals([
+            $imageId => ['preview'],
+        ], $result['downloaded']);
+
+        // Verify database
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'                    => $imageId,
+            'file_contents_preview' => $imageData,
+            'filesize_preview'      => strlen($imageData),
+        ]);
+    }
+
+    public function test_downloadImage_downloads_next_undownloaded_image()
+    {
+        // Arrange
+        $imageId   = 4384750;
+        $imageType = 'webformat';
+        $now       = now();
+        $imageData = 'fake image data';
+
+        // Insert test image
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'            => $imageId,
+            'previewURL'    => 'https://example.com/preview.jpg',
+            'webformatURL'  => 'https://example.com/webformat.jpg',
+            'largeImageURL' => 'https://example.com/large.jpg',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ]);
+
+        // Mock HTTP response
+        Http::fake([
+            'https://example.com/webformat.jpg' => Http::response($imageData, 200, [
+                'Content-Type' => 'image/jpeg',
+            ]),
+        ]);
+
+        // Act
+        $result = $this->client->downloadImage(null, $imageType);
+
+        // Assert
+        $this->assertTrue($result['success']);
+        $this->assertEquals('Successfully downloaded 1 images', $result['message']);
+        $this->assertEquals([
+            $imageId => ['webformat'],
+        ], $result['downloaded']);
+
+        // Verify database
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'                      => $imageId,
+            'file_contents_webformat' => $imageData,
+            'filesize_webformat'      => strlen($imageData),
+        ]);
+    }
+
+    public function test_downloadImage_downloads_all_types()
+    {
+        // Arrange
+        $imageId = 4384750;
+        $now     = now();
+
+        // Insert test image
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'            => $imageId,
+            'previewURL'    => 'https://example.com/preview.jpg',
+            'webformatURL'  => 'https://example.com/webformat.jpg',
+            'largeImageURL' => 'https://example.com/large.jpg',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ]);
+
+        // Mock HTTP responses
+        Http::fake([
+            'https://example.com/preview.jpg' => Http::response('preview data', 200, [
+                'Content-Type' => 'image/jpeg',
+            ]),
+            'https://example.com/webformat.jpg' => Http::response('webformat data', 200, [
+                'Content-Type' => 'image/jpeg',
+            ]),
+            'https://example.com/large.jpg' => Http::response('large data', 200, [
+                'Content-Type' => 'image/jpeg',
+            ]),
+        ]);
+
+        // Act
+        $result = $this->client->downloadImage($imageId, 'all');
+
+        // Assert
+        $this->assertTrue($result['success']);
+        $this->assertEquals('Successfully downloaded 3 images', $result['message']);
+        $this->assertEquals([
+            $imageId => ['preview', 'webformat', 'largeImage'],
+        ], $result['downloaded']);
+
+        // Verify database
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'                       => $imageId,
+            'file_contents_preview'    => 'preview data',
+            'filesize_preview'         => strlen('preview data'),
+            'file_contents_webformat'  => 'webformat data',
+            'filesize_webformat'       => strlen('webformat data'),
+            'file_contents_largeImage' => 'large data',
+            'filesize_largeImage'      => strlen('large data'),
+        ]);
+    }
+
+    public function test_downloadImage_throws_exception_for_invalid_type()
+    {
+        // Arrange
+        $imageId     = 4384750;
+        $invalidType = 'invalid_type';
+
+        // Assert
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid image type. Must be one of: preview, webformat, largeImage, all');
+
+        // Act
+        $this->client->downloadImage($imageId, $invalidType);
+    }
+
+    public function test_downloadImage_throws_exception_for_invalid_id()
+    {
+        // Arrange
+        $invalidId = 999999;
+
+        // Assert
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Image not found with ID: $invalidId");
+
+        // Act
+        $this->client->downloadImage($invalidId, 'preview');
+    }
+
+    public function test_downloadImage_skips_already_downloaded_types()
+    {
+        // Arrange
+        $imageId = 4384750;
+        $now     = now();
+
+        // Insert test image with some types already downloaded
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'                    => $imageId,
+            'previewURL'            => 'https://example.com/preview.jpg',
+            'webformatURL'          => 'https://example.com/webformat.jpg',
+            'largeImageURL'         => 'https://example.com/large.jpg',
+            'file_contents_preview' => 'already downloaded',
+            'filesize_preview'      => strlen('already downloaded'),
+            'created_at'            => $now,
+            'updated_at'            => $now,
+        ]);
+
+        // Mock HTTP responses for webformat and largeImage
+        Http::fake([
+            'https://example.com/webformat.jpg' => Http::response('new data', 200, [
+                'Content-Type' => 'image/jpeg',
+            ]),
+            'https://example.com/large.jpg' => Http::response('new data', 200, [
+                'Content-Type' => 'image/jpeg',
+            ]),
+        ]);
+
+        // Act
+        $result = $this->client->downloadImage($imageId, 'all');
+
+        // Assert
+        $this->assertTrue($result['success']);
+        $this->assertEquals('Successfully downloaded 2 images', $result['message']);
+        $this->assertEquals([
+            $imageId => ['webformat', 'largeImage'],
+        ], $result['downloaded']);
+
+        // Verify database
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'                       => $imageId,
+            'file_contents_preview'    => 'already downloaded',
+            'file_contents_webformat'  => 'new data',
+            'filesize_webformat'       => strlen('new data'),
+            'file_contents_largeImage' => 'new data',
+            'filesize_largeImage'      => strlen('new data'),
+        ]);
+    }
 }

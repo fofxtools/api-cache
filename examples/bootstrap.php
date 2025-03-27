@@ -40,7 +40,7 @@ function createClientTables(string $clientName, bool $dropExisting = false, bool
     // Reset compression
     config(["api-cache.apis.{$clientName}.compression_enabled" => $originalCompression]);
 
-    Log::debug('Created tables for client', [
+    Log::debug('Created tables for client (if not already present)', [
         'client'             => $clientName,
         'uncompressed_table' => $uncompressedTable,
         'compressed_table'   => $compressedTable,

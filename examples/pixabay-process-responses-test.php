@@ -6,6 +6,8 @@ namespace FOfX\ApiCache;
 
 require_once __DIR__ . '/bootstrap.php';
 
+use Illuminate\Support\Facades\DB;
+
 // Override database configuration to use MySQL
 $databaseConnection = 'mysql';
 
@@ -24,6 +26,16 @@ $clientName   = 'pixabay';
 
 createClientTables($clientName, $dropExisting);
 create_pixabay_images_table(schema: $capsule->schema(), dropExisting: $dropExisting);
+
+// Whether to reset processed_at and processed_status columns in the responses table
+// Use ternary operator to avoid PHPStan error
+$resetProcessed = getenv('RESET_PROCESSED') ?: false;
+if ($resetProcessed) {
+    DB::table('api_cache_' . $clientName . '_responses')->update([
+        'processed_at'     => null,
+        'processed_status' => null,
+    ]);
+}
 
 $pixabay = new PixabayApiClient();
 $stats   = $pixabay->processResponses(null);

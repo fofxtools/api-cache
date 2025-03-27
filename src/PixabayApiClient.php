@@ -6,6 +6,7 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class PixabayApiClient extends BaseApiClient
 {
@@ -350,6 +351,127 @@ class PixabayApiClient extends BaseApiClient
         return [
             'processed'  => $processed,
             'duplicates' => $duplicates,
+        ];
+    }
+
+    /**
+     * Download image(s) by ID and type
+     *
+     * @param int|null    $id    Image ID to download, or null for next undownloaded image
+     * @param string      $type  Image type to download ('preview', 'webformat', 'largeImage', 'all')
+     * @param string|null $proxy Optional proxy URL
+     *
+     * @throws \InvalidArgumentException
+     *
+     * @return array
+     */
+    public function downloadImage(?int $id = null, string $type = 'all', ?string $proxy = null): array
+    {
+        // Validate image type
+        $validTypes = ['preview', 'webformat', 'largeImage', 'all'];
+        if (!in_array($type, $validTypes)) {
+            throw new \InvalidArgumentException('Invalid image type. Must be one of: ' . implode(', ', $validTypes));
+        }
+
+        $imagesTableName = 'api_cache_' . $this->clientName . '_images';
+
+        // Get image record
+        $query = DB::table($imagesTableName);
+        if ($id) {
+            $query->where('id', $id);
+        } else {
+            // Find first image with missing downloads for requested type
+            $query->where(function ($q) use ($type) {
+                if ($type === 'all') {
+                    $q->whereNull('file_contents_preview')
+                      ->orWhereNull('file_contents_webformat')
+                      ->orWhereNull('file_contents_largeImage');
+                } else {
+                    $q->whereNull("file_contents_$type");
+                }
+            });
+        }
+
+        $image = $query->first();
+
+        if ($id && !$image) {
+            throw new \InvalidArgumentException("Image not found with ID: $id");
+        }
+
+        if (!$image) {
+            return [
+                'success'    => false,
+                'message'    => 'No undownloaded images found',
+                'downloaded' => [],
+            ];
+        }
+
+        // Prepare types to download
+        $typesToDownload = $type === 'all'
+            ? ['preview', 'webformat', 'largeImage']
+            : [$type];
+
+        // Download images
+        $downloaded = [];
+        $errors     = [];
+
+        foreach ($typesToDownload as $imageType) {
+            // Skip if already downloaded
+            if (!empty($image->{"file_contents_$imageType"})) {
+                continue;
+            }
+
+            try {
+                // Get URL from image record
+                $url = $image->{"{$imageType}URL"};
+                if (!$url) {
+                    $errors[] = "No URL found for type: $imageType";
+
+                    continue;
+                }
+
+                // Download using Laravel HTTP client
+                $response = Http::timeout(10)
+                    ->withOptions([
+                        'verify' => false,
+                        'proxy'  => $proxy ?: null,
+                    ])
+                    ->get($url);
+
+                if (!$response->successful()) {
+                    $errors[] = "Failed to download $imageType: HTTP {$response->status()}";
+
+                    continue;
+                }
+
+                // Update database
+                DB::table($imagesTableName)
+                    ->where('id', $image->id)
+                    ->update([
+                        "file_contents_$imageType" => $response->body(),
+                        "filesize_$imageType"      => strlen($response->body()),
+                    ]);
+
+                // Add to downloaded array with ID as key
+                if (!isset($downloaded[$image->id])) {
+                    $downloaded[$image->id] = [];
+                }
+                $downloaded[$image->id][] = $imageType;
+            } catch (\Exception $e) {
+                $errors[] = "Error downloading $imageType: " . $e->getMessage();
+            }
+        }
+
+        // Count of all downloaded images and types
+        $downloadedCount = count(array_merge(...array_values($downloaded)));
+
+        // Return result
+        return [
+            'success' => empty($errors),
+            'message' => empty($errors)
+                ? "Successfully downloaded $downloadedCount images"
+                : 'Errors: ' . implode(', ', $errors),
+            'downloaded' => $downloaded,
         ];
     }
 }

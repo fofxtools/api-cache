@@ -470,14 +470,10 @@ class PixabayApiClientTest extends TestCase
         ]);
 
         // Act
-        $result = $this->client->downloadImage($imageId, $imageType);
+        $downloadedCount = $this->client->downloadImage($imageId, $imageType);
 
         // Assert
-        $this->assertTrue($result['success']);
-        $this->assertEquals('Successfully downloaded 1 images', $result['message']);
-        $this->assertEquals([
-            $imageId => ['preview'],
-        ], $result['downloaded']);
+        $this->assertEquals(1, $downloadedCount);
 
         // Verify database
         $this->assertDatabaseHas('api_cache_pixabay_images', [
@@ -513,14 +509,10 @@ class PixabayApiClientTest extends TestCase
         ]);
 
         // Act
-        $result = $this->client->downloadImage(null, $imageType);
+        $downloadedCount = $this->client->downloadImage(null, $imageType);
 
         // Assert
-        $this->assertTrue($result['success']);
-        $this->assertEquals('Successfully downloaded 1 images', $result['message']);
-        $this->assertEquals([
-            $imageId => ['webformat'],
-        ], $result['downloaded']);
+        $this->assertEquals(1, $downloadedCount);
 
         // Verify database
         $this->assertDatabaseHas('api_cache_pixabay_images', [
@@ -560,14 +552,10 @@ class PixabayApiClientTest extends TestCase
         ]);
 
         // Act
-        $result = $this->client->downloadImage($imageId, 'all');
+        $downloadedCount = $this->client->downloadImage($imageId, 'all');
 
         // Assert
-        $this->assertTrue($result['success']);
-        $this->assertEquals('Successfully downloaded 3 images', $result['message']);
-        $this->assertEquals([
-            $imageId => ['preview', 'webformat', 'largeImage'],
-        ], $result['downloaded']);
+        $this->assertEquals(3, $downloadedCount);
 
         // Verify database
         $this->assertDatabaseHas('api_cache_pixabay_images', [
@@ -637,14 +625,10 @@ class PixabayApiClientTest extends TestCase
         ]);
 
         // Act
-        $result = $this->client->downloadImage($imageId, 'all');
+        $downloadedCount = $this->client->downloadImage($imageId, 'all');
 
         // Assert
-        $this->assertTrue($result['success']);
-        $this->assertEquals('Successfully downloaded 2 images', $result['message']);
-        $this->assertEquals([
-            $imageId => ['webformat', 'largeImage'],
-        ], $result['downloaded']);
+        $this->assertEquals(2, $downloadedCount);
 
         // Verify database
         $this->assertDatabaseHas('api_cache_pixabay_images', [
@@ -655,5 +639,164 @@ class PixabayApiClientTest extends TestCase
             'file_contents_largeImage' => 'new data',
             'filesize_largeImage'      => strlen('new data'),
         ]);
+    }
+
+    public function test_saveImageToFile_saves_specific_image_type()
+    {
+        // Arrange
+        $imageId      = 4384750;
+        $now          = now();
+        $imageData    = 'fake image data';
+        $basePath     = storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
+        $expectedPath = $basePath . DIRECTORY_SEPARATOR . $imageId . '_preview.jpg';
+
+        // Insert test image with content
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'                    => $imageId,
+            'previewURL'            => 'https://example.com/preview.jpg',
+            'webformatURL'          => 'https://example.com/webformat.jpg',
+            'largeImageURL'         => 'https://example.com/large.jpg',
+            'file_contents_preview' => $imageData,
+            'filesize_preview'      => strlen($imageData),
+            'created_at'            => $now,
+            'updated_at'            => $now,
+        ]);
+
+        // Act
+        $savedCount = $this->client->saveImageToFile($imageId, 'preview');
+
+        // Assert
+        $this->assertEquals(1, $savedCount);
+        $this->assertFileExists($expectedPath);
+        $this->assertEquals($imageData, file_get_contents($expectedPath));
+
+        // Verify database
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'                       => $imageId,
+            'storage_filepath_preview' => $expectedPath,
+        ]);
+    }
+
+    public function test_saveImageToFile_saves_next_unsaved_image()
+    {
+        // Arrange
+        $imageId      = 4384750;
+        $now          = now();
+        $imageData    = 'fake image data';
+        $basePath     = storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
+        $expectedPath = $basePath . DIRECTORY_SEPARATOR . $imageId . '_webformat.jpg';
+
+        // Insert test image with content
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'                      => $imageId,
+            'previewURL'              => 'https://example.com/preview.jpg',
+            'webformatURL'            => 'https://example.com/webformat.jpg',
+            'largeImageURL'           => 'https://example.com/large.jpg',
+            'file_contents_webformat' => $imageData,
+            'filesize_webformat'      => strlen($imageData),
+            'created_at'              => $now,
+            'updated_at'              => $now,
+        ]);
+
+        // Act
+        $savedCount = $this->client->saveImageToFile(null, 'webformat');
+
+        // Assert
+        $this->assertEquals(1, $savedCount);
+        $this->assertFileExists($expectedPath);
+        $this->assertEquals($imageData, file_get_contents($expectedPath));
+
+        // Verify database
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'                         => $imageId,
+            'storage_filepath_webformat' => $expectedPath,
+        ]);
+    }
+
+    public function test_saveImageToFile_saves_all_types()
+    {
+        // Arrange
+        $imageId       = 4384750;
+        $now           = now();
+        $basePath      = storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
+        $expectedPaths = [
+            'preview'    => $basePath . DIRECTORY_SEPARATOR . $imageId . '_preview.jpg',
+            'webformat'  => $basePath . DIRECTORY_SEPARATOR . $imageId . '_webformat.jpg',
+            'largeImage' => $basePath . DIRECTORY_SEPARATOR . $imageId . '_largeImage.jpg',
+        ];
+
+        // Insert test image with content
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'                       => $imageId,
+            'previewURL'               => 'https://example.com/preview.jpg',
+            'webformatURL'             => 'https://example.com/webformat.jpg',
+            'largeImageURL'            => 'https://example.com/large.jpg',
+            'file_contents_preview'    => 'preview data',
+            'filesize_preview'         => strlen('preview data'),
+            'file_contents_webformat'  => 'webformat data',
+            'filesize_webformat'       => strlen('webformat data'),
+            'file_contents_largeImage' => 'largeImage data',
+            'filesize_largeImage'      => strlen('largeImage data'),
+            'created_at'               => $now,
+            'updated_at'               => $now,
+        ]);
+
+        // Act
+        $savedCount = $this->client->saveImageToFile($imageId, 'all');
+
+        // Assert
+        $this->assertEquals(3, $savedCount);
+        foreach ($expectedPaths as $type => $path) {
+            $this->assertFileExists($path);
+            $this->assertEquals($type . ' data', file_get_contents($path));
+        }
+
+        // Verify database
+        $this->assertDatabaseHas('api_cache_pixabay_images', [
+            'id'                          => $imageId,
+            'storage_filepath_preview'    => $expectedPaths['preview'],
+            'storage_filepath_webformat'  => $expectedPaths['webformat'],
+            'storage_filepath_largeImage' => $expectedPaths['largeImage'],
+        ]);
+    }
+
+    public function test_saveImageToFile_throws_exception_for_invalid_type()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid image type. Must be one of: preview, webformat, largeImage, all');
+
+        $this->client->saveImageToFile(4384750, 'invalid_type');
+    }
+
+    public function test_saveImageToFile_throws_exception_for_invalid_id()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Image not found with ID: 999999');
+
+        $this->client->saveImageToFile(999999);
+    }
+
+    public function test_saveImageToFile_throws_exception_for_missing_content()
+    {
+        // Arrange
+        $imageId = 4384750;
+        $now     = now();
+
+        // Insert test image without content
+        DB::table('api_cache_pixabay_images')->insert([
+            'id'            => $imageId,
+            'previewURL'    => 'https://example.com/preview.jpg',
+            'webformatURL'  => 'https://example.com/webformat.jpg',
+            'largeImageURL' => 'https://example.com/large.jpg',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ]);
+
+        // Assert
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('No content found for type: preview');
+
+        // Act
+        $this->client->saveImageToFile($imageId, 'preview');
     }
 }

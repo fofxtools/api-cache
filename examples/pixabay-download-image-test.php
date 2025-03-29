@@ -51,29 +51,28 @@ if ($resetImages) {
 
 // Test downloading a specific image
 echo "Testing download of preview for image ID: $imageId\n";
-$result = $client->downloadImage($imageId, 'preview', $proxy);
-echo 'Result: ' . json_encode($result, JSON_PRETTY_PRINT) . "\n\n";
+$downloadedCount = $client->downloadImage($imageId, 'preview', $proxy);
+echo "Downloaded $downloadedCount images\n\n";
 
 // Test downloading next undownloaded image
 echo "Testing download of next webformat image\n";
-$result = $client->downloadImage(null, 'webformat', $proxy);
-echo 'Result: ' . json_encode($result, JSON_PRETTY_PRINT) . "\n\n";
+$downloadedCount = $client->downloadImage(null, 'webformat', $proxy);
+echo "Downloaded $downloadedCount images\n\n";
 
 // Test downloading of next image of all types
 echo "Testing download of next image of all types\n";
-$result = $client->downloadImage(null, 'all', $proxy);
-echo 'Result: ' . json_encode($result, JSON_PRETTY_PRINT) . "\n\n";
+$downloadedCount = $client->downloadImage(null, 'all', $proxy);
+echo "Downloaded $downloadedCount images\n\n";
 
 // Test downloading all types for other image ID
 echo "Testing download of all types for image ID: $imageIdAll\n";
-$result = $client->downloadImage($imageIdAll, 'all', $proxy);
-echo 'Result: ' . json_encode($result, JSON_PRETTY_PRINT) . "\n\n";
+$downloadedCount = $client->downloadImage($imageIdAll, 'all', $proxy);
+echo "Downloaded $downloadedCount images\n\n";
 
 // Test invalid image type
 try {
     echo "Testing invalid image type\n";
-    $result = $client->downloadImage($imageId, 'invalid_type', $proxy);
-    echo 'Result: ' . json_encode($result, JSON_PRETTY_PRINT) . "\n\n";
+    $client->downloadImage($imageId, 'invalid_type', $proxy);
 } catch (\Exception $e) {
     echo 'Error: ' . $e->getMessage() . "\n";
 }

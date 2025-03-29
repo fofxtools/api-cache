@@ -235,7 +235,7 @@ class PixabayApiClient extends BaseApiClient
 
         $responses = $query->get();
 
-        Log::info('Processing ' . $responses->count() . ' Pixabay responses');
+        Log::debug('Processing ' . $responses->count() . ' Pixabay responses');
 
         $processed  = 0;
         $duplicates = 0;
@@ -342,7 +342,7 @@ class PixabayApiClient extends BaseApiClient
             }
         }
 
-        Log::info('Pixabay response processing completed', [
+        Log::debug('Pixabay response processing completed', [
             'processed'           => $processed,
             'duplicates'          => $duplicates,
             'responses_processed' => $responses->count(),
@@ -362,10 +362,11 @@ class PixabayApiClient extends BaseApiClient
      * @param string|null $proxy Optional proxy URL
      *
      * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      *
-     * @return array
+     * @return int Number of images downloaded
      */
-    public function downloadImage(?int $id = null, string $type = 'all', ?string $proxy = null): array
+    public function downloadImage(?int $id = null, string $type = 'all', ?string $proxy = null): int
     {
         // Validate image type
         $validTypes = ['preview', 'webformat', 'largeImage', 'all'];
@@ -399,11 +400,7 @@ class PixabayApiClient extends BaseApiClient
         }
 
         if (!$image) {
-            return [
-                'success'    => false,
-                'message'    => 'No undownloaded images found',
-                'downloaded' => [],
-            ];
+            return 0;
         }
 
         // Prepare types to download
@@ -412,8 +409,7 @@ class PixabayApiClient extends BaseApiClient
             : [$type];
 
         // Download images
-        $downloaded = [];
-        $errors     = [];
+        $downloadedCount = 0;
 
         foreach ($typesToDownload as $imageType) {
             // Skip if already downloaded
@@ -421,57 +417,168 @@ class PixabayApiClient extends BaseApiClient
                 continue;
             }
 
-            try {
-                // Get URL from image record
-                $url = $image->{"{$imageType}URL"};
-                if (!$url) {
-                    $errors[] = "No URL found for type: $imageType";
-
-                    continue;
-                }
-
-                // Download using Laravel HTTP client
-                $response = Http::timeout(10)
-                    ->withOptions([
-                        'verify' => false,
-                        'proxy'  => $proxy ?: null,
-                    ])
-                    ->get($url);
-
-                if (!$response->successful()) {
-                    $errors[] = "Failed to download $imageType: HTTP {$response->status()}";
-
-                    continue;
-                }
-
-                // Update database
-                DB::table($imagesTableName)
-                    ->where('id', $image->id)
-                    ->update([
-                        "file_contents_$imageType" => $response->body(),
-                        "filesize_$imageType"      => strlen($response->body()),
-                    ]);
-
-                // Add to downloaded array with ID as key
-                if (!isset($downloaded[$image->id])) {
-                    $downloaded[$image->id] = [];
-                }
-                $downloaded[$image->id][] = $imageType;
-            } catch (\Exception $e) {
-                $errors[] = "Error downloading $imageType: " . $e->getMessage();
+            // Get URL from image record
+            $url = $image->{"{$imageType}URL"};
+            if (!$url) {
+                throw new \RuntimeException("No URL found for type: $imageType");
             }
+
+            Log::debug('Downloading image', [
+                'id'   => $image->id,
+                'type' => $imageType,
+                'url'  => $url,
+            ]);
+
+            // Download using Laravel HTTP client
+            $response = Http::timeout(10)
+                ->withOptions([
+                    'verify' => false,
+                    'proxy'  => $proxy ?: null,
+                ])
+                ->get($url);
+
+            if (!$response->successful()) {
+                throw new \RuntimeException("Failed to download $imageType: HTTP {$response->status()} - Link may be expired");
+            }
+
+            // Update database
+            DB::table($imagesTableName)
+                ->where('id', $image->id)
+                ->update([
+                    "file_contents_$imageType" => $response->body(),
+                    "filesize_$imageType"      => strlen($response->body()),
+                ]);
+
+            $downloadedCount++;
         }
 
-        // Count of all downloaded images and types
-        $downloadedCount = count(array_merge(...array_values($downloaded)));
+        return $downloadedCount;
+    }
 
-        // Return result
-        return [
-            'success' => empty($errors),
-            'message' => empty($errors)
-                ? "Successfully downloaded $downloadedCount images"
-                : 'Errors: ' . implode(', ', $errors),
-            'downloaded' => $downloaded,
-        ];
+    /**
+     * Save downloaded image(s) to files
+     *
+     * @param int|null    $id   Image ID to save, or null for next unsaved image
+     * @param string      $type Image type to save ('preview', 'webformat', 'largeImage', 'all')
+     * @param string|null $path Optional path to save to, defaults to storage/app/public/images
+     *
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     *
+     * @return int Number of images saved
+     */
+    public function saveImageToFile(?int $id = null, string $type = 'all', ?string $path = null): int
+    {
+        // Validate image type
+        $validTypes = ['preview', 'webformat', 'largeImage', 'all'];
+        if (!in_array($type, $validTypes)) {
+            throw new \InvalidArgumentException('Invalid image type. Must be one of: ' . implode(', ', $validTypes));
+        }
+
+        $imagesTableName = 'api_cache_' . $this->clientName . '_images';
+
+        // Get image record
+        $query = DB::table($imagesTableName);
+        if ($id) {
+            $query->where('id', $id);
+        } else {
+            // Find first image with any unsaved files
+            $query->where(function ($q) use ($type) {
+                if ($type === 'all') {
+                    $q->where(function ($q) {
+                        $q->whereNotNull('file_contents_preview')
+                          ->whereNull('storage_filepath_preview');
+                    })
+                    ->orWhere(function ($q) {
+                        $q->whereNotNull('file_contents_webformat')
+                          ->whereNull('storage_filepath_webformat');
+                    })
+                    ->orWhere(function ($q) {
+                        $q->whereNotNull('file_contents_largeImage')
+                          ->whereNull('storage_filepath_largeImage');
+                    });
+                } else {
+                    $q->whereNotNull("file_contents_$type")
+                      ->whereNull("storage_filepath_$type");
+                }
+            });
+        }
+        $image = $query->first();
+
+        if ($id && !$image) {
+            throw new \InvalidArgumentException("Image not found with ID: $id");
+        }
+
+        // No unsaved images found
+        if (!$image) {
+            return 0;
+        }
+
+        // Prepare types to save
+        $typesToSave = $type === 'all'
+            ? ['preview', 'webformat', 'largeImage']
+            : [$type];
+
+        // Save images
+        $savedCount = 0;
+
+        foreach ($typesToSave as $imageType) {
+            // Skip if already saved
+            if (!empty($image->{"storage_filepath_$imageType"})) {
+                continue;
+            }
+
+            // Check if content exists
+            if (empty($image->{"file_contents_$imageType"})) {
+                throw new \RuntimeException("No content found for type: $imageType");
+            }
+
+            // Get URL and extract extension
+            $url = $image->{"{$imageType}URL"};
+            if (!$url) {
+                throw new \RuntimeException("No URL found for type: $imageType");
+            }
+
+            $extension = pathinfo($url, PATHINFO_EXTENSION);
+            if (!$extension) {
+                throw new \RuntimeException("Could not determine extension for type: $imageType");
+            }
+
+            // Generate filename
+            $filename = sprintf('%d_%s.%s', $image->id, $imageType, $extension);
+
+            // Get save path and ensure it exists
+            $savePath = $path ?: storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
+            if (!is_dir($savePath)) {
+                if (!mkdir($savePath, 0755, true)) {
+                    throw new \RuntimeException("Failed to create directory: $savePath");
+                }
+            }
+
+            if (!is_writable($savePath)) {
+                throw new \RuntimeException("Directory is not writable: $savePath");
+            }
+
+            // Save file
+            $fullPath = $savePath . DIRECTORY_SEPARATOR . $filename;
+            if (!file_put_contents($fullPath, $image->{"file_contents_$imageType"})) {
+                throw new \RuntimeException("Failed to save file for type: $imageType");
+            } else {
+                Log::debug('Saved file', [
+                    'id'   => $image->id,
+                    'type' => $imageType,
+                    'path' => $fullPath,
+                ]);
+            }
+
+            // Update database
+            DB::table($imagesTableName)
+                ->where('id', $image->id)
+                ->update(["storage_filepath_$imageType" => $fullPath]);
+
+            $savedCount++;
+        }
+
+        return $savedCount;
     }
 }

@@ -65,5 +65,4 @@ auth.json
 /phpstan.txt
 
 # Storage Files
-/storage/*.log
-/storage/*.sql
+/storage/*

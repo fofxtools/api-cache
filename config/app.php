@@ -95,6 +95,7 @@ return [
         Illuminate\Cache\CacheServiceProvider::class,
         Illuminate\Database\DatabaseServiceProvider::class,
         Illuminate\Log\LogServiceProvider::class,
+        Illuminate\Redis\RedisServiceProvider::class,
 
         // Package Service Providers...
         FOfX\ApiCache\ApiCacheServiceProvider::class,

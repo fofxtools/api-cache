@@ -22,6 +22,21 @@ class RateLimitServiceTest extends TestCase
     {
         parent::setUp();
 
+        // Check if Redis server is available
+        try {
+            $redis = app('redis.connection');
+            $redis->ping();
+        } catch (\Exception $e) {
+            $os      = PHP_OS_FAMILY;
+            $command = match ($os) {
+                'Windows' => 'redis-server --service-start --service-name redis',
+                'Linux'   => 'sudo systemctl start redis-server',
+                'Darwin'  => 'brew services start redis',
+                default   => 'redis-server'
+            };
+            $this->markTestSkipped("Redis server is not running. Please start it with: {$command}");
+        }
+
         $mockLimiter   = Mockery::mock(RateLimiter::class);
         $this->limiter = $mockLimiter;
         $this->service = new RateLimitService($this->limiter);

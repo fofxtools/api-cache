@@ -12,6 +12,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Redis\RedisServiceProvider;
 
 /**
  * Create both compressed and uncompressed tables for a client
@@ -82,3 +83,4 @@ $provider = new ApiCacheServiceProvider($app);
 $provider->registerCache($app);
 $provider->registerDatabase($capsule);
 $app->register(ApiCacheServiceProvider::class);
+$app->register(RedisServiceProvider::class);

@@ -23,7 +23,10 @@ config.*.php
 /out*.txt
 
 # SQLite Files
-/database/*.sqlite*
+*.sqlite*
+
+# Redis Files
+*.rdb
 
 # IDE and Editor Files
 /.fleet

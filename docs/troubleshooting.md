@@ -4,6 +4,26 @@ This document tracks various issues encountered during development and their sol
 
 ## Development Issues
 
+### April 2025
+
+#### Cache Driver Data Persistence (4-5-25)
+- **Issue**: Data cross-contamination of state across different cache drivers (e.g., array and Redis)
+- **Cause**: Laravel's cache repository is bound as a singleton
+- **Solution**: Use named stores instead of changing default driver:
+  ```php
+  // Instead of:
+  Config::set('cache.default', 'array');
+  $arrayService = new RateLimitService(new RateLimiter(app('cache')->driver()));
+  Config::set('cache.default', 'redis');
+  $redisService = new RateLimitService(new RateLimiter(app('cache')->driver()));
+  
+  // Use:
+  $arrayStore = app('cache')->store('array');
+  $arrayService = new RateLimitService(new RateLimiter($arrayStore));
+  $redisStore = app('cache')->store('redis');
+  $redisService = new RateLimitService(new RateLimiter($redisStore));
+  ```
+
 ### March 2025
 
 #### Cookie Issues with Pixabay API (3-16-25)
@@ -21,8 +41,6 @@ This document tracks various issues encountered during development and their sol
   ```sql
   SELECT @@hostname, @@version, @@datadir;
   ```
-
-### Early March 2025
 
 #### Laravel HTTP Client Testing (3-8-25)
 - **Issue**: `Http::fake()` state management in tests.

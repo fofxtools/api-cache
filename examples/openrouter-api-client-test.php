@@ -34,7 +34,7 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
 
     // Create client instance.  Clear rate limit since we might have run tests before.
     $client = new OpenRouterApiClient();
-    $client->setTimeout(10);
+    $client->setTimeout(30);
     $client->clearRateLimit();
 
     // Test completions endpoint

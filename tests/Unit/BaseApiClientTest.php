@@ -313,7 +313,7 @@ class BaseApiClientTest extends TestCase
 
         $this->cacheManager->shouldReceive('incrementAttempts')
             ->once()
-            ->with($this->clientName);
+            ->with($this->clientName, 1);
 
         $params = ['query' => 'test'];
         $this->cacheManager->shouldReceive('storeResponse')
@@ -351,7 +351,7 @@ class BaseApiClientTest extends TestCase
 
         $this->cacheManager->shouldReceive('incrementAttempts')
             ->once()
-            ->with($this->clientName);
+            ->with($this->clientName, 1);
 
         // Cache key is still needed for rate limiting
         $this->cacheManager->shouldReceive('generateCacheKey')
@@ -368,6 +368,61 @@ class BaseApiClientTest extends TestCase
 
         // Verify the setting persists
         $this->assertFalse($this->client->getUseCache());
+    }
+
+    public function test_sendCachedRequest_handles_custom_amount(): void
+    {
+        $originalAmount = 10;
+        $amount         = 5;
+
+        $this->cacheManager->shouldReceive('generateCacheKey')
+            ->once()
+            ->andReturn('test-key');
+
+        $this->cacheManager->shouldReceive('getCachedResponse')
+            ->once()
+            ->andReturnNull();
+
+        $this->cacheManager->shouldReceive('allowRequest')
+            ->once()
+            ->with($this->clientName)
+            ->andReturnTrue();
+
+        // Mock getRemainingAttempts to return different values before and after
+        $this->cacheManager->shouldReceive('getRemainingAttempts')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($originalAmount)
+            ->ordered();
+
+        $this->cacheManager->shouldReceive('incrementAttempts')
+            ->once()
+            ->with($this->clientName, $amount)
+            ->ordered();
+
+        $this->cacheManager->shouldReceive('getRemainingAttempts')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($originalAmount - $amount)
+            ->ordered();
+
+        $this->cacheManager->shouldReceive('storeResponse')
+            ->once()
+            ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version)
+            ->andReturn(true);
+
+        // Get remaining attempts before
+        $beforeAttempts = $this->cacheManager->getRemainingAttempts($this->clientName);
+
+        $result = $this->client->sendCachedRequest('predictions', ['query' => 'test'], 'GET', $amount);
+
+        // Get remaining attempts after
+        $afterAttempts = $this->cacheManager->getRemainingAttempts($this->clientName);
+
+        // Verify the rate limit was decremented by $amount
+        $this->assertEquals($originalAmount - $amount, $beforeAttempts - $afterAttempts);
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('response_time', $result);
     }
 
     public function test_getHealth_returns_health_endpoint_response(): void

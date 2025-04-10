@@ -70,7 +70,7 @@ $app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
 $app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
 
 // Setup database
-$databaseConnection = 'sqlite_memory';
+$databaseConnection = 'mysql';
 $capsule            = new Capsule();
 $capsule->addConnection(
     config("database.connections.{$databaseConnection}")

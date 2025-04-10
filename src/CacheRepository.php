@@ -269,20 +269,20 @@ class CacheRepository
         }
 
         // Ensure required fields exist
-        if (empty($metadata['endpoint']) || empty($metadata['response_body'])) {
-            Log::error('Missing required fields for cache storage', [
+        if (empty($metadata['response_body'])) {
+            Log::error('Missing required field for cache storage', [
                 'client'            => $clientName,
                 'key'               => $key,
-                'has_endpoint'      => isset($metadata['endpoint']),
                 'has_response_body' => isset($metadata['response_body']),
             ]);
 
-            throw new \InvalidArgumentException('Missing required fields, endpoint and response_body are required');
+            throw new \InvalidArgumentException('Missing required field, response_body is required');
         }
 
         // Set defaults for optional fields
         $metadata = array_merge([
             'version'                => null,
+            'endpoint'               => null,
             'base_url'               => null,
             'full_url'               => null,
             'method'                 => null,

@@ -17,7 +17,6 @@ return [
             'base_url' => env('DEMO_BASE_URL'),
             'cache_ttl' => env('DEMO_CACHE_TTL', null),
             'compression_enabled' => env('DEMO_COMPRESSION_ENABLED', false),
-            'default_endpoint' => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
             'rate_limit_max_attempts' => env('DEMO_RATE_LIMIT_MAX_ATTEMPTS', 1000),
             'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
         ],

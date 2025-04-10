@@ -41,18 +41,11 @@ class RateLimitServiceTest extends TestCase
         $this->limiter = $mockLimiter;
         $this->service = new RateLimitService($this->limiter);
 
-        // Mock config properly with default value
-        Config::partialMock()
-            ->shouldReceive('get')
-            ->with("api-cache.apis.{$this->client}.rate_limit_max_attempts", null)
-            ->andReturn(3)
-            ->byDefault();
-
-        Config::partialMock()
-            ->shouldReceive('get')
-            ->with("api-cache.apis.{$this->client}.rate_limit_decay_seconds", null)
-            ->andReturn(60)
-            ->byDefault();
+        // Set test config values
+        config([
+            "api-cache.apis.{$this->client}.rate_limit_max_attempts"  => 3,
+            "api-cache.apis.{$this->client}.rate_limit_decay_seconds" => 60,
+        ]);
     }
 
     protected function tearDown(): void
@@ -80,11 +73,9 @@ class RateLimitServiceTest extends TestCase
 
     public function test_getMaxAttempts_returns_null_for_unlimited_attempts(): void
     {
-        Config::partialMock()
-            ->shouldReceive('get')
-            ->with("api-cache.apis.{$this->client}.rate_limit_max_attempts", null)
-            ->andReturn(null)
-            ->zeroOrMoreTimes();
+        config([
+            "api-cache.apis.{$this->client}.rate_limit_max_attempts" => null,
+        ]);
 
         $this->assertNull($this->service->getMaxAttempts($this->client));
     }
@@ -139,10 +130,9 @@ class RateLimitServiceTest extends TestCase
 
     public function test_getRemainingAttempts_returns_max_int_for_unlimited(): void
     {
-        Config::partialMock()
-            ->shouldReceive('get')
-            ->with("api-cache.apis.{$this->client}.rate_limit_max_attempts", null)
-            ->andReturn(null);
+        config([
+            "api-cache.apis.{$this->client}.rate_limit_max_attempts" => null,
+        ]);
 
         $this->limiter->shouldReceive('remaining')
             ->never();  // Should not be called for unlimited attempts

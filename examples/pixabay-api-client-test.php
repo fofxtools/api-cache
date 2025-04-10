@@ -31,7 +31,7 @@ function runPixabayTests(bool $compressionEnabled, bool $verbose = true): void
 
     // Create client instance. Clear rate limit since we might have run tests before.
     $client = new PixabayApiClient();
-    $client->setTimeout(10);
+    $client->setTimeout(30);
     $client->clearRateLimit();
 
     // Test image search endpoint

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use FOfX\Helper;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 use function FOfX\ApiCache\check_server_status;
 use function FOfX\ApiCache\create_responses_table;
@@ -19,6 +21,7 @@ use function FOfX\ApiCache\get_tables;
 use function FOfX\ApiCache\create_pixabay_images_table;
 use function FOfX\ApiCache\normalize_params;
 use function FOfX\ApiCache\summarize_params;
+use function FOfX\ApiCache\download_public_suffix_list;
 
 class FunctionsTest extends TestCase
 {
@@ -30,6 +33,7 @@ class FunctionsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
 
         // Get base URL from config
         $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
@@ -534,5 +538,60 @@ class FunctionsTest extends TestCase
         $this->expectExceptionMessage('Unsupported database driver: unsupported');
 
         get_tables();
+    }
+
+    public function test_download_public_suffix_list_returns_path_when_file_exists(): void
+    {
+        // Create a test file
+        $expectedPath    = storage_path('app/public_suffix_list.dat');
+        $expectedContent = 'public suffix list content';
+        file_put_contents($expectedPath, $expectedContent);
+
+        $path = download_public_suffix_list();
+
+        $this->assertSame($expectedPath, $path);
+        $this->assertFileExists($path);
+        $this->assertSame($expectedContent, file_get_contents($path));
+    }
+
+    public function test_download_public_suffix_list_downloads_when_file_does_not_exist(): void
+    {
+        // Create a test file
+        $expectedPath    = storage_path('app/public_suffix_list.dat');
+        $expectedContent = 'public suffix list content';
+
+        // Ensure file doesn't exist
+        if (file_exists($expectedPath)) {
+            unlink($expectedPath);
+        }
+
+        Http::fake([
+            'publicsuffix.org/list/public_suffix_list.dat' => Http::response($expectedContent),
+        ]);
+
+        $path = download_public_suffix_list();
+
+        $this->assertSame($expectedPath, $path);
+        $this->assertFileExists($path);
+        $this->assertSame($expectedContent, file_get_contents($path));
+    }
+
+    public function test_download_public_suffix_list_throws_exception_on_download_failure(): void
+    {
+        $expectedPath = storage_path('app/public_suffix_list.dat');
+
+        // Ensure file doesn't exist
+        if (file_exists($expectedPath)) {
+            unlink($expectedPath);
+        }
+
+        Http::fake([
+            'publicsuffix.org/list/public_suffix_list.dat' => Http::response('', 500),
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to download public suffix list');
+
+        download_public_suffix_list();
     }
 }

@@ -40,7 +40,6 @@ return [
             'version'                  => env('DEMO_VERSION', 'v1'),
             'cache_ttl'                => env('DEMO_CACHE_TTL', null),
             'compression_enabled'      => env('DEMO_COMPRESSION_ENABLED', false),
-            'default_endpoint'         => env('DEMO_DEFAULT_ENDPOINT', 'predictions'),
             'rate_limit_max_attempts'  => env('DEMO_RATE_LIMIT_MAX_ATTEMPTS', 1000),
             'rate_limit_decay_seconds' => env('DEMO_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
@@ -56,7 +55,6 @@ return [
             'version'                  => env('OPENAI_VERSION', null),
             'cache_ttl'                => env('OPENAI_CACHE_TTL', null),
             'compression_enabled'      => env('OPENAI_COMPRESSION_ENABLED', false),
-            'default_endpoint'         => env('OPENAI_DEFAULT_ENDPOINT', 'chat/completions'),
             'rate_limit_max_attempts'  => env('OPENAI_RATE_LIMIT_MAX_ATTEMPTS', 60),
             'rate_limit_decay_seconds' => env('OPENAI_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
@@ -72,7 +70,6 @@ return [
             'version'                  => env('OPENROUTER_VERSION', null),
             'cache_ttl'                => env('OPENROUTER_CACHE_TTL', null),
             'compression_enabled'      => env('OPENROUTER_COMPRESSION_ENABLED', false),
-            'default_endpoint'         => env('OPENROUTER_DEFAULT_ENDPOINT', 'chat/completions'),
             'rate_limit_max_attempts'  => env('OPENROUTER_RATE_LIMIT_MAX_ATTEMPTS', 60),
             'rate_limit_decay_seconds' => env('OPENROUTER_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
@@ -88,9 +85,23 @@ return [
             'version'                  => env('PIXABAY_VERSION', null),
             'cache_ttl'                => env('PIXABAY_CACHE_TTL', null),
             'compression_enabled'      => env('PIXABAY_COMPRESSION_ENABLED', false),
-            'default_endpoint'         => env('PIXABAY_DEFAULT_ENDPOINT', 'search'),
             'rate_limit_max_attempts'  => env('PIXABAY_RATE_LIMIT_MAX_ATTEMPTS', 5000),
             'rate_limit_decay_seconds' => env('PIXABAY_RATE_LIMIT_DECAY_SECONDS', 3600),
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | ScraperAPI
+        |--------------------------------------------------------------------------
+        */
+        'scraperapi' => [
+            'api_key'                  => env('SCRAPERAPI_API_KEY', null),
+            'base_url'                 => env('SCRAPERAPI_BASE_URL', 'https://api.scraperapi.com'),
+            'version'                  => env('SCRAPERAPI_VERSION', null),
+            'cache_ttl'                => env('SCRAPERAPI_CACHE_TTL', null),
+            'compression_enabled'      => env('SCRAPERAPI_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('SCRAPERAPI_RATE_LIMIT_MAX_ATTEMPTS', 1000),
+            'rate_limit_decay_seconds' => env('SCRAPERAPI_RATE_LIMIT_DECAY_SECONDS', 2592000),
         ],
     ],
 ];

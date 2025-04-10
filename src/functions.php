@@ -8,6 +8,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Check if a server is accessible and healthy
@@ -92,7 +93,7 @@ function create_responses_table(
             $table->string('key')->unique();
             $table->string('client');
             $table->string('version')->nullable();
-            $table->string('endpoint');
+            $table->string('endpoint')->nullable();
             $table->string('base_url')->nullable();
             $table->string('full_url')->nullable();
             $table->string('method')->nullable();
@@ -600,4 +601,32 @@ function get_tables(): array
         default:
             throw new \Exception("Unsupported database driver: $driver");
     }
+}
+
+/**
+ * Downloads the public suffix list for jeremykendall/php-domain-parser if it doesn't exist.
+ *
+ * @throws \RuntimeException If the file cannot be downloaded or saved
+ *
+ * @return string The path to the public suffix list file
+ */
+function download_public_suffix_list(): string
+{
+    $path = storage_path('app/public_suffix_list.dat');
+
+    if (file_exists($path)) {
+        return $path;
+    }
+
+    $response = Http::get('https://publicsuffix.org/list/public_suffix_list.dat');
+
+    if (!$response->successful()) {
+        throw new \RuntimeException('Failed to download public suffix list');
+    }
+
+    if (!file_put_contents($path, $response->body())) {
+        throw new \RuntimeException('Failed to save public suffix list');
+    }
+
+    return $path;
 }

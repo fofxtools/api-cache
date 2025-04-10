@@ -103,7 +103,7 @@ class CacheRepositoryTest extends TestCase
 
         $invalidData = [
             'method' => 'GET',
-            // Deliberately missing required fields 'endpoint' and 'response_body'
+            // Deliberately missing required field 'response_body'
         ];
 
         $this->repository->store($this->uncompressedClient, $this->key, $invalidData);
@@ -115,7 +115,7 @@ class CacheRepositoryTest extends TestCase
 
         $invalidData = [
             'method' => 'GET',
-            // Deliberately missing required fields 'endpoint' and 'response_body' to test validation
+            // Deliberately missing required field 'response_body'
         ];
 
         $this->repository->store($this->compressedClient, $this->key, $invalidData);

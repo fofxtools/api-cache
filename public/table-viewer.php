@@ -26,11 +26,46 @@ $defaultLimit  = 20;
 $defaultClient = 'openai';
 
 // Get parameters from query string with defaults
-$limit  = isset($_GET['limit']) ? (int)$_GET['limit'] : $defaultLimit;
-$client = isset($_GET['client']) ? htmlspecialchars($_GET['client']) : $defaultClient;
+$limit         = isset($_GET['limit']) ? (int)$_GET['limit'] : $defaultLimit;
+$client        = isset($_GET['client']) ? htmlspecialchars($_GET['client']) : $defaultClient;
+$selectedTable = isset($_GET['table']) ? $_GET['table'] : '';
 
 // Ensure limit is positive
 $limit = max(1, $limit);
+
+// Get all tables in the database
+$tables = DB::select('
+    SELECT TABLE_NAME 
+    FROM information_schema.TABLES 
+    WHERE TABLE_SCHEMA = ? 
+    ORDER BY TABLE_NAME
+', [config('database.connections.mysql.database')]);
+
+$tableNames = array_map(function ($table) {
+    return $table->TABLE_NAME;
+}, $tables);
+
+// Filter for API cache tables
+$apiCacheTables = array_filter($tableNames, function ($table) {
+    return str_starts_with($table, 'api_cache_');
+});
+
+// Get table sizes
+$tableSizes = [];
+foreach ($apiCacheTables as $table) {
+    $size = DB::select('
+        SELECT ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as size_mb 
+        FROM information_schema.TABLES 
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+    ', [config('database.connections.mysql.database'), $table])[0]->size_mb;
+    $tableSizes[$table] = $size;
+}
+
+// Get cache manager instance
+$cacheManager = app(ApiCacheManager::class);
+
+// Get all configured clients
+$clients = config('api-cache.apis', []);
 
 try {
     // Create tables for the client if they don't exist
@@ -131,12 +166,45 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Table Viewer - <?= htmlspecialchars($client) ?></title>
+    <title>API Cache Table Viewer</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            line-height: 1.6;
+        }
+        .table-info {
+            margin-bottom: 20px;
+            padding: 15px;
             background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .table-info h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .table-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .table-list li {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        .table-list li:last-child {
+            border-bottom: none;
+        }
+        .table-size {
+            float: right;
+            color: #666;
+        }
+        .table-name {
+            font-weight: bold;
+        }
+        .table-description {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 20px;
         }
         h1, h2 {
             color: #333;
@@ -216,24 +284,40 @@ try {
     </style>
 </head>
 <body>
-    <h1>Table Viewer</h1>
-    
-    <div class="controls">
-        <form method="GET">
-            <div class="form-group">
-                <label for="client">Client Name:</label>
-                <input type="text" id="client" name="client" value="<?= htmlspecialchars($client) ?>">
-            </div>
-            
-            <div class="form-group">
-                <label for="limit">Row Limit:</label>
-                <input type="number" id="limit" name="limit" value="<?= $limit ?>" min="1">
-            </div>
-            
-            <input type="submit" value="View Tables" class="submit-btn">
-        </form>
+    <div class="table-info">
+        <h2>API Cache Tables</h2>
+        <ul class="table-list">
+            <?php foreach ($apiCacheTables as $table): ?>
+                <li>
+                    <span class="table-name"><?php echo htmlspecialchars($table); ?></span>
+                    <span class="table-size"><?php echo number_format((float)$tableSizes[$table], 2); ?> MB</span>
+                    <?php
+                    // Get client name from table name
+                    $clientName = str_replace(['api_cache_', '_responses', '_compressed'], '', $table);
+                if (isset($clients[$clientName])) {
+                    echo '<div class="table-description">Client: ' . htmlspecialchars($clientName) . '</div>';
+                }
+                ?>
+                </li>
+            <?php endforeach; ?>
+        </ul>
     </div>
-    
+
+    <h1>API Cache Table Viewer</h1>
+    <form method="get">
+        <label for="table">Select Table:</label>
+        <select name="table" id="table">
+            <?php foreach ($apiCacheTables as $table): ?>
+                <option value="<?php echo htmlspecialchars($table); ?>" <?php echo $selectedTable === $table ? 'selected' : ''; ?>>
+                    <?php echo htmlspecialchars($table); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <label for="limit">Limit:</label>
+        <input type="number" name="limit" id="limit" value="<?php echo $limit; ?>" min="1" max="1000">
+        <button type="submit">View</button>
+    </form>
+
     <?php
     // Debug information
     echo "<div style='margin-bottom: 20px;'>";
@@ -247,9 +331,12 @@ try {
     config(["api-cache.apis.{$client}.compression_enabled" => true]);
     $compressedTable = $repository->getTableName($client);
 
-    // Display tables
-    displayTable($uncompressedTable, $limit, $client);
-    displayTable($compressedTable, $limit, $client);
+    // Display selected table if one is chosen
+    if ($selectedTable && in_array($selectedTable, $apiCacheTables)) {
+        displayTable($selectedTable, $limit, $client);
+    } else {
+        echo '<p>Please select a table to view its contents.</p>';
+    }
 } catch (\Exception $e) {
     echo "<div class='error-message'>";
     echo 'Database Error: ' . htmlspecialchars($e->getMessage());

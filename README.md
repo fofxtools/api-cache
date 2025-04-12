@@ -36,6 +36,28 @@ php -S 0.0.0.0:8000 -t public
 - Compression support
 - Multiple API client support
 
+## Caching Control
+
+The `sendCachedRequest()` method respects the caching settings of the API client. You can control caching behavior using:
+
+```php
+// Create a new client instance
+$client = new ScraperApiClient();
+
+// Disable caching for a specific request
+$client->setUseCache(false);
+
+// Check current caching status
+$isCachingEnabled = $client->getUseCache();
+echo 'Is caching enabled: ' . ($isCachingEnabled ? 'true' : 'false') . PHP_EOL;
+
+$response = $client->scrape('https://httpbin.org/headers');
+echo format_api_response($response, true);
+
+// Re-enable caching
+$client->setUseCache(true);
+```
+
 ## Rate Limiting with Redis
 
 The package uses Redis for distributed rate limiting, allowing rate limits to be shared across multiple application instances. This ensures consistent rate limiting even when your application is running on multiple servers or processes.

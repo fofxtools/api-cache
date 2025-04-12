@@ -398,6 +398,7 @@ class BaseApiClient
      * @param array  $params   Request parameters
      * @param string $method   HTTP method (GET, POST, etc.)
      * @param int    $amount   Amount to pass to incrementAttempts
+     * @param string|null $attributes Additional attributes to store with the response
      *
      * @throws RateLimitException        When rate limit is exceeded. Or when cache manager is not initialized.
      * @throws \JsonException            When cache key generation fails
@@ -405,7 +406,7 @@ class BaseApiClient
      *
      * @return array API response data
      */
-    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', $amount = 1): array
+    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', $amount = 1, ?string $attributes = null): array
     {
         // Make sure $this->cacheManager is not null
         if ($this->cacheManager === null) {
@@ -469,6 +470,9 @@ class BaseApiClient
         // Increment attempts for the client to track rate limit usage
         $this->cacheManager->incrementAttempts($this->clientName, $amount);
 
+        // Get the TTL from the config
+        $ttl = config("api-cache.apis.{$this->clientName}.cache_ttl");
+
         // Store in cache if response is successful
         if (!$this->useCache) {
             Log::debug('Caching disabled for this request', [
@@ -483,7 +487,9 @@ class BaseApiClient
                 $params,
                 $apiResult,
                 $endpoint,
-                $this->version
+                $this->version,
+                $ttl,
+                $attributes
             );
             Log::debug('Cache stored', [
                 'client'    => $this->clientName,

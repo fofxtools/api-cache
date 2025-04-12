@@ -59,22 +59,23 @@ class PixabayApiClient extends BaseApiClient
     /**
      * Search for images on Pixabay
      *
-     * @param string|null $query         A URL encoded search term. If omitted (null), all images are returned. Max 100 chars.
-     * @param string      $lang          Language code (cs, da, de, en, es, fr, id, it, hu, nl, no, pl, pt, ro, sk, fi, sv, tr, vi, th, bg, ru, el, ja, ko, zh)
-     * @param string|null $id            Retrieve individual images by ID
-     * @param string      $imageType     Filter results by image type (all, photo, illustration, vector)
-     * @param string      $orientation   Filter results by orientation (all, horizontal, vertical)
-     * @param string|null $category      Filter results by category (backgrounds, fashion, nature, science, education, feelings, health, people, religion, places, animals, industry, computer, food, sports, transportation, travel, buildings, business, music)
-     * @param int         $minWidth      Minimum image width in pixels
-     * @param int         $minHeight     Minimum image height in pixels
-     * @param string|null $colors        Filter by color properties (grayscale, transparent, red, orange, yellow, green, turquoise, blue, lilac, pink, white, gray, black, brown)
-     * @param bool        $editorsChoice Select images that have received an Editor's Choice award
-     * @param bool        $safeSearch    A flag indicating that only images suitable for all ages should be returned
-     * @param string      $order         How the results should be ordered (popular, latest)
-     * @param int         $page          Returned search results are paginated
-     * @param int         $perPage       Number of results per page (3 - 200)
-     * @param string|null $callback      JSONP callback function name
-     * @param bool        $pretty        Indent JSON output. This option should not be used in production.
+     * @param string|null $query            A URL encoded search term. If omitted (null), all images are returned. Max 100 chars.
+     * @param string      $lang             Language code (cs, da, de, en, es, fr, id, it, hu, nl, no, pl, pt, ro, sk, fi, sv, tr, vi, th, bg, ru, el, ja, ko, zh)
+     * @param string|null $id               Retrieve individual images by ID
+     * @param string      $imageType        Filter results by image type (all, photo, illustration, vector)
+     * @param string      $orientation      Filter results by orientation (all, horizontal, vertical)
+     * @param string|null $category         Filter results by category (backgrounds, fashion, nature, science, education, feelings, health, people, religion, places, animals, industry, computer, food, sports, transportation, travel, buildings, business, music)
+     * @param int         $minWidth         Minimum image width in pixels
+     * @param int         $minHeight        Minimum image height in pixels
+     * @param string|null $colors           Filter by color properties (grayscale, transparent, red, orange, yellow, green, turquoise, blue, lilac, pink, white, gray, black, brown)
+     * @param bool        $editorsChoice    Select images that have received an Editor's Choice award
+     * @param bool        $safeSearch       A flag indicating that only images suitable for all ages should be returned
+     * @param string      $order            How the results should be ordered (popular, latest)
+     * @param int         $page             Returned search results are paginated
+     * @param int         $perPage          Number of results per page (3 - 200)
+     * @param string|null $callback         JSONP callback function name
+     * @param bool        $pretty           Indent JSON output. This option should not be used in production.
+     * @param array       $additionalParams Additional parameters to pass to the API
      *
      * @return array The API response data
      */
@@ -94,7 +95,8 @@ class PixabayApiClient extends BaseApiClient
         int $page = 1,
         int $perPage = 20,
         ?string $callback = null,
-        bool $pretty = false
+        bool $pretty = false,
+        array $additionalParams = []
     ): array {
         Log::debug('Making Pixabay image search request', [
             'query'          => $query,
@@ -134,26 +136,30 @@ class PixabayApiClient extends BaseApiClient
             'pretty'         => $pretty,
         ];
 
+        // Add additional parameters
+        $params = array_merge($params, $additionalParams);
+
         return $this->sendCachedRequest('api', $params, 'GET');
     }
 
     /**
      * Search for videos on Pixabay
      *
-     * @param string|null $query         A URL encoded search term. If omitted (null), all videos are returned. Max 100 chars.
-     * @param string      $lang          Language code (cs, da, de, en, es, fr, id, it, hu, nl, no, pl, pt, ro, sk, fi, sv, tr, vi, th, bg, ru, el, ja, ko, zh)
-     * @param string|null $id            Retrieve individual videos by ID
-     * @param string      $videoType     Filter results by video type (all, film, animation)
-     * @param string|null $category      Filter results by category (backgrounds, fashion, nature, science, education, feelings, health, people, religion, places, animals, industry, computer, food, sports, transportation, travel, buildings, business, music)
-     * @param int         $minWidth      Minimum video width in pixels
-     * @param int         $minHeight     Minimum video height in pixels
-     * @param bool        $editorsChoice Select videos that have received an Editor's Choice award
-     * @param bool        $safeSearch    A flag indicating that only videos suitable for all ages should be returned
-     * @param string      $order         How the results should be ordered (popular, latest)
-     * @param int         $page          Returned search results are paginated
-     * @param int         $perPage       Number of results per page (3 - 200)
-     * @param string|null $callback      JSONP callback function name
-     * @param bool        $pretty        Indent JSON output. This option should not be used in production.
+     * @param string|null $query            A URL encoded search term. If omitted (null), all videos are returned. Max 100 chars.
+     * @param string      $lang             Language code (cs, da, de, en, es, fr, id, it, hu, nl, no, pl, pt, ro, sk, fi, sv, tr, vi, th, bg, ru, el, ja, ko, zh)
+     * @param string|null $id               Retrieve individual videos by ID
+     * @param string      $videoType        Filter results by video type (all, film, animation)
+     * @param string|null $category         Filter results by category (backgrounds, fashion, nature, science, education, feelings, health, people, religion, places, animals, industry, computer, food, sports, transportation, travel, buildings, business, music)
+     * @param int         $minWidth         Minimum video width in pixels
+     * @param int         $minHeight        Minimum video height in pixels
+     * @param bool        $editorsChoice    Select videos that have received an Editor's Choice award
+     * @param bool        $safeSearch       A flag indicating that only videos suitable for all ages should be returned
+     * @param string      $order            How the results should be ordered (popular, latest)
+     * @param int         $page             Returned search results are paginated
+     * @param int         $perPage          Number of results per page (3 - 200)
+     * @param string|null $callback         JSONP callback function name
+     * @param bool        $pretty           Indent JSON output. This option should not be used in production.
+     * @param array       $additionalParams Additional parameters to pass to the API
      *
      * @return array The API response data
      */
@@ -171,7 +177,8 @@ class PixabayApiClient extends BaseApiClient
         int $page = 1,
         int $perPage = 20,
         ?string $callback = null,
-        bool $pretty = false
+        bool $pretty = false,
+        array $additionalParams = []
     ): array {
         Log::debug('Making Pixabay video search request', [
             'query'          => $query,
@@ -206,6 +213,9 @@ class PixabayApiClient extends BaseApiClient
             'callback'       => $callback,
             'pretty'         => $pretty,
         ];
+
+        // Add additional parameters
+        $params = array_merge($params, $additionalParams);
 
         return $this->sendCachedRequest('api/videos', $params, 'GET');
     }

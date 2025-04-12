@@ -7,6 +7,7 @@ namespace FOfX\ApiCache;
 use Illuminate\Support\Facades\Log;
 use Pdp\Rules;
 use Pdp\Domain;
+use FOfX\Helper;
 
 class ScraperApiClient extends BaseApiClient
 {
@@ -59,13 +60,14 @@ class ScraperApiClient extends BaseApiClient
     /**
      * Calculate the number of credits required for a request
      *
-     * @param string $url     The URL to scrape
-     * @param array  $options Additional options to calculate credits from
+     * @param string $url              The URL to scrape
+     * @param array  $additionalParams Additional parameters to calculate credits from
      *
      * @return int Number of credits required
      */
-    protected function calculateCredits(string $url, array $options = []): int
+    protected function calculateCredits(string $url, array $additionalParams = []): int
     {
+        // Use php-domain-parser to get the registrable domain
         $pslPath          = download_public_suffix_list();
         $publicSuffixList = Rules::fromPath($pslPath);
 
@@ -73,8 +75,13 @@ class ScraperApiClient extends BaseApiClient
         $hostname = parse_url($url, PHP_URL_HOST) ?? $url;
         $domain   = Domain::fromIDNA2008($hostname);
 
+        // Use registrableDomain() instead of domain() to get the registrable domain
         $result            = $publicSuffixList->resolve($domain);
         $registrableDomain = $result->registrableDomain()->toString();
+
+        // Strip the www just in case
+        // For some domains like www.httpbin.org, registrableDomain() seems to still retain the www. prefix
+        $registrableDomain = Helper\strip_www($registrableDomain);
 
         // Define known domains and their credit costs
         $domainCredits = [
@@ -137,10 +144,10 @@ class ScraperApiClient extends BaseApiClient
     /**
      * Scrape a URL using ScraperAPI
      *
-     * @param string      $url          The URL to scrape
-     * @param bool        $autoparse    Whether to automatically parse JSON responses
-     * @param string|null $outputFormat The output format (e.g. 'llm', 'json', etc.)
-     * @param array       $options      Additional options to pass to the API
+     * @param string      $url              The URL to scrape
+     * @param bool        $autoparse        Whether to automatically parse JSON responses
+     * @param string|null $outputFormat     The output format (e.g. 'llm', 'json', etc.)
+     * @param array       $additionalParams Additional parameters to pass to the API
      *
      * @return array The API response data
      */
@@ -148,7 +155,7 @@ class ScraperApiClient extends BaseApiClient
         string $url,
         bool $autoparse = false,
         ?string $outputFormat = null,
-        array $options = []
+        array $additionalParams = []
     ): array {
         Log::debug('Making ScraperAPI request', [
             'url'           => $url,
@@ -168,12 +175,24 @@ class ScraperApiClient extends BaseApiClient
             $params['output_format'] = $outputFormat;
         }
 
-        // Add additional options
-        $params = array_merge($params, $options);
+        // Add additional parameters
+        $params = array_merge($params, $additionalParams);
 
         // Calculate credits required for this request
         $credits = $this->calculateCredits($url, $params);
 
-        return $this->sendCachedRequest('', $params, 'GET', $credits);
+        // Pass the domain as attributes using php-domain-parser
+        $pslPath = download_public_suffix_list();
+        $publicSuffixList = Rules::fromPath($pslPath);
+        $hostname = parse_url($url, PHP_URL_HOST) ?? $url;
+        $domain = Domain::fromIDNA2008($hostname);
+        $result = $publicSuffixList->resolve($domain);
+        $registrableDomain = $result->registrableDomain()->toString();
+
+        // Strip the www just in case
+        $registrableDomain = Helper\strip_www($registrableDomain);
+
+        // Pass registrableDomain as attributes
+        return $this->sendCachedRequest('', $params, 'GET', $credits, $registrableDomain);
     }
 }

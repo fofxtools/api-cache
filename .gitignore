@@ -1,4 +1,4 @@
-# Logs and Error Files
+# Logs and Errors
 error_log
 *.log
 /logs/
@@ -17,8 +17,37 @@ config.*.php
 *.config.php
 *.config.*.php
 
-# Local and Temporary Files
+# Local Folders
 /local/
+
+# Storage Folders
+/storage/
+
+# IDE and Editor Folders
+/.cursor/
+/.fleet/
+/.idea/
+/.vscode/
+/.zed/
+
+# Cache Files
+/.php-cs-fixer.cache
+/.phpunit.result.cache
+/.phpunit.cache
+
+# Cache Folders
+/.phpstan/
+
+# Build Files
+/public/hot
+
+# Build Folders
+/coverage/
+/node_modules/
+/public/build/
+/public/storage
+
+# Temporary Files
 /temp*.php
 /out*.txt
 
@@ -27,26 +56,6 @@ config.*.php
 
 # Redis Files
 *.rdb
-
-# IDE and Editor Files
-/.fleet
-/.idea
-/.vscode/
-/.zed
-
-# Cache Files
-/.php-cs-fixer.cache
-/.phpunit.result.cache
-/.phpunit.cache
-/.phpstan/cache/
-
-# Build Files
-/coverage/
-/node_modules/
-/public/build/
-/public/hot
-/public/storage
-/storage/*.key
 
 # NPM and Yarn logs
 npm-debug.log
@@ -66,6 +75,3 @@ auth.json
 /*repopack-output.txt
 /phpunit.txt
 /phpstan.txt
-
-# Storage Files
-/storage/*

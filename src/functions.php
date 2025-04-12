@@ -97,6 +97,7 @@ function create_responses_table(
             $table->string('base_url')->nullable();
             $table->string('full_url')->nullable();
             $table->string('method')->nullable();
+            $table->string('attributes')->nullable();
             $table->json('request_params_summary')->nullable();
 
             // Use binary/blob for compressed tables
@@ -128,6 +129,7 @@ function create_responses_table(
             } else {
                 $table->index(['client', 'endpoint', 'version']);
             }
+            $table->index('attributes');
             $table->index('expires_at');
             $table->index('processed_at');
         });

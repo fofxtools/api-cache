@@ -118,6 +118,7 @@ class ApiCacheManager
      * @param string      $endpoint   The API endpoint
      * @param string|null $version    API version
      * @param int|null    $ttl        Cache TTL in seconds
+     * @param string|null $attributes Additional attributes to store with the response
      */
     public function storeResponse(
         string $clientName,
@@ -126,7 +127,8 @@ class ApiCacheManager
         array $apiResult,
         string $endpoint,
         ?string $version = null,
-        ?int $ttl = null
+        ?int $ttl = null,
+        ?string $attributes = null
     ): void {
         // Use default TTL from config if not provided
         if ($ttl === null) {
@@ -142,6 +144,7 @@ class ApiCacheManager
             'base_url'               => $apiResult['request']['base_url'],
             'full_url'               => $apiResult['request']['full_url'],
             'method'                 => $apiResult['request']['method'],
+            'attributes'             => $attributes,
             'request_params_summary' => summarize_params($params),
             'request_headers'        => $apiResult['request']['headers'],
             'request_body'           => $apiResult['request']['body'],

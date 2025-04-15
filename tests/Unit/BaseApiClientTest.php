@@ -11,6 +11,8 @@ use FOfX\ApiCache\RateLimitException;
 use Mockery;
 use FOfX\ApiCache\Tests\TestCase;
 
+use function FOfX\ApiCache\check_server_status;
+
 class BaseApiClientTest extends TestCase
 {
     protected BaseApiClient $client;
@@ -50,6 +52,12 @@ class BaseApiClientTest extends TestCase
 
         // Store the base URL (will be WSL-aware if needed)
         $this->apiBaseUrl = $this->client->getBaseUrl();
+
+        // Skip test if server is not accessible
+        $serverStatus = check_server_status($this->client->getBaseUrl());
+        if (!$serverStatus) {
+            $this->markTestSkipped('API server is not accessible at: ' . $this->client->getBaseUrl());
+        }
     }
 
     protected function tearDown(): void

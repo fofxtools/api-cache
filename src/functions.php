@@ -9,6 +9,9 @@ use Illuminate\Database\Schema\Builder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Pdp\Rules;
+use Pdp\Domain;
+use FOfX\Helper;
 
 /**
  * Check if a server is accessible and healthy
@@ -631,4 +634,34 @@ function download_public_suffix_list(): string
     }
 
     return $path;
+}
+
+/**
+ * Extract the registrable domain from a URL
+ *
+ * @param string $url      The URL to extract domain from
+ * @param bool   $stripWww Whether to strip www prefix (default: true)
+ *
+ * @return string The registrable domain
+ */
+function extract_registrable_domain(string $url, bool $stripWww = true): string
+{
+    // Use php-domain-parser to get the registrable domain
+    $pslPath          = download_public_suffix_list();
+    $publicSuffixList = Rules::fromPath($pslPath);
+
+    // Extract hostname from URL if it contains a protocol
+    $hostname = parse_url($url, PHP_URL_HOST) ?? $url;
+    $domain   = Domain::fromIDNA2008($hostname);
+
+    // Use registrableDomain() to get the registrable domain
+    $result            = $publicSuffixList->resolve($domain);
+    $registrableDomain = $result->registrableDomain()->toString();
+
+    // Strip the www if requested
+    if ($stripWww) {
+        $registrableDomain = Helper\strip_www($registrableDomain);
+    }
+
+    return $registrableDomain;
 }

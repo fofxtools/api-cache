@@ -394,10 +394,10 @@ class BaseApiClient
      * - Store in cache (if caching is enabled and request was successful)
      * - Return response
      *
-     * @param string $endpoint API endpoint to call
-     * @param array  $params   Request parameters
-     * @param string $method   HTTP method (GET, POST, etc.)
-     * @param int    $amount   Amount to pass to incrementAttempts
+     * @param string      $endpoint   API endpoint to call
+     * @param array       $params     Request parameters
+     * @param string      $method     HTTP method (GET, POST, etc.)
+     * @param int         $amount     Amount to pass to incrementAttempts
      * @param string|null $attributes Additional attributes to store with the response
      *
      * @throws RateLimitException        When rate limit is exceeded. Or when cache manager is not initialized.
@@ -473,6 +473,9 @@ class BaseApiClient
         // Get the TTL from the config
         $ttl = config("api-cache.apis.{$this->clientName}.cache_ttl");
 
+        // Trim attributes to 255 characters if not null, for Laravel string column limit
+        $trimmedAttributes = $attributes === null ? null : mb_substr($attributes, 0, 255);
+
         // Store in cache if response is successful
         if (!$this->useCache) {
             Log::debug('Caching disabled for this request', [
@@ -489,7 +492,7 @@ class BaseApiClient
                 $endpoint,
                 $this->version,
                 $ttl,
-                $attributes
+                $trimmedAttributes
             );
             Log::debug('Cache stored', [
                 'client'    => $this->clientName,

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
-use Pdp\Rules;
-use Pdp\Domain;
-use FOfX\Helper;
 
 class ScraperApiClient extends BaseApiClient
 {
@@ -68,20 +65,7 @@ class ScraperApiClient extends BaseApiClient
     protected function calculateCredits(string $url, array $additionalParams = []): int
     {
         // Use php-domain-parser to get the registrable domain
-        $pslPath          = download_public_suffix_list();
-        $publicSuffixList = Rules::fromPath($pslPath);
-
-        // Extract hostname from URL if it contains a protocol
-        $hostname = parse_url($url, PHP_URL_HOST) ?? $url;
-        $domain   = Domain::fromIDNA2008($hostname);
-
-        // Use registrableDomain() instead of domain() to get the registrable domain
-        $result            = $publicSuffixList->resolve($domain);
-        $registrableDomain = $result->registrableDomain()->toString();
-
-        // Strip the www just in case
-        // For some domains like www.httpbin.org, registrableDomain() seems to still retain the www. prefix
-        $registrableDomain = Helper\strip_www($registrableDomain);
+        $registrableDomain = extract_registrable_domain($url);
 
         // Define known domains and their credit costs
         $domainCredits = [
@@ -181,16 +165,8 @@ class ScraperApiClient extends BaseApiClient
         // Calculate credits required for this request
         $credits = $this->calculateCredits($url, $params);
 
-        // Pass the domain as attributes using php-domain-parser
-        $pslPath = download_public_suffix_list();
-        $publicSuffixList = Rules::fromPath($pslPath);
-        $hostname = parse_url($url, PHP_URL_HOST) ?? $url;
-        $domain = Domain::fromIDNA2008($hostname);
-        $result = $publicSuffixList->resolve($domain);
-        $registrableDomain = $result->registrableDomain()->toString();
-
-        // Strip the www just in case
-        $registrableDomain = Helper\strip_www($registrableDomain);
+        // Use php-domain-parser to get the registrable domain
+        $registrableDomain = extract_registrable_domain($url);
 
         // Pass registrableDomain as attributes
         return $this->sendCachedRequest('', $params, 'GET', $credits, $registrableDomain);

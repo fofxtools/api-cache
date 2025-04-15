@@ -76,6 +76,8 @@ class PixabayApiClient extends BaseApiClient
      * @param string|null $callback         JSONP callback function name
      * @param bool        $pretty           Indent JSON output. This option should not be used in production.
      * @param array       $additionalParams Additional parameters to pass to the API
+     * @param int         $amount           Amount to pass to incrementAttempts
+     * @param string|null $attributes       Optional attributes to store with the cache entry
      *
      * @return array The API response data
      */
@@ -96,7 +98,9 @@ class PixabayApiClient extends BaseApiClient
         int $perPage = 20,
         ?string $callback = null,
         bool $pretty = false,
-        array $additionalParams = []
+        array $additionalParams = [],
+        int $amount = 1,
+        ?string $attributes = null
     ): array {
         Log::debug('Making Pixabay image search request', [
             'query'          => $query,
@@ -139,7 +143,7 @@ class PixabayApiClient extends BaseApiClient
         // Add additional parameters
         $params = array_merge($params, $additionalParams);
 
-        return $this->sendCachedRequest('api', $params, 'GET');
+        return $this->sendCachedRequest('api', $params, 'GET', $amount, $attributes);
     }
 
     /**
@@ -160,6 +164,8 @@ class PixabayApiClient extends BaseApiClient
      * @param string|null $callback         JSONP callback function name
      * @param bool        $pretty           Indent JSON output. This option should not be used in production.
      * @param array       $additionalParams Additional parameters to pass to the API
+     * @param int         $amount           Amount to pass to incrementAttempts
+     * @param string|null $attributes       Optional attributes to store with the cache entry
      *
      * @return array The API response data
      */
@@ -178,7 +184,9 @@ class PixabayApiClient extends BaseApiClient
         int $perPage = 20,
         ?string $callback = null,
         bool $pretty = false,
-        array $additionalParams = []
+        array $additionalParams = [],
+        int $amount = 1,
+        ?string $attributes = null
     ): array {
         Log::debug('Making Pixabay video search request', [
             'query'          => $query,
@@ -217,7 +225,7 @@ class PixabayApiClient extends BaseApiClient
         // Add additional parameters
         $params = array_merge($params, $additionalParams);
 
-        return $this->sendCachedRequest('api/videos', $params, 'GET');
+        return $this->sendCachedRequest('api/videos', $params, 'GET', $amount, $attributes);
     }
 
     /**

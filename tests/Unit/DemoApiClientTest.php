@@ -57,6 +57,7 @@ class DemoApiClientTest extends TestCase
         }
 
         // Set up mock expectations
+        // Use byDefault() to allow being overridden in specific tests
         $this->cacheManager->shouldReceive('getCachedResponse')
             ->andReturnNull();
         $this->cacheManager->shouldReceive('allowRequest')
@@ -65,10 +66,11 @@ class DemoApiClientTest extends TestCase
             ->byDefault()
             ->andReturn('demo.get.predictions.test-hash.v1');
         $this->cacheManager->shouldReceive('incrementAttempts');
-        $this->cacheManager->shouldReceive('storeResponse');
+        $this->cacheManager->shouldReceive('storeResponse')
+            ->byDefault();
     }
 
-    public function test_predictions_method_sends_correct_request(): void
+    public function test_predictions_sends_correct_request(): void
     {
         $query      = 'test query';
         $maxResults = 5;
@@ -83,22 +85,7 @@ class DemoApiClientTest extends TestCase
         $this->assertArrayHasKey('response_time', $result);
     }
 
-    public function test_reports_method_sends_correct_request(): void
-    {
-        $reportType = 'monthly';
-        $dataSource = 'sales';
-
-        $result = $this->client->reports($reportType, $dataSource);
-
-        $this->assertEquals(200, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
-        $this->assertTrue($responseData['success']);
-        $this->assertNotEmpty($responseData['data']);
-        $this->assertArrayHasKey('response', $result);
-        $this->assertArrayHasKey('response_time', $result);
-    }
-
-    public function test_predictions_method_merges_additional_params(): void
+    public function test_predictions_merges_additional_params(): void
     {
         $additionalParams = ['filter' => 'test'];
 
@@ -129,5 +116,80 @@ class DemoApiClientTest extends TestCase
 
         $this->assertArrayHasKey('response', $result);
         $this->assertArrayHasKey('response_time', $result);
+    }
+
+    public function test_predictions_with_attributes(): void
+    {
+        $query        = 'test query';
+        $maxResults   = 5;
+        $amount       = 1;
+        $attributes   = 'test-attributes';
+        $capturedArgs = [];
+
+        // Override the default mock to capture storeResponse arguments
+        $this->cacheManager->shouldReceive('storeResponse')
+            ->andReturnUsing(function (...$args) use (&$capturedArgs) {
+                $capturedArgs = $args;
+            });
+
+        $result = $this->client->predictions($query, $maxResults, [], $amount, $attributes);
+
+        $this->assertEquals(200, $result['response']->status());
+        $responseData = json_decode($result['response']->body(), true);
+        $this->assertTrue($responseData['success']);
+        $this->assertNotEmpty($responseData['data']);
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('response_time', $result);
+
+        // Verify attributes were passed to storeResponse
+        $this->assertCount(8, $capturedArgs, 'Expected 8 arguments passed to storeResponse');
+        $this->assertEquals('demo', $capturedArgs[0], 'First arg should be client name');
+        $this->assertEquals('predictions', $capturedArgs[4], 'Fifth arg should be endpoint');
+        $this->assertEquals($attributes, $capturedArgs[7], 'Eighth arg should be attributes');
+    }
+
+    public function test_reports_sends_correct_request(): void
+    {
+        $reportType = 'monthly';
+        $dataSource = 'sales';
+
+        $result = $this->client->reports($reportType, $dataSource);
+
+        $this->assertEquals(200, $result['response']->status());
+        $responseData = json_decode($result['response']->body(), true);
+        $this->assertTrue($responseData['success']);
+        $this->assertNotEmpty($responseData['data']);
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('response_time', $result);
+    }
+
+    public function test_reports_with_attributes(): void
+    {
+        $reportType   = 'monthly';
+        $dataSource   = 'sales';
+        $amount       = 1;
+        $attributes   = 'report-attributes';
+        $capturedArgs = [];
+
+        // Override the default mock to capture storeResponse arguments
+        $this->cacheManager->shouldReceive('storeResponse')
+            ->andReturnUsing(function (...$args) use (&$capturedArgs) {
+                $capturedArgs = $args;
+            });
+
+        $result = $this->client->reports($reportType, $dataSource, [], $amount, $attributes);
+
+        $this->assertEquals(200, $result['response']->status());
+        $responseData = json_decode($result['response']->body(), true);
+        $this->assertTrue($responseData['success']);
+        $this->assertNotEmpty($responseData['data']);
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('response_time', $result);
+
+        // Verify attributes were passed to storeResponse
+        $this->assertCount(8, $capturedArgs, 'Expected 8 arguments passed to storeResponse');
+        $this->assertEquals('demo', $capturedArgs[0], 'First arg should be client name');
+        $this->assertEquals('reports', $capturedArgs[4], 'Fifth arg should be endpoint');
+        $this->assertEquals($attributes, $capturedArgs[7], 'Eighth arg should be attributes');
     }
 }

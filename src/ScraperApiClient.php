@@ -132,6 +132,8 @@ class ScraperApiClient extends BaseApiClient
      * @param bool        $autoparse        Whether to automatically parse JSON responses
      * @param string|null $outputFormat     The output format (e.g. 'llm', 'json', etc.)
      * @param array       $additionalParams Additional parameters to pass to the API
+     * @param int|null    $amount           Amount to pass to incrementAttempts
+     * @param string|null $attributes       Optional attributes to store with the cache entry
      *
      * @return array The API response data
      */
@@ -139,7 +141,9 @@ class ScraperApiClient extends BaseApiClient
         string $url,
         bool $autoparse = false,
         ?string $outputFormat = null,
-        array $additionalParams = []
+        array $additionalParams = [],
+        ?int $amount = null,
+        ?string $attributes = null
     ): array {
         Log::debug('Making ScraperAPI request', [
             'url'           => $url,
@@ -162,13 +166,19 @@ class ScraperApiClient extends BaseApiClient
         // Add additional parameters
         $params = array_merge($params, $additionalParams);
 
-        // Calculate credits required for this request
-        $credits = $this->calculateCredits($url, $params);
+        // Calculate credits required for this request if amount is not provided
+        if ($amount === null) {
+            $credits = $this->calculateCredits($url, $params);
+        } else {
+            $credits = $amount;
+        }
 
-        // Use php-domain-parser to get the registrable domain
-        $registrableDomain = extract_registrable_domain($url);
+        // Pass extract_registrable_domain() as attributes if attributes is not provided
+        if ($attributes === null) {
+            // Use php-domain-parser to get the registrable domain
+            $attributes = extract_registrable_domain($url);
+        }
 
-        // Pass registrableDomain as attributes
-        return $this->sendCachedRequest('', $params, 'GET', $credits, $registrableDomain);
+        return $this->sendCachedRequest('', $params, 'GET', $credits, $attributes);
     }
 }

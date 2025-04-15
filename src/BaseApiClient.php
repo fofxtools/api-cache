@@ -368,11 +368,12 @@ class BaseApiClient
         return [
             'params'  => $params,
             'request' => [
-                'base_url' => $this->baseUrl,
-                'full_url' => $requestData['url'],
-                'method'   => $requestData['method'],
-                'headers'  => $requestData['headers'],
-                'body'     => $requestData['body'],
+                'base_url'   => $this->baseUrl,
+                'full_url'   => $requestData['url'],
+                'method'     => $requestData['method'],
+                'attributes' => null,
+                'headers'    => $requestData['headers'],
+                'body'       => $requestData['body'],
             ],
             'response'             => $response,
             'response_status_code' => $response->status(),
@@ -406,7 +407,7 @@ class BaseApiClient
      *
      * @return array API response data
      */
-    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', $amount = 1, ?string $attributes = null): array
+    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', int $amount = 1, ?string $attributes = null): array
     {
         // Make sure $this->cacheManager is not null
         if ($this->cacheManager === null) {

@@ -31,13 +31,15 @@ class OpenRouterApiClient extends BaseApiClient
     /**
      * Get legacy text completions based on prompt parameters
      *
-     * @param string $prompt           The prompt to use for the completions
-     * @param string $model            The model to use for the completions
-     * @param int    $maxTokens        The maximum number of tokens to generate
-     * @param int    $n                The number of completions to generate
-     * @param float  $temperature      Controls randomness (0-2, higher is more random)
-     * @param float  $topP             Controls diversity via nucleus sampling (0-1)
-     * @param array  $additionalParams Additional parameters to include in the request
+     * @param string      $prompt           The prompt to use for the completions
+     * @param string      $model            The model to use for the completions
+     * @param int         $maxTokens        The maximum number of tokens to generate
+     * @param int         $n                The number of completions to generate
+     * @param float       $temperature      Controls randomness (0-2, higher is more random)
+     * @param float       $topP             Controls diversity via nucleus sampling (0-1)
+     * @param array       $additionalParams Additional parameters to include in the request
+     * @param int         $amount           Amount to pass to incrementAttempts
+     * @param string|null $attributes       Optional attributes to store with the cache entry
      *
      * @return array The API response data
      */
@@ -48,7 +50,9 @@ class OpenRouterApiClient extends BaseApiClient
         int $n = 1,
         float $temperature = 1.0,
         float $topP = 1.0,
-        array $additionalParams = []
+        array $additionalParams = [],
+        int $amount = 1,
+        ?string $attributes = null
     ): array {
         Log::debug('Making OpenRouter completions request', [
             'model'       => $model,
@@ -67,7 +71,7 @@ class OpenRouterApiClient extends BaseApiClient
             'top_p'       => $topP,
         ]);
 
-        return $this->sendCachedRequest('completions', $params, 'POST');
+        return $this->sendCachedRequest('completions', $params, 'POST', $amount, $attributes);
     }
 
     /**
@@ -80,6 +84,8 @@ class OpenRouterApiClient extends BaseApiClient
      * @param float        $temperature         Controls randomness (0-2, higher is more random)
      * @param float        $topP                Controls diversity via nucleus sampling (0-1)
      * @param array        $additionalParams    Additional parameters to include in the request
+     * @param int          $amount              Amount to pass to incrementAttempts
+     * @param string|null  $attributes          Optional attributes to store with the cache entry
      *
      * @throws \InvalidArgumentException When messages are not properly formatted
      *
@@ -92,7 +98,9 @@ class OpenRouterApiClient extends BaseApiClient
         int $n = 1,
         float $temperature = 1.0,
         float $topP = 1.0,
-        array $additionalParams = []
+        array $additionalParams = [],
+        int $amount = 1,
+        ?string $attributes = null
     ): array {
         // If messages is a string, assume it is a prompt and wrap it in an array of messages
         if (is_string($messages)) {
@@ -131,6 +139,6 @@ class OpenRouterApiClient extends BaseApiClient
             $params['max_completion_tokens'] = $maxCompletionTokens;
         }
 
-        return $this->sendCachedRequest('chat/completions', $params, 'POST');
+        return $this->sendCachedRequest('chat/completions', $params, 'POST', $amount, $attributes);
     }
 }

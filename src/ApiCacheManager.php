@@ -191,11 +191,12 @@ class ApiCacheManager
         // Return in same format as fresh responses
         return [
             'request' => [
-                'base_url' => $cached['base_url'],
-                'full_url' => $cached['full_url'],
-                'method'   => $cached['method'],
-                'headers'  => $cached['request_headers'],
-                'body'     => $cached['request_body'],
+                'base_url'   => $cached['base_url'],
+                'full_url'   => $cached['full_url'],
+                'method'     => $cached['method'],
+                'attributes' => $cached['attributes'],
+                'headers'    => $cached['request_headers'],
+                'body'       => $cached['request_body'],
             ],
             'response'             => $response,
             'response_status_code' => $cached['response_status_code'],

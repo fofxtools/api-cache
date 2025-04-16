@@ -132,8 +132,8 @@ class ScraperApiClient extends BaseApiClient
      * @param bool        $autoparse        Whether to automatically parse JSON responses
      * @param string|null $outputFormat     The output format (e.g. 'llm', 'json', etc.)
      * @param array       $additionalParams Additional parameters to pass to the API
-     * @param int|null    $amount           Amount to pass to incrementAttempts
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param int|null    $amount           Amount to pass to incrementAttempts
      *
      * @return array The API response data
      */
@@ -142,8 +142,8 @@ class ScraperApiClient extends BaseApiClient
         bool $autoparse = false,
         ?string $outputFormat = null,
         array $additionalParams = [],
-        ?int $amount = null,
-        ?string $attributes = null
+        ?string $attributes = null,
+        ?int $amount = null
     ): array {
         Log::debug('Making ScraperAPI request', [
             'url'           => $url,
@@ -179,6 +179,6 @@ class ScraperApiClient extends BaseApiClient
             $attributes = extract_registrable_domain($url);
         }
 
-        return $this->sendCachedRequest('', $params, 'GET', $credits, $attributes);
+        return $this->sendCachedRequest('', $params, 'GET', $attributes, $credits);
     }
 }

@@ -132,7 +132,7 @@ class DemoApiClientTest extends TestCase
                 $capturedArgs = $args;
             });
 
-        $result = $this->client->predictions($query, $maxResults, [], $amount, $attributes);
+        $result = $this->client->predictions($query, $maxResults, [], $attributes, $amount);
 
         $this->assertEquals(200, $result['response']->status());
         $responseData = json_decode($result['response']->body(), true);
@@ -177,7 +177,7 @@ class DemoApiClientTest extends TestCase
                 $capturedArgs = $args;
             });
 
-        $result = $this->client->reports($reportType, $dataSource, [], $amount, $attributes);
+        $result = $this->client->reports($reportType, $dataSource, [], $attributes, $amount);
 
         $this->assertEquals(200, $result['response']->status());
         $responseData = json_decode($result['response']->body(), true);

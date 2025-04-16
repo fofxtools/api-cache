@@ -38,8 +38,8 @@ class OpenRouterApiClient extends BaseApiClient
      * @param float       $temperature      Controls randomness (0-2, higher is more random)
      * @param float       $topP             Controls diversity via nucleus sampling (0-1)
      * @param array       $additionalParams Additional parameters to include in the request
-     * @param int         $amount           Amount to pass to incrementAttempts
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
      *
      * @return array The API response data
      */
@@ -51,8 +51,8 @@ class OpenRouterApiClient extends BaseApiClient
         float $temperature = 1.0,
         float $topP = 1.0,
         array $additionalParams = [],
-        int $amount = 1,
-        ?string $attributes = null
+        ?string $attributes = null,
+        int $amount = 1
     ): array {
         Log::debug('Making OpenRouter completions request', [
             'model'       => $model,
@@ -71,7 +71,7 @@ class OpenRouterApiClient extends BaseApiClient
             'top_p'       => $topP,
         ]);
 
-        return $this->sendCachedRequest('completions', $params, 'POST', $amount, $attributes);
+        return $this->sendCachedRequest('completions', $params, 'POST', $attributes, $amount);
     }
 
     /**
@@ -84,8 +84,8 @@ class OpenRouterApiClient extends BaseApiClient
      * @param float        $temperature         Controls randomness (0-2, higher is more random)
      * @param float        $topP                Controls diversity via nucleus sampling (0-1)
      * @param array        $additionalParams    Additional parameters to include in the request
-     * @param int          $amount              Amount to pass to incrementAttempts
      * @param string|null  $attributes          Optional attributes to store with the cache entry
+     * @param int          $amount              Amount to pass to incrementAttempts
      *
      * @throws \InvalidArgumentException When messages are not properly formatted
      *
@@ -99,8 +99,8 @@ class OpenRouterApiClient extends BaseApiClient
         float $temperature = 1.0,
         float $topP = 1.0,
         array $additionalParams = [],
-        int $amount = 1,
-        ?string $attributes = null
+        ?string $attributes = null,
+        int $amount = 1
     ): array {
         // If messages is a string, assume it is a prompt and wrap it in an array of messages
         if (is_string($messages)) {
@@ -139,6 +139,6 @@ class OpenRouterApiClient extends BaseApiClient
             $params['max_completion_tokens'] = $maxCompletionTokens;
         }
 
-        return $this->sendCachedRequest('chat/completions', $params, 'POST', $amount, $attributes);
+        return $this->sendCachedRequest('chat/completions', $params, 'POST', $attributes, $amount);
     }
 }

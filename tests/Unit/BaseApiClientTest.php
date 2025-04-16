@@ -382,6 +382,7 @@ class BaseApiClientTest extends TestCase
     {
         $originalAmount = 10;
         $amount         = 5;
+        $attributes     = 'test-attributes';
 
         $this->cacheManager->shouldReceive('generateCacheKey')
             ->once()
@@ -416,13 +417,13 @@ class BaseApiClientTest extends TestCase
 
         $this->cacheManager->shouldReceive('storeResponse')
             ->once()
-            ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version, null, null)
+            ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version, null, $attributes)
             ->andReturn(true);
 
         // Get remaining attempts before
         $beforeAttempts = $this->cacheManager->getRemainingAttempts($this->clientName);
 
-        $result = $this->client->sendCachedRequest('predictions', ['query' => 'test'], 'GET', $amount);
+        $result = $this->client->sendCachedRequest('predictions', ['query' => 'test'], 'GET', $attributes, $amount);
 
         // Get remaining attempts after
         $afterAttempts = $this->cacheManager->getRemainingAttempts($this->clientName);

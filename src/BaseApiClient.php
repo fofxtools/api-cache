@@ -398,8 +398,8 @@ class BaseApiClient
      * @param string      $endpoint   API endpoint to call
      * @param array       $params     Request parameters
      * @param string      $method     HTTP method (GET, POST, etc.)
-     * @param int         $amount     Amount to pass to incrementAttempts
      * @param string|null $attributes Additional attributes to store with the response
+     * @param int         $amount     Amount to pass to incrementAttempts
      *
      * @throws RateLimitException        When rate limit is exceeded. Or when cache manager is not initialized.
      * @throws \JsonException            When cache key generation fails
@@ -407,7 +407,7 @@ class BaseApiClient
      *
      * @return array API response data
      */
-    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', int $amount = 1, ?string $attributes = null): array
+    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, int $amount = 1): array
     {
         // Make sure $this->cacheManager is not null
         if ($this->cacheManager === null) {

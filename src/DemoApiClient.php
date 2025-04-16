@@ -34,8 +34,8 @@ class DemoApiClient extends BaseApiClient
      * @param string      $query            The search query
      * @param int         $maxResults       Maximum number of results to return
      * @param array       $additionalParams Additional parameters to include in the request
-     * @param int         $amount           Amount to pass to incrementAttempts
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
      *
      * @return array API response data
      */
@@ -43,8 +43,8 @@ class DemoApiClient extends BaseApiClient
         string $query,
         int $maxResults = 10,
         array $additionalParams = [],
-        int $amount = 1,
-        ?string $attributes = null
+        ?string $attributes = null,
+        int $amount = 1
     ): array {
         Log::debug('Making predictions request', [
             'client'     => $this->clientName,
@@ -57,7 +57,7 @@ class DemoApiClient extends BaseApiClient
             'max_results' => $maxResults,
         ]);
 
-        return $this->sendCachedRequest('predictions', $params, 'GET', $amount, $attributes);
+        return $this->sendCachedRequest('predictions', $params, 'GET', $attributes, $amount);
     }
 
     /**
@@ -66,8 +66,8 @@ class DemoApiClient extends BaseApiClient
      * @param string      $reportType       Type of reports to generate
      * @param string      $dataSource       Source of data for the reports
      * @param array       $additionalParams Additional parameters to include in the request
-     * @param int         $amount           Amount to pass to incrementAttempts
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
      *
      * @return array API response data
      */
@@ -75,8 +75,8 @@ class DemoApiClient extends BaseApiClient
         string $reportType,
         string $dataSource,
         array $additionalParams = [],
-        int $amount = 1,
-        ?string $attributes = null
+        ?string $attributes = null,
+        int $amount = 1
     ): array {
         Log::debug('Making reports request', [
             'client'     => $this->clientName,
@@ -89,6 +89,6 @@ class DemoApiClient extends BaseApiClient
             'data_source' => $dataSource,
         ]);
 
-        return $this->sendCachedRequest('reports', $params, 'POST', $amount, $attributes);
+        return $this->sendCachedRequest('reports', $params, 'POST', $attributes, $amount);
     }
 }

@@ -78,7 +78,7 @@ class OpenRouterApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenRouterApiClient();
         $this->client->clearRateLimit();
 
@@ -134,7 +134,7 @@ class OpenRouterApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenRouterApiClient();
         $this->client->clearRateLimit();
 
@@ -190,7 +190,7 @@ class OpenRouterApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenRouterApiClient();
         $this->client->clearRateLimit();
 
@@ -239,7 +239,7 @@ class OpenRouterApiClientTest extends TestCase
                 ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenRouterApiClient();
         $this->client->clearRateLimit();
 
@@ -268,7 +268,7 @@ class OpenRouterApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenRouterApiClient();
         $this->client->clearRateLimit();
 
@@ -291,7 +291,7 @@ class OpenRouterApiClientTest extends TestCase
             ], 401),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenRouterApiClient();
         $this->client->clearRateLimit();
 

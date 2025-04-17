@@ -85,7 +85,7 @@ class OpenAIApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenAIApiClient();
         $this->client->clearRateLimit();
 
@@ -139,7 +139,7 @@ class OpenAIApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenAIApiClient();
         $this->client->clearRateLimit();
 
@@ -193,7 +193,7 @@ class OpenAIApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenAIApiClient();
         $this->client->clearRateLimit();
 
@@ -243,7 +243,7 @@ class OpenAIApiClientTest extends TestCase
                 ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenAIApiClient();
         $this->client->clearRateLimit();
 
@@ -272,7 +272,7 @@ class OpenAIApiClientTest extends TestCase
             ], 200),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenAIApiClient();
         $this->client->clearRateLimit();
 
@@ -295,7 +295,7 @@ class OpenAIApiClientTest extends TestCase
             ], 401),
         ]);
 
-        // Reinitialize client so that its HTTP pending request picks up the fake.
+        // Reinitialize client so that its HTTP pending request picks up the fake
         $this->client = new OpenAIApiClient();
         $this->client->clearRateLimit();
 

@@ -143,6 +143,11 @@ class PixabayApiClient extends BaseApiClient
         // Add additional parameters
         $params = array_merge($params, $additionalParams);
 
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $query;
+        }
+
         return $this->sendCachedRequest('api', $params, 'GET', $attributes, $amount);
     }
 
@@ -224,6 +229,11 @@ class PixabayApiClient extends BaseApiClient
 
         // Add additional parameters
         $params = array_merge($params, $additionalParams);
+
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $query;
+        }
 
         return $this->sendCachedRequest('api/videos', $params, 'GET', $attributes, $amount);
     }

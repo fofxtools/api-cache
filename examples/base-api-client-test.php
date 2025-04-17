@@ -9,7 +9,7 @@ require_once __DIR__ . '/bootstrap.php';
 // Test client configuration
 $clientName = 'demo';
 config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 3);
-config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 5);
+config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 60);
 config()->set("api-cache.apis.{$clientName}.compression_enabled", false);
 
 // Create response tables for the test client

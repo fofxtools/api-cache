@@ -71,6 +71,11 @@ class OpenAIApiClient extends BaseApiClient
             'top_p'       => $topP,
         ]);
 
+        // Pass the prompt as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $prompt;
+        }
+
         return $this->sendCachedRequest('completions', $params, 'POST', $attributes, $amount);
     }
 
@@ -137,6 +142,11 @@ class OpenAIApiClient extends BaseApiClient
 
         if ($maxCompletionTokens !== null) {
             $params['max_completion_tokens'] = $maxCompletionTokens;
+        }
+
+        // Pass the messages as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = json_encode($messages);
         }
 
         return $this->sendCachedRequest('chat/completions', $params, 'POST', $attributes, $amount);

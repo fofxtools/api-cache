@@ -239,6 +239,18 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals($this->apiBaseUrl . '/predictions', $url);
     }
 
+    public function test_builds_url_with_path_suffix(): void
+    {
+        $url = $this->client->buildUrl('predictions', 'details');
+        $this->assertEquals($this->apiBaseUrl . '/predictions/details', $url);
+    }
+
+    public function test_builds_url_with_path_suffix_leading_slash(): void
+    {
+        $url = $this->client->buildUrl('predictions', '/details');
+        $this->assertEquals($this->apiBaseUrl . '/predictions/details', $url);
+    }
+
     public function test_sendRequest_makes_real_http_call(): void
     {
         $result = $this->client->sendRequest('predictions', ['query' => 'test']);

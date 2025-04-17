@@ -22,7 +22,7 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
     // Test client configuration
     $clientName = 'openrouter';
     config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 5);
-    config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 10);
+    config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 60);
     config()->set("api-cache.apis.{$clientName}.compression_enabled", $compressionEnabled);
 
     // Create response tables for the test client

@@ -103,5 +103,20 @@ return [
             'rate_limit_max_attempts'  => env('SCRAPERAPI_RATE_LIMIT_MAX_ATTEMPTS', 1000),
             'rate_limit_decay_seconds' => env('SCRAPERAPI_RATE_LIMIT_DECAY_SECONDS', 2592000),
         ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Jina AI API
+        |--------------------------------------------------------------------------
+        */
+        'jina' => [
+            'api_key'                  => env('JINA_API_KEY', null),
+            'base_url'                 => env('JINA_BASE_URL', 'https://r.jina.ai'),
+            'version'                  => env('JINA_VERSION', 'v1'),
+            'cache_ttl'                => env('JINA_CACHE_TTL', null),
+            'compression_enabled'      => env('JINA_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('JINA_RATE_LIMIT_MAX_ATTEMPTS', 200),
+            'rate_limit_decay_seconds' => env('JINA_RATE_LIMIT_DECAY_SECONDS', 60),
+        ],
     ],
 ];

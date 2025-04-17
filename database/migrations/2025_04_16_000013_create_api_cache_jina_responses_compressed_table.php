@@ -11,11 +11,11 @@ return new class () extends Migration {
     public function up(): void
     {
         $schema = Schema::connection($this->getConnection());
-        create_responses_table($schema, 'api_cache_scraperapi_responses_compressed', true);
+        create_responses_table($schema, 'api_cache_jina_responses_compressed', true);
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_scraperapi_responses_compressed');
+        Schema::dropIfExists('api_cache_jina_responses_compressed');
     }
 };

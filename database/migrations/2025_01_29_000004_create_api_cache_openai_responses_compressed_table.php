@@ -11,7 +11,7 @@ return new class () extends Migration {
     public function up(): void
     {
         $schema = Schema::connection($this->getConnection());
-        create_responses_table($schema, 'api_cache_openai_responses_compressed', false);
+        create_responses_table($schema, 'api_cache_openai_responses_compressed', true);
     }
 
     public function down(): void

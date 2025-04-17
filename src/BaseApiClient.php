@@ -279,13 +279,18 @@ class BaseApiClient
     /**
      * Builds the full URL for an endpoint. Will be WSL aware if enabled.
      *
-     * @param string $endpoint The API endpoint (with or without leading slash)
+     * @param string      $endpoint   The API endpoint (with or without leading slash)
+     * @param string|null $pathSuffix Optional path suffix to append to the URL
      *
      * @return string The complete URL
      */
-    public function buildUrl(string $endpoint): string
+    public function buildUrl(string $endpoint, ?string $pathSuffix = null): string
     {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
+
+        if ($pathSuffix !== null) {
+            $url .= '/' . ltrim($pathSuffix, '/');
+        }
 
         if ($this->wslEnabled) {
             $url = Helper\wsl_url($url);
@@ -294,6 +299,7 @@ class BaseApiClient
         Log::debug('Built URL for API request', [
             'client'      => $this->clientName,
             'endpoint'    => $endpoint,
+            'path_suffix' => $pathSuffix,
             'base_url'    => $this->baseUrl,
             'url'         => $url,
             'wsl_enabled' => $this->wslEnabled,

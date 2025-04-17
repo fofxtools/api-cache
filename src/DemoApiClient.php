@@ -57,6 +57,11 @@ class DemoApiClient extends BaseApiClient
             'max_results' => $maxResults,
         ]);
 
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $query;
+        }
+
         return $this->sendCachedRequest('predictions', $params, 'GET', $attributes, $amount);
     }
 
@@ -88,6 +93,11 @@ class DemoApiClient extends BaseApiClient
             'report_type' => $reportType,
             'data_source' => $dataSource,
         ]);
+
+        // Pass the report type and data source as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $reportType . ':' . $dataSource;
+        }
 
         return $this->sendCachedRequest('reports', $params, 'POST', $attributes, $amount);
     }

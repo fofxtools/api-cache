@@ -99,6 +99,7 @@ class OpenRouterApiClientTest extends TestCase
                    $request['max_tokens'] === 50;
         });
 
+        // Make sure we used the Http::fake() response
         $body = $response['response']->json();
         $this->assertEquals('gen-test', $body['id']);
         $this->assertEquals('The answer is 4', $body['choices'][0]['text']);
@@ -155,6 +156,7 @@ class OpenRouterApiClientTest extends TestCase
                    $request['model'] === 'google/gemini-2.0-pro-exp-02-05:free';
         });
 
+        // Make sure we used the Http::fake() response
         $body = $response['response']->json();
         $this->assertEquals('gen-test', $body['id']);
         $this->assertEquals('The meaning of life is a philosophical question...', $body['choices'][0]['message']['content']);
@@ -209,6 +211,7 @@ class OpenRouterApiClientTest extends TestCase
                    $request['messages'] === $messages;
         });
 
+        // Make sure we used the Http::fake() response
         $body = $response['response']->json();
         $this->assertEquals('They beat the Tampa Bay Rays.', $body['choices'][0]['message']['content']);
     }
@@ -257,6 +260,10 @@ class OpenRouterApiClientTest extends TestCase
         $body2 = $response2['response']->json();
         $this->assertEquals($body1['id'], $body2['id']);
         $this->assertEquals($body1['choices'], $body2['choices']);
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals('gen-test-1', $body1['id']);
+        $this->assertEquals('gen-test-1', $body2['id']);
     }
 
     public function test_enforces_rate_limits()
@@ -276,7 +283,12 @@ class OpenRouterApiClientTest extends TestCase
         $this->expectException(RateLimitException::class);
 
         for ($i = 0; $i <= 5; $i++) {
-            $this->client->completions("Test {$i}");
+            $result = $this->client->completions("Test {$i}");
+
+            // Make sure we used the Http::fake() response
+            $body = $result['response']->json();
+            $this->assertEquals('gen-test', $body['id']);
+            $this->assertEquals('Test response', $body['choices'][0]['text']);
         }
     }
 
@@ -297,6 +309,7 @@ class OpenRouterApiClientTest extends TestCase
 
         $response = $this->client->completions('Test prompt');
 
+        // Make sure we used the Http::fake() response
         $this->assertEquals(401, $response['response']->status());
         $error = $response['response']->json('error');
         $this->assertEquals('Invalid API key', $error['message']);

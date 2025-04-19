@@ -72,6 +72,7 @@ Homestead.yaml
 auth.json
 
 # Custom Output Files
-/*repopack-output.txt
+/*repopack-output.*
+/*repomix-output.*
 /phpunit.txt
 /phpstan.txt

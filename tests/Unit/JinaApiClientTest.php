@@ -171,6 +171,10 @@ class JinaApiClientTest extends TestCase
         $this->assertEquals(200, $result['response_status_code']);
         $this->assertStringContainsString('relevance_score', $result['response']->body());
         $this->assertFalse($result['is_cached']);
+
+        // Make sure we used the Http::fake() response
+        $responseData = json_decode($result['response']->body(), true);
+        $this->assertEquals(0.87, $responseData['data']['results'][0]['relevance_score']);
     }
 
     public function test_caches_responses(): void
@@ -204,6 +208,10 @@ class JinaApiClientTest extends TestCase
         $this->assertEquals(200, $response2['response_status_code']);
         $this->assertFalse($response1['is_cached']);
         $this->assertTrue($response2['is_cached']);
+
+        // Make sure we used the Http::fake() response
+        $responseData1 = json_decode($response1['response']->body(), true);
+        $this->assertEquals('Laravel content', $responseData1['data']['content']);
     }
 
     public function test_enforces_rate_limits(): void
@@ -230,7 +238,11 @@ class JinaApiClientTest extends TestCase
         $this->expectException(RateLimitException::class);
 
         for ($i = 0; $i <= 5; $i++) {
-            $this->client->rerank('test', ['doc']);
+            $result = $this->client->rerank('test', ['doc']);
+
+            // Make sure we used the Http::fake() response
+            $responseData = json_decode($result['response']->body(), true);
+            $this->assertEquals(0.87, $responseData['data']['results'][0]['relevance_score']);
         }
     }
 }

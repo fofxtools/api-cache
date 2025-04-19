@@ -98,7 +98,7 @@ function create_responses_table(
             $table->string('version')->nullable();
             $table->string('endpoint')->nullable();
             $table->string('base_url')->nullable();
-            $table->string('full_url')->nullable();
+            $table->text('full_url')->nullable();
             $table->string('method')->nullable();
             $table->string('attributes')->nullable();
             $table->json('request_params_summary')->nullable();

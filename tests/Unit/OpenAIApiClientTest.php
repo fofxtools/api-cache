@@ -106,6 +106,7 @@ class OpenAIApiClientTest extends TestCase
                    $request['max_tokens'] === 16;
         });
 
+        // Make sure we used the Http::fake() response
         $body = $response['response']->json();
         $this->assertEquals('cmpl-test', $body['id']);
         $this->assertEquals("\n\n2+2=4", $body['choices'][0]['text']);
@@ -160,6 +161,7 @@ class OpenAIApiClientTest extends TestCase
                    $request['model'] === 'gpt-4o-mini';
         });
 
+        // Make sure we used the Http::fake() response
         $body = $response['response']->json();
         $this->assertEquals('chatcmpl-test', $body['id']);
         $this->assertEquals('The meaning of life is a philosophical question...', $body['choices'][0]['message']['content']);
@@ -212,6 +214,7 @@ class OpenAIApiClientTest extends TestCase
                    $request['messages'] === $messages;
         });
 
+        // Make sure we used the Http::fake() response
         $body = $response['response']->json();
         $this->assertEquals('The Los Angeles Dodgers defeated the Tampa Bay Rays.', $body['choices'][0]['message']['content']);
     }
@@ -231,6 +234,7 @@ class OpenAIApiClientTest extends TestCase
 
     public function test_caches_responses()
     {
+        // The second response should not be used, as the first response is cached
         Http::fake([
             "{$this->apiBaseUrl}/completions" => Http::sequence()
                 ->push([
@@ -256,7 +260,7 @@ class OpenAIApiClientTest extends TestCase
         // Verify only one HTTP request was made
         Http::assertSentCount(1);
 
-        // Both responses should be identical
+        // Both responses should be identical as only the first response was used
         $body1 = $response1['response']->json();
         $body2 = $response2['response']->json();
         $this->assertEquals($body1['id'], $body2['id']);
@@ -280,7 +284,12 @@ class OpenAIApiClientTest extends TestCase
         $this->expectException(RateLimitException::class);
 
         for ($i = 0; $i <= 5; $i++) {
-            $this->client->completions("Test {$i}");
+            $result = $this->client->completions("Test {$i}");
+
+            // Make sure we used the Http::fake() response
+            $body = $result['response']->json();
+            $this->assertEquals('cmpl-test', $body['id']);
+            $this->assertEquals('Test response', $body['choices'][0]['text']);
         }
     }
 
@@ -301,7 +310,7 @@ class OpenAIApiClientTest extends TestCase
 
         $response = $this->client->completions('Test prompt');
 
-        // Assert that we got the error response
+        // Make sure we used the Http::fake() response
         $this->assertEquals(401, $response['response']->status());
         $error = $response['response']->json('error');
         $this->assertEquals('Invalid API key', $error['message']);

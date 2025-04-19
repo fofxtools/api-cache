@@ -118,5 +118,21 @@ return [
             'rate_limit_max_attempts'  => env('JINA_RATE_LIMIT_MAX_ATTEMPTS', 200),
             'rate_limit_decay_seconds' => env('JINA_RATE_LIMIT_DECAY_SECONDS', 60),
         ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | YouTube API
+        |--------------------------------------------------------------------------
+        */
+        'youtube' => [
+            'api_key'                  => env('YOUTUBE_API_KEY', null),
+            'base_url'                 => env('YOUTUBE_BASE_URL', 'https://www.googleapis.com/youtube/v3'),
+            'version'                  => env('YOUTUBE_VERSION', 'v3'),
+            'cache_ttl'                => env('YOUTUBE_CACHE_TTL', null),
+            'compression_enabled'      => env('YOUTUBE_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('YOUTUBE_RATE_LIMIT_MAX_ATTEMPTS', 10000),
+            'rate_limit_decay_seconds' => env('YOUTUBE_RATE_LIMIT_DECAY_SECONDS', 86400),
+            'video_parts'              => env('YOUTUBE_VIDEO_PARTS', 'contentDetails,fileDetails,id,liveStreamingDetails,localizations,paidProductPlacementDetails,player,processingDetails,recordingDetails,snippet,statistics,status,suggestions,topicDetails'),
+        ],
     ],
 ];

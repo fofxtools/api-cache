@@ -31,9 +31,7 @@ class PixabayApiClient extends BaseApiClient
     }
 
     /**
-     * Get authentication headers for the API request
-     *
-     * Pixabay API doesn't use Bearer token authentication
+     * Override parent method since Pixabay API doesn't use Bearer token authentication
      *
      * @return array Authentication headers
      */
@@ -43,9 +41,7 @@ class PixabayApiClient extends BaseApiClient
     }
 
     /**
-     * Get authentication parameters for the API request
-     *
-     * Pixabay API uses query parameter authentication with 'key' parameter
+     * Override parent method since Pixabay API uses query parameter authentication with 'key' parameter
      *
      * @return array Authentication parameters
      */

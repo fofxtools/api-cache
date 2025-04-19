@@ -129,6 +129,8 @@ class PixabayApiClientTest extends TestCase
         $this->assertArrayHasKey('total', $responseData);
         $this->assertArrayHasKey('totalHits', $responseData);
         $this->assertArrayHasKey('hits', $responseData);
+
+        // Make sure we used the Http::fake() response
         $this->assertEquals(334263, $responseData['total']);
         $this->assertEquals(500, $responseData['totalHits']);
         $this->assertCount(1, $responseData['hits']);
@@ -173,6 +175,10 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(200, $response2['response_status_code']);
         $this->assertTrue($response2['is_cached']);
 
+        // Make sure we used the Http::fake() response
+        $responseData1 = $response1['response']->json();
+        $this->assertEquals(50, $responseData1['totalHits']);
+
         // Only one request should have been made
         Http::assertSentCount(1);
     }
@@ -195,7 +201,11 @@ class PixabayApiClientTest extends TestCase
 
         // Make requests until rate limit is exceeded
         for ($i = 0; $i <= 5; $i++) {
-            $this->client->searchImages("test {$i}");
+            $result = $this->client->searchImages("test {$i}");
+
+            // Make sure we used the Http::fake() response
+            $responseData = $result['response']->json();
+            $this->assertEquals(100, $responseData['total']);
         }
     }
 
@@ -213,6 +223,7 @@ class PixabayApiClientTest extends TestCase
 
         $response = $this->client->searchImages('test');
 
+        // Make sure we used the Http::fake() response
         $this->assertEquals(400, $response['response']->status());
         $this->assertEquals('Invalid API key', $response['response']->json()['error']);
     }
@@ -247,6 +258,7 @@ class PixabayApiClientTest extends TestCase
             50
         );
 
+        // Make sure we used the Http::fake() response
         Http::assertSent(function ($request) {
             parse_str(parse_url($request->url(), PHP_URL_QUERY), $query);
 
@@ -475,7 +487,7 @@ class PixabayApiClientTest extends TestCase
         // Assert
         $this->assertEquals(1, $downloadedCount);
 
-        // Verify database
+        // Verify database has the Http::fake() response $imageData
         $this->assertDatabaseHas('api_cache_pixabay_images', [
             'id'                    => $imageId,
             'file_contents_preview' => $imageData,
@@ -514,7 +526,7 @@ class PixabayApiClientTest extends TestCase
         // Assert
         $this->assertEquals(1, $downloadedCount);
 
-        // Verify database
+        // Verify database has the Http::fake() response $imageData
         $this->assertDatabaseHas('api_cache_pixabay_images', [
             'id'                      => $imageId,
             'file_contents_webformat' => $imageData,
@@ -557,7 +569,7 @@ class PixabayApiClientTest extends TestCase
         // Assert
         $this->assertEquals(3, $downloadedCount);
 
-        // Verify database
+        // Verify database has the Http::fake() responses
         $this->assertDatabaseHas('api_cache_pixabay_images', [
             'id'                       => $imageId,
             'file_contents_preview'    => 'preview data',
@@ -630,7 +642,7 @@ class PixabayApiClientTest extends TestCase
         // Assert
         $this->assertEquals(2, $downloadedCount);
 
-        // Verify database
+        // Verify database has the Http::fake() responses
         $this->assertDatabaseHas('api_cache_pixabay_images', [
             'id'                       => $imageId,
             'file_contents_preview'    => 'already downloaded',

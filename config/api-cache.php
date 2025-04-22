@@ -132,7 +132,22 @@ return [
             'compression_enabled'      => env('YOUTUBE_COMPRESSION_ENABLED', false),
             'rate_limit_max_attempts'  => env('YOUTUBE_RATE_LIMIT_MAX_ATTEMPTS', 10000),
             'rate_limit_decay_seconds' => env('YOUTUBE_RATE_LIMIT_DECAY_SECONDS', 86400),
-            'video_parts'              => env('YOUTUBE_VIDEO_PARTS', 'contentDetails,fileDetails,id,liveStreamingDetails,localizations,paidProductPlacementDetails,player,processingDetails,recordingDetails,snippet,statistics,status,suggestions,topicDetails'),
+            'video_parts'              => env('YOUTUBE_VIDEO_PARTS', 'contentDetails,id,liveStreamingDetails,localizations,paidProductPlacementDetails,player,recordingDetails,snippet,statistics,status,topicDetails'),
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | OpenPageRank API
+        |--------------------------------------------------------------------------
+        */
+        'openpagerank' => [
+            'api_key'                  => env('OPENPAGERANK_API_KEY', null),
+            'base_url'                 => env('OPENPAGERANK_BASE_URL', 'https://openpagerank.com/api/v1.0'),
+            'version'                  => env('OPENPAGERANK_VERSION', null),
+            'cache_ttl'                => env('OPENPAGERANK_CACHE_TTL', null),
+            'compression_enabled'      => env('OPENPAGERANK_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('OPENPAGERANK_RATE_LIMIT_MAX_ATTEMPTS', 10000),
+            'rate_limit_decay_seconds' => env('OPENPAGERANK_RATE_LIMIT_DECAY_SECONDS', 3600),
         ],
     ],
 ];

@@ -23,6 +23,9 @@ config.*.php
 # Storage Folders
 /storage/
 
+# IDE and Editor Files
+.cursorrules
+
 # IDE and Editor Folders
 /.cursor/
 /.fleet/

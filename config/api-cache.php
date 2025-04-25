@@ -149,5 +149,20 @@ return [
             'rate_limit_max_attempts'  => env('OPENPAGERANK_RATE_LIMIT_MAX_ATTEMPTS', 10000),
             'rate_limit_decay_seconds' => env('OPENPAGERANK_RATE_LIMIT_DECAY_SECONDS', 3600),
         ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Scrapingdog API
+        |--------------------------------------------------------------------------
+        */
+        'scrapingdog' => [
+            'api_key'                  => env('SCRAPINGDOG_API_KEY', null),
+            'base_url'                 => env('SCRAPINGDOG_BASE_URL', 'https://api.scrapingdog.com'),
+            'version'                  => env('SCRAPINGDOG_VERSION', null),
+            'cache_ttl'                => env('SCRAPINGDOG_CACHE_TTL', null),
+            'compression_enabled'      => env('SCRAPINGDOG_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('SCRAPINGDOG_RATE_LIMIT_MAX_ATTEMPTS', 1000),
+            'rate_limit_decay_seconds' => env('SCRAPINGDOG_RATE_LIMIT_DECAY_SECONDS', 86400),
+        ],
     ],
 ];

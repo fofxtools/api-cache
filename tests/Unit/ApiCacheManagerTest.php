@@ -185,6 +185,7 @@ class ApiCacheManagerTest extends TestCase
                     'full_url'               => 'https://api.test/endpoint',
                     'method'                 => 'GET',
                     'attributes'             => null,
+                    'credits'                => null,
                     'request_params_summary' => summarize_params($params),
                     'request_headers'        => $requestHeaders,
                     'request_body'           => '{"query":"test"}',

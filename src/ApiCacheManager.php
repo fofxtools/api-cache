@@ -119,6 +119,7 @@ class ApiCacheManager
      * @param string|null $version    API version
      * @param int|null    $ttl        Cache TTL in seconds
      * @param string|null $attributes Additional attributes to store with the response
+     * @param int|null    $credits    Number of credits used for the request
      */
     public function storeResponse(
         string $clientName,
@@ -128,7 +129,8 @@ class ApiCacheManager
         string $endpoint,
         ?string $version = null,
         ?int $ttl = null,
-        ?string $attributes = null
+        ?string $attributes = null,
+        ?int $credits = null
     ): void {
         // Use default TTL from config if not provided
         if ($ttl === null) {
@@ -145,6 +147,7 @@ class ApiCacheManager
             'full_url'               => $apiResult['request']['full_url'],
             'method'                 => $apiResult['request']['method'],
             'attributes'             => $attributes,
+            'credits'                => $credits,
             'request_params_summary' => summarize_params($params),
             'request_headers'        => $apiResult['request']['headers'],
             'request_body'           => $apiResult['request']['body'],
@@ -195,6 +198,7 @@ class ApiCacheManager
                 'full_url'   => $cached['full_url'],
                 'method'     => $cached['method'],
                 'attributes' => $cached['attributes'],
+                'credits'    => $cached['credits'],
                 'headers'    => $cached['request_headers'],
                 'body'       => $cached['request_body'],
             ],

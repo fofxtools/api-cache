@@ -62,7 +62,7 @@ class ScraperApiClient extends BaseApiClient
      *
      * @return int Number of credits required
      */
-    protected function calculateCredits(string $url, array $additionalParams = []): int
+    public function calculateCredits(string $url, array $additionalParams = []): int
     {
         // Use php-domain-parser to get the registrable domain
         $registrableDomain = extract_registrable_domain($url);

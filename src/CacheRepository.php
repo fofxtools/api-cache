@@ -81,18 +81,25 @@ class CacheRepository
     /**
      * Prepare headers for storage (headers are always an array)
      *
-     * @param string     $clientName Client name
-     * @param array|null $headers    HTTP headers array
+     * @param string      $clientName Client name
+     * @param array|null  $headers    HTTP headers array
+     * @param string|null $context    Context of the headers
      *
      * @throws \JsonException When JSON encoding fails
      *
      * @return string|null JSON encoded and optionally compressed headers
      */
-    public function prepareHeaders(string $clientName, ?array $headers): ?string
+    public function prepareHeaders(string $clientName, ?array $headers, ?string $context = null): ?string
     {
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
-        Log::debug('Preparing headers', [
+        if ($context !== null) {
+            $appendString = ' (' . $context . ')';
+        } else {
+            $appendString = '';
+        }
+
+        Log::debug('Preparing headers' . $appendString, [
             'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
         ]);
@@ -126,17 +133,24 @@ class CacheRepository
      *
      * @param string      $clientName Client name
      * @param string|null $data       Stored HTTP headers data
+     * @param string|null $context    Context of the headers
      *
      * @throws \JsonException    When JSON decoding fails
      * @throws \RuntimeException When decoded value is not an array
      *
      * @return array|null Decoded headers array
      */
-    public function retrieveHeaders(string $clientName, ?string $data): ?array
+    public function retrieveHeaders(string $clientName, ?string $data, ?string $context = null): ?array
     {
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
-        Log::debug('Retrieving headers', [
+        if ($context !== null) {
+            $appendString = ' (' . $context . ')';
+        } else {
+            $appendString = '';
+        }
+
+        Log::debug('Retrieving headers' . $appendString, [
             'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
         ]);
@@ -183,14 +197,21 @@ class CacheRepository
      *
      * @param string      $clientName Client name
      * @param string|null $body       Raw body content
+     * @param string|null $context    Context of the body
      *
      * @return string|null Optionally compressed body
      */
-    public function prepareBody(string $clientName, ?string $body): ?string
+    public function prepareBody(string $clientName, ?string $body, ?string $context = null): ?string
     {
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
-        Log::debug('Preparing body', [
+        if ($context !== null) {
+            $appendString = ' (' . $context . ')';
+        } else {
+            $appendString = '';
+        }
+
+        Log::debug('Preparing body' . $appendString, [
             'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
             'body_length'         => strlen($body ?? ''),
@@ -212,14 +233,21 @@ class CacheRepository
      *
      * @param string      $clientName Client name
      * @param string|null $data       Stored body data
+     * @param string|null $context    Context of the body
      *
      * @return string|null Raw body content
      */
-    public function retrieveBody(string $clientName, ?string $data): ?string
+    public function retrieveBody(string $clientName, ?string $data, ?string $context = null): ?string
     {
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
-        Log::debug('Retrieving body', [
+        if ($context !== null) {
+            $appendString = ' (' . $context . ')';
+        } else {
+            $appendString = '';
+        }
+
+        Log::debug('Retrieving body' . $appendString, [
             'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
             'body_length'         => strlen($data ?? ''),
@@ -287,6 +315,7 @@ class CacheRepository
             'full_url'               => null,
             'method'                 => null,
             'attributes'             => null,
+            'credits'                => null,
             'request_params_summary' => null,
             'request_headers'        => null,
             'request_body'           => null,
@@ -296,10 +325,10 @@ class CacheRepository
         ], $metadata);
 
         // Prepare data for storage
-        $preparedRequestHeaders  = $this->prepareHeaders($clientName, $metadata['request_headers']);
-        $preparedRequestBody     = $this->prepareBody($clientName, $metadata['request_body']);
-        $preparedResponseHeaders = $this->prepareHeaders($clientName, $metadata['response_headers']);
-        $preparedResponseBody    = $this->prepareBody($clientName, $metadata['response_body']);
+        $preparedRequestHeaders  = $this->prepareHeaders($clientName, $metadata['request_headers'], 'request');
+        $preparedRequestBody     = $this->prepareBody($clientName, $metadata['request_body'], 'request');
+        $preparedResponseHeaders = $this->prepareHeaders($clientName, $metadata['response_headers'], 'response');
+        $preparedResponseBody    = $this->prepareBody($clientName, $metadata['response_body'], 'response');
 
         // Add response size to metadata
         $metadata['response_size'] = strlen($preparedResponseBody);
@@ -313,6 +342,7 @@ class CacheRepository
             'full_url'               => $metadata['full_url'],
             'method'                 => $metadata['method'],
             'attributes'             => $metadata['attributes'],
+            'credits'                => $metadata['credits'],
             'request_params_summary' => $metadata['request_params_summary'],
             'request_headers'        => $preparedRequestHeaders,
             'request_body'           => $preparedRequestBody,
@@ -397,11 +427,12 @@ class CacheRepository
             'full_url'               => $data->full_url,
             'method'                 => $data->method,
             'attributes'             => $data->attributes,
+            'credits'                => $data->credits,
             'request_params_summary' => $data->request_params_summary,
-            'request_headers'        => $this->retrieveHeaders($clientName, $data->request_headers),
-            'request_body'           => $this->retrieveBody($clientName, $data->request_body),
-            'response_headers'       => $this->retrieveHeaders($clientName, $data->response_headers),
-            'response_body'          => $this->retrieveBody($clientName, $data->response_body),
+            'request_headers'        => $this->retrieveHeaders($clientName, $data->request_headers, 'request'),
+            'request_body'           => $this->retrieveBody($clientName, $data->request_body, 'request'),
+            'response_headers'       => $this->retrieveHeaders($clientName, $data->response_headers, 'response'),
+            'response_body'          => $this->retrieveBody($clientName, $data->response_body, 'response'),
             'response_status_code'   => $data->response_status_code,
             'response_size'          => $data->response_size,
             'response_time'          => $data->response_time,

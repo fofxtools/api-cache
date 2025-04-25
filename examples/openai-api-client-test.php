@@ -126,8 +126,10 @@ function runOpenAITests(bool $compressionEnabled, $verbose = true): void
         echo "Error testing caching: {$e->getMessage()}\n";
     }
 
-    // Test rate limiting
-    echo "\nTesting rate limiting...\n";
+    // Test rate limiting with caching disabled
+    echo "\nTesting rate limiting with caching disabled...\n";
+
+    $client->setUseCache(false);
 
     try {
         for ($i = 0; $i <= 5; $i++) {

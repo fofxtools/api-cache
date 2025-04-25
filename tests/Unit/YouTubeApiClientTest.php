@@ -10,6 +10,7 @@ use FOfX\ApiCache\RateLimitException;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Str;
 
 class YouTubeApiClientTest extends TestCase
 {
@@ -63,7 +64,7 @@ class YouTubeApiClientTest extends TestCase
 
         $result = $this->client->search('test');
         Http::assertSent(function ($request) {
-            return strpos($request->url(), $this->apiBaseUrl . '/search') === 0 && $request->method() === 'GET';
+            return Str::startsWith($request->url(), $this->apiBaseUrl . '/search') && $request->method() === 'GET';
         });
 
         // Make sure we used the Http::fake() response
@@ -92,7 +93,7 @@ class YouTubeApiClientTest extends TestCase
 
         $result = $this->client->videos('abc123');
         Http::assertSent(function ($request) {
-            return strpos($request->url(), $this->apiBaseUrl . '/videos') === 0 && $request->method() === 'GET';
+            return Str::startsWith($request->url(), $this->apiBaseUrl . '/videos') && $request->method() === 'GET';
         });
 
         // Make sure we used the Http::fake() response
@@ -121,7 +122,7 @@ class YouTubeApiClientTest extends TestCase
 
         $result = $this->client->videos(null, 'mostPopular');
         Http::assertSent(function ($request) {
-            return strpos($request->url(), $this->apiBaseUrl . '/videos') === 0 && $request->method() === 'GET';
+            return Str::startsWith($request->url(), $this->apiBaseUrl . '/videos') && $request->method() === 'GET';
         });
 
         // Make sure we used the Http::fake() response

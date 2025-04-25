@@ -317,9 +317,17 @@ class BaseApiClient
      * - Send HTTP request using Laravel's HTTP client
      * - Return response with timing data
      *
+     * @param string      $endpoint   API endpoint to call
+     * @param array       $params     Request parameters
+     * @param string      $method     HTTP method (GET, POST, etc.)
+     * @param string|null $attributes Additional attributes to store with the response
+     * @param int|null    $credits    Number of credits used for the request
+     *
      * @throws \InvalidArgumentException When HTTP method is not supported
+     *
+     * @return array API response data
      */
-    public function sendRequest(string $endpoint, array $params = [], string $method = 'GET'): array
+    public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
     {
         $url         = $this->buildUrl($endpoint);
         $startTime   = microtime(true);
@@ -377,7 +385,8 @@ class BaseApiClient
                 'base_url'   => $this->baseUrl,
                 'full_url'   => $requestData['url'],
                 'method'     => $requestData['method'],
-                'attributes' => null,
+                'attributes' => $attributes,
+                'credits'    => $credits,
                 'headers'    => $requestData['headers'],
                 'body'       => $requestData['body'],
             ],
@@ -443,7 +452,7 @@ class BaseApiClient
                 'method'   => $method,
             ]);
         } elseif ($cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey)) {
-            Log::debug('Cache hit', [
+            Log::debug('Cache used', [
                 'client'    => $this->clientName,
                 'endpoint'  => $endpoint,
                 'method'    => $method,
@@ -452,7 +461,7 @@ class BaseApiClient
 
             return $cached;
         } else {
-            Log::debug('Cache miss', [
+            Log::debug('Cache not used', [
                 'client'    => $this->clientName,
                 'endpoint'  => $endpoint,
                 'method'    => $method,
@@ -471,17 +480,17 @@ class BaseApiClient
             throw new RateLimitException($this->clientName, $availableIn);
         }
 
-        // Make the request
-        $apiResult = $this->sendRequest($endpoint, $params, $method);
-
-        // Increment attempts for the client to track rate limit usage
-        $this->cacheManager->incrementAttempts($this->clientName, $amount);
-
         // Get the TTL from the config
         $ttl = config("api-cache.apis.{$this->clientName}.cache_ttl");
 
         // Trim attributes to 255 characters if not null, for Laravel string column limit
         $trimmedAttributes = $attributes === null ? null : mb_substr($attributes, 0, 255);
+
+        // Make the request
+        $apiResult = $this->sendRequest($endpoint, $params, $method, $trimmedAttributes, $amount);
+
+        // Increment attempts for the client to track rate limit usage
+        $this->cacheManager->incrementAttempts($this->clientName, $amount);
 
         // Store in cache if response is successful
         if (!$this->useCache) {
@@ -499,7 +508,8 @@ class BaseApiClient
                 $endpoint,
                 $this->version,
                 $ttl,
-                $trimmedAttributes
+                $trimmedAttributes,
+                $amount
             );
             Log::debug('Cache stored', [
                 'client'    => $this->clientName,

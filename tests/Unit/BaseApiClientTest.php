@@ -429,7 +429,7 @@ class BaseApiClientTest extends TestCase
 
         $this->cacheManager->shouldReceive('storeResponse')
             ->once()
-            ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version, null, $attributes)
+            ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version, null, $attributes, $amount)
             ->andReturn(true);
 
         // Get remaining attempts before

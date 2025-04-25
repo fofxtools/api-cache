@@ -11,6 +11,7 @@ use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PixabayApiClientTest extends TestCase
 {
@@ -108,7 +109,7 @@ class PixabayApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             parse_str(parse_url($request->url(), PHP_URL_QUERY), $query);
 
-            return str_contains($request->url(), "{$this->apiBaseUrl}/api") &&
+            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/api") &&
                    $request->method() === 'GET' &&
                    $query['key'] === $this->apiKey &&
                    $query['q'] === 'yellow flowers' &&
@@ -262,7 +263,7 @@ class PixabayApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             parse_str(parse_url($request->url(), PHP_URL_QUERY), $query);
 
-            return str_contains($request->url(), "{$this->apiBaseUrl}/api") &&
+            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/api") &&
                    $request->method() === 'GET' &&
                    $query['lang'] === 'fr' &&
                    $query['image_type'] === 'photo' &&

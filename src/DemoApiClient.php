@@ -52,10 +52,14 @@ class DemoApiClient extends BaseApiClient
             'maxResults' => $maxResults,
         ]);
 
-        $params = array_merge($additionalParams, [
+        // Array of original parameters
+        $originalParams = [
             'query'       => $query,
             'max_results' => $maxResults,
-        ]);
+        ];
+
+        // Original parameters are passed after $additionalParams. This allows them to override $additionalParams in case of a conflict.
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the query as attributes if attributes is not provided
         if ($attributes === null) {
@@ -89,10 +93,14 @@ class DemoApiClient extends BaseApiClient
             'dataSource' => $dataSource,
         ]);
 
-        $params = array_merge($additionalParams, [
+        // Array of original parameters
+        $originalParams = [
             'report_type' => $reportType,
             'data_source' => $dataSource,
-        ]);
+        ];
+
+        // Original parameters are passed after $additionalParams. This allows them to override $additionalParams in case of a conflict.
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the report type and data source as attributes if attributes is not provided
         if ($attributes === null) {

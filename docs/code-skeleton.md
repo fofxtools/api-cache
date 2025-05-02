@@ -460,7 +460,7 @@ class BaseApiClient
 
 These child classes extend the BaseApiClient class and provide specific implementations for different APIs.
 
-In array_merge(), required parameters are passed after $additionalParams. This allows them to override $additionalParams
+In array_merge(), original parameters are passed after $additionalParams. This allows them to override $additionalParams
 in case of a conflict.
 
 ```php

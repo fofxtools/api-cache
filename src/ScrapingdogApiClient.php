@@ -164,56 +164,56 @@ class ScrapingdogApiClient extends BaseApiClient
             'super_proxy'      => $super_proxy,
         ]);
 
-        $params = [
+        $originalParams = [
             'url' => $url,
         ];
 
         if ($dynamic !== null) {
-            $params['dynamic'] = $dynamic;
+            $originalParams['dynamic'] = $dynamic;
         }
 
         if ($premium !== null) {
-            $params['premium'] = $premium;
+            $originalParams['premium'] = $premium;
         }
 
         if ($custom_headers !== null) {
-            $params['custom_headers'] = $custom_headers;
+            $originalParams['custom_headers'] = $custom_headers;
         }
 
         if ($wait !== null) {
-            $params['wait'] = $wait;
+            $originalParams['wait'] = $wait;
         }
 
         if ($country !== null) {
-            $params['country'] = $country;
+            $originalParams['country'] = $country;
         }
 
         if ($session_number !== null) {
-            $params['session_number'] = $session_number;
+            $originalParams['session_number'] = $session_number;
         }
 
         if ($image !== null) {
-            $params['image'] = $image;
+            $originalParams['image'] = $image;
         }
 
         if ($markdown !== null) {
-            $params['markdown'] = $markdown;
+            $originalParams['markdown'] = $markdown;
         }
 
         if ($ai_query !== null) {
-            $params['ai_query'] = $ai_query;
+            $originalParams['ai_query'] = $ai_query;
         }
 
         if ($ai_extract_rules !== null) {
-            $params['ai_extract_rules'] = json_encode($ai_extract_rules);
+            $originalParams['ai_extract_rules'] = json_encode($ai_extract_rules);
         }
 
         if ($super_proxy !== null) {
-            $params['super_proxy'] = $super_proxy;
+            $originalParams['super_proxy'] = $super_proxy;
         }
 
         // Add additional parameters
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Calculate credits required for this request if amount is not provided
         if ($amount === null) {

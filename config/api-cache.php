@@ -164,5 +164,26 @@ return [
             'rate_limit_max_attempts'  => env('SCRAPINGDOG_RATE_LIMIT_MAX_ATTEMPTS', 1000),
             'rate_limit_decay_seconds' => env('SCRAPINGDOG_RATE_LIMIT_DECAY_SECONDS', 86400),
         ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | DataForSEO API
+        |--------------------------------------------------------------------------
+        */
+        'dataforseo' => [
+            'api_key'                  => env('DATAFORSEO_API_KEY', null),
+            'base_url'                 => env('DATAFORSEO_BASE_URL', 'https://api.dataforseo.com/v3'),
+            'version'                  => env('DATAFORSEO_VERSION', 'v3'),
+            'cache_ttl'                => env('DATAFORSEO_CACHE_TTL', null),
+            'compression_enabled'      => env('DATAFORSEO_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('DATAFORSEO_RATE_LIMIT_MAX_ATTEMPTS', 2000),
+            'rate_limit_decay_seconds' => env('DATAFORSEO_RATE_LIMIT_DECAY_SECONDS', 60),
+            'DATAFORSEO_LOGIN'         => env('DATAFORSEO_LOGIN', null),
+            'DATAFORSEO_PASSWORD'      => env('DATAFORSEO_PASSWORD', null),
+            'timeoutForEachRequests'   => env('DATAFORSEO_TIMEOUT', 120),
+            'apiVersion'               => env('DATAFORSEO_API_VERSION', '/v3/'),
+            'url'                      => env('DATAFORSEO_BASE_URL', 'https://api.dataforseo.com'),
+            'extraEntitiesPaths'       => array_filter(explode(',', env('DATAFORSEO_EXTRA_ENTITIES_PATHS', ''))),
+        ],
     ],
 ];

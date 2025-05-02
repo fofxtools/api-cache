@@ -117,27 +117,42 @@ class PixabayApiClient extends BaseApiClient
             'pretty'         => $pretty,
         ]);
 
-        $params = [
-            'q'              => $query,
+        $originalParams = [
             'lang'           => $lang,
-            'id'             => $id,
             'image_type'     => $imageType,
             'orientation'    => $orientation,
-            'category'       => $category,
             'min_width'      => $minWidth,
             'min_height'     => $minHeight,
-            'colors'         => $colors,
             'editors_choice' => $editorsChoice,
             'safesearch'     => $safeSearch,
             'order'          => $order,
             'page'           => $page,
             'per_page'       => $perPage,
-            'callback'       => $callback,
             'pretty'         => $pretty,
         ];
 
+        if ($query !== null) {
+            $originalParams['q'] = $query;
+        }
+
+        if ($id !== null) {
+            $originalParams['id'] = $id;
+        }
+
+        if ($category !== null) {
+            $originalParams['category'] = $category;
+        }
+
+        if ($colors !== null) {
+            $originalParams['colors'] = $colors;
+        }
+
+        if ($callback !== null) {
+            $originalParams['callback'] = $callback;
+        }
+
         // Add additional parameters
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the query as attributes if attributes is not provided
         if ($attributes === null) {
@@ -206,12 +221,9 @@ class PixabayApiClient extends BaseApiClient
             'pretty'         => $pretty,
         ]);
 
-        $params = [
-            'q'              => $query,
+        $originalParams = [
             'lang'           => $lang,
-            'id'             => $id,
             'video_type'     => $videoType,
-            'category'       => $category,
             'min_width'      => $minWidth,
             'min_height'     => $minHeight,
             'editors_choice' => $editorsChoice,
@@ -219,12 +231,27 @@ class PixabayApiClient extends BaseApiClient
             'order'          => $order,
             'page'           => $page,
             'per_page'       => $perPage,
-            'callback'       => $callback,
             'pretty'         => $pretty,
         ];
 
+        if ($query !== null) {
+            $originalParams['q'] = $query;
+        }
+
+        if ($id !== null) {
+            $originalParams['id'] = $id;
+        }
+
+        if ($category !== null) {
+            $originalParams['category'] = $category;
+        }
+
+        if ($callback !== null) {
+            $originalParams['callback'] = $callback;
+        }
+
         // Add additional parameters
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the query as attributes if attributes is not provided
         if ($attributes === null) {

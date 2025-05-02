@@ -91,12 +91,12 @@ class OpenPageRankApiClient extends BaseApiClient
         ]);
 
         // Build parameters with domains array
-        $params = [
+        $originalParams = [
             'domains' => $domains,
         ];
 
         // Add additional parameters
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Use a comma-separated list of domains as attributes if not provided
         if ($attributes === null) {

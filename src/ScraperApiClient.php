@@ -151,20 +151,20 @@ class ScraperApiClient extends BaseApiClient
             'output_format' => $outputFormat,
         ]);
 
-        $params = ['url' => $url];
+        $originalParams = ['url' => $url];
 
         // Add autoparse if true
         if ($autoparse) {
-            $params['autoparse'] = 'true';
+            $originalParams['autoparse'] = 'true';
         }
 
         // Add output format if provided
-        if ($outputFormat) {
-            $params['output_format'] = $outputFormat;
+        if ($outputFormat !== null) {
+            $originalParams['output_format'] = $outputFormat;
         }
 
         // Add additional parameters
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Calculate credits required for this request if amount is not provided
         if ($amount === null) {

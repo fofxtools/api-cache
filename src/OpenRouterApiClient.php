@@ -62,14 +62,16 @@ class OpenRouterApiClient extends BaseApiClient
             'top_p'       => $topP,
         ]);
 
-        $params = array_merge($additionalParams, [
+        $originalParams = [
             'prompt'      => $prompt,
             'model'       => $model,
             'max_tokens'  => $maxTokens,
             'n'           => $n,
             'temperature' => $temperature,
             'top_p'       => $topP,
-        ]);
+        ];
+
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the prompt as attributes if attributes is not provided
         if ($attributes === null) {
@@ -132,17 +134,19 @@ class OpenRouterApiClient extends BaseApiClient
             'message_count'         => count($messages),
         ]);
 
-        $params = array_merge($additionalParams, [
+        $originalParams = [
             'messages'    => $messages,
             'model'       => $model,
             'n'           => $n,
             'temperature' => $temperature,
             'top_p'       => $topP,
-        ]);
+        ];
 
         if ($maxCompletionTokens !== null) {
-            $params['max_completion_tokens'] = $maxCompletionTokens;
+            $originalParams['max_completion_tokens'] = $maxCompletionTokens;
         }
+
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the messages as attributes if attributes is not provided
         if ($attributes === null) {

@@ -667,3 +667,30 @@ function extract_registrable_domain(string $url, bool $stripWww = true): string
 
     return $registrableDomain;
 }
+
+/**
+ * Generate a UUID version 4
+ *
+ * @param string|null $data The data to use to generate the UUID. If null, random data will be used.
+ *
+ * @return string The UUID
+ *
+ * @see https://www.uuidgenerator.net/dev-corner/php
+ */
+function uuid_v4(?string $data = null): string
+{
+    // Generate 16 bytes (128 bits) of random data or use the data passed into the function.
+    $data = $data ?? random_bytes(16);
+
+    if (strlen($data) !== 16) {
+        throw new \InvalidArgumentException('UUID data must be exactly 16 bytes.');
+    }
+
+    // Set version to 0100
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+    // Set bits 6-7 to 10
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+
+    // Output the 36 character UUID.
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}

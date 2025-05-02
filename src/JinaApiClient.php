@@ -134,9 +134,9 @@ class JinaApiClient extends BaseApiClient
         $this->setBaseUrl('https://r.jina.ai');
         $this->setPathSuffix('');
 
-        $params = ['url' => $url];
+        $originalParams = ['url' => $url];
 
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the URL as attributes if attributes is not provided
         if ($attributes === null) {
@@ -171,9 +171,9 @@ class JinaApiClient extends BaseApiClient
         $this->setBaseUrl('https://s.jina.ai');
         $this->setPathSuffix('');
 
-        $params = ['q' => $query];
+        $originalParams = ['q' => $query];
 
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the query as attributes if attributes is not provided
         if ($attributes === null) {
@@ -224,15 +224,15 @@ class JinaApiClient extends BaseApiClient
         $this->setBaseUrl('https://api.jina.ai');
         $this->setPathSuffix($pathSuffix);
 
-        $params = [
+        $originalParams = [
             'model'            => $model,
             'query'            => $query,
-            'documents'        => $documents,
             'top_n'            => $topN,
+            'documents'        => $documents,
             'return_documents' => $returnDocuments,
         ];
 
-        $params = array_merge($params, $additionalParams);
+        $params = array_merge($additionalParams, $originalParams);
 
         // Pass the query as attributes if attributes is not provided
         if ($attributes === null) {

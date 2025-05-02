@@ -101,7 +101,7 @@ class YouTubeApiClient extends BaseApiClient
             'publishedBefore' => $publishedBefore,
         ]);
 
-        $params = [
+        $originalParams = [
             'q'          => $q,
             'part'       => $part,
             'type'       => $type,
@@ -110,22 +110,23 @@ class YouTubeApiClient extends BaseApiClient
         ];
 
         if ($safeSearch !== null) {
-            $params['safeSearch'] = $safeSearch;
+            $originalParams['safeSearch'] = $safeSearch;
         }
 
         if ($pageToken !== null) {
-            $params['pageToken'] = $pageToken;
+            $originalParams['pageToken'] = $pageToken;
         }
 
         if ($publishedAfter !== null) {
-            $params['publishedAfter'] = $publishedAfter;
+            $originalParams['publishedAfter'] = $publishedAfter;
         }
 
         if ($publishedBefore !== null) {
-            $params['publishedBefore'] = $publishedBefore;
+            $originalParams['publishedBefore'] = $publishedBefore;
         }
 
-        $params = array_merge($params, $this->getAuthParams(), $additionalParams);
+        // Merge additional params, auth params, and original params
+        $params = array_merge($additionalParams, $this->getAuthParams(), $originalParams);
 
         if ($attributes === null) {
             $attributes = $q;
@@ -182,31 +183,32 @@ class YouTubeApiClient extends BaseApiClient
             'regionCode' => $regionCode,
         ]);
 
-        $params = [
+        $originalParams = [
             'part' => $part,
         ];
 
         if (!empty($id)) {
-            $params['id'] = $id;
+            $originalParams['id'] = $id;
         }
 
         if ($chart !== null) {
-            $params['chart'] = $chart;
+            $originalParams['chart'] = $chart;
         }
 
         if ($pageToken !== null) {
-            $params['pageToken'] = $pageToken;
+            $originalParams['pageToken'] = $pageToken;
         }
 
         if ($maxResults !== null) {
-            $params['maxResults'] = $maxResults;
+            $originalParams['maxResults'] = $maxResults;
         }
 
         if ($regionCode !== null) {
-            $params['regionCode'] = $regionCode;
+            $originalParams['regionCode'] = $regionCode;
         }
 
-        $params = array_merge($params, $this->getAuthParams(), $additionalParams);
+        // Merge additional params, auth params, and original params
+        $params = array_merge($additionalParams, $this->getAuthParams(), $originalParams);
 
         if ($attributes === null) {
             $attributes = !empty($id) ? $id : "chart:{$chart}";

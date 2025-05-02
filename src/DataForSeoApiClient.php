@@ -47,6 +47,49 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Calculate the dollar cost of a DataForSEO API response
+     *
+     * Extracts the cost value from the response JSON, which is provided at the top level
+     * of the API response.
+     *
+     * @param string|null $response The API response string (JSON)
+     *
+     * @return float|null The calculated cost, or null if not available
+     */
+    public function calculateCost(?string $response): ?float
+    {
+        $cost   = null;
+        $source = null;
+
+        if ($response !== null) {
+            try {
+                $data = json_decode($response, true);
+
+                // Check if the response has a cost field
+                if (isset($data['cost']) && is_numeric($data['cost'])) {
+                    $cost   = (float) $data['cost'];
+                    $source = 'response_body';
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to calculate cost from DataForSEO response', [
+                    'error' => $e->getMessage(),
+                ]);
+
+                return null;
+            }
+        } else {
+            $source = 'null_response';
+        }
+
+        Log::debug('Calculated cost from DataForSEO response', [
+            'cost'   => $cost,
+            'source' => $source,
+        ]);
+
+        return $cost;
+    }
+
+    /**
      * Get Google Organic SERP results using DataForSEO's Live API with Regular endpoints
      *
      * @param string      $keyword             The search query

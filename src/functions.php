@@ -102,6 +102,7 @@ function create_responses_table(
             $table->string('method')->nullable();
             $table->string('attributes')->nullable();
             $table->integer('credits')->nullable();
+            $table->float('cost')->nullable();
             $table->json('request_params_summary')->nullable();
 
             // Use binary/blob for compressed tables
@@ -135,6 +136,7 @@ function create_responses_table(
             }
             $table->index('attributes');
             $table->index('credits');
+            $table->index('cost');
             $table->index('expires_at');
             $table->index('processed_at');
         });

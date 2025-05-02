@@ -251,6 +251,41 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals($this->apiBaseUrl . '/predictions/details', $url);
     }
 
+    public function test_calculateCost_returns_null_by_default(): void
+    {
+        $response = '{"data": {"key": "value"}}';
+        $this->assertNull($this->client->calculateCost($response));
+        $this->assertNull($this->client->calculateCost(null));
+    }
+
+    public function test_calculateCost_can_be_overridden_by_child_class(): void
+    {
+        // Create anonymous class extending BaseApiClient to test overriding
+        $childClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->cacheManager
+        ) extends BaseApiClient {
+            public function calculateCost(?string $response): ?float
+            {
+                if ($response === null) {
+                    return null;
+                }
+
+                // Simple implementation that calculates cost based on response length
+                return strlen($response) * 0.001;
+            }
+        };
+
+        $response     = '{"data": {"key": "value"}}';
+        $expectedCost = strlen($response) * 0.001;
+
+        $this->assertEquals($expectedCost, $childClient->calculateCost($response));
+        $this->assertNull($childClient->calculateCost(null));
+    }
+
     public function test_sendRequest_makes_real_http_call(): void
     {
         $result = $this->client->sendRequest('predictions', ['query' => 'test']);

@@ -309,6 +309,20 @@ class BaseApiClient
     }
 
     /**
+     * Calculate the cost of an API response
+     *
+     * Child classes can override this to provide their own cost calculation logic
+     *
+     * @param string|null $responseBody The API response body string
+     *
+     * @return float|null The calculated cost, or null if not applicable
+     */
+    public function calculateCost(?string $responseBody): ?float
+    {
+        return null;
+    }
+
+    /**
      * Sends an API request
      *
      * Algorithm:
@@ -372,6 +386,8 @@ class BaseApiClient
 
         $responseTime = microtime(true) - $startTime;
 
+        $cost = $this->calculateCost($response->body());
+
         Log::debug('API request completed', [
             'client'        => $this->clientName,
             'status'        => $response->status(),
@@ -387,6 +403,7 @@ class BaseApiClient
                 'method'     => $requestData['method'],
                 'attributes' => $attributes,
                 'credits'    => $credits,
+                'cost'       => $cost,
                 'headers'    => $requestData['headers'],
                 'body'       => $requestData['body'],
             ],

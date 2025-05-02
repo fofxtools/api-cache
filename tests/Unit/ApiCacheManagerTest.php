@@ -164,11 +164,14 @@ class ApiCacheManagerTest extends TestCase
             'simple json response' => [
                 'apiResult' => [
                     'request' => [
-                        'base_url' => 'https://api.test',
-                        'full_url' => 'https://api.test/endpoint',
-                        'method'   => 'GET',
-                        'headers'  => $requestHeaders,
-                        'body'     => '{"query":"test"}',
+                        'base_url'   => 'https://api.test',
+                        'full_url'   => 'https://api.test/endpoint',
+                        'method'     => 'GET',
+                        'attributes' => null,
+                        'credits'    => null,
+                        'cost'       => null,
+                        'headers'    => $requestHeaders,
+                        'body'       => '{"query":"test"}',
                     ],
                     'response' => self::mockResponse(
                         200,
@@ -186,6 +189,7 @@ class ApiCacheManagerTest extends TestCase
                     'method'                 => 'GET',
                     'attributes'             => null,
                     'credits'                => null,
+                    'cost'                   => null,
                     'request_params_summary' => summarize_params($params),
                     'request_headers'        => $requestHeaders,
                     'request_body'           => '{"query":"test"}',

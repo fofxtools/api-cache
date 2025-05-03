@@ -244,4 +244,221 @@ class DataForSeoApiClient extends BaseApiClient
             $amount
         );
     }
+
+    /**
+     * Get Google Organic SERP results using DataForSEO's Live API with Advanced endpoints
+     *
+     * @param string      $keyword                      The search query
+     * @param string|null $url                          Direct URL of the search query
+     * @param int|null    $depth                        Number of results in SERP (max 700)
+     * @param int|null    $maxCrawlPages                Page crawl limit
+     * @param string|null $locationName                 Location name (e.g., "United States")
+     * @param int|null    $locationCode                 Location code (e.g., 2840)
+     * @param string|null $locationCoordinate           Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName                 Language name (e.g., "English")
+     * @param string|null $languageCode                 Language code (e.g., "en")
+     * @param string|null $seDomain                     Search engine domain
+     * @param string|null $device                       Device type: "desktop" or "mobile"
+     * @param string|null $os                           Operating system (windows, macos, android, ios)
+     * @param string|null $target                       Target domain, subdomain, or webpage to get results for
+     * @param bool|null   $groupOrganicResults          Group related results
+     * @param bool|null   $calculateRectangles          Calculate pixel rankings for SERP elements
+     * @param int|null    $browserScreenWidth           Browser screen width for pixel rankings
+     * @param int|null    $browserScreenHeight          Browser screen height for pixel rankings
+     * @param int|null    $browserScreenResolutionRatio Browser screen resolution ratio
+     * @param int|null    $peopleAlsoAskClickDepth      Clicks on the people_also_ask element
+     * @param bool|null   $loadAsyncAiOverview          Load asynchronous AI overview
+     * @param string|null $searchParam                  Additional parameters for search query
+     * @param array|null  $removeFromUrl                Parameters to remove from URLs
+     * @param string|null $tag                          User-defined task identifier
+     * @param array       $additionalParams             Additional parameters
+     * @param string|null $attributes                   Optional attributes to store with cache entry
+     * @param int         $amount                       Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function serpGoogleOrganicLiveAdvanced(
+        string $keyword,
+        ?string $url = null,
+        ?int $depth = 100,
+        ?int $maxCrawlPages = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $seDomain = null,
+        ?string $device = 'desktop',
+        ?string $os = null,
+        ?string $target = null,
+        ?bool $groupOrganicResults = true,
+        ?bool $calculateRectangles = false,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?int $browserScreenResolutionRatio = null,
+        ?int $peopleAlsoAskClickDepth = null,
+        ?bool $loadAsyncAiOverview = false,
+        ?string $searchParam = null,
+        ?array $removeFromUrl = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided, unless url is provided
+        if ($url === null && $locationName === null && $locationCode === null && $locationCoordinate === null) {
+            throw new \InvalidArgumentException('Either locationName, locationCode, or locationCoordinate must be provided when url is not specified');
+        }
+
+        // Validate that depth is less than or equal to 700
+        if ($depth > 700) {
+            throw new \InvalidArgumentException('Depth must be less than or equal to 700');
+        }
+
+        // Validate that peopleAlsoAskClickDepth is between 1 and 4 if provided
+        if ($peopleAlsoAskClickDepth !== null && ($peopleAlsoAskClickDepth < 1 || $peopleAlsoAskClickDepth > 4)) {
+            throw new \InvalidArgumentException('peopleAlsoAskClickDepth must be between 1 and 4');
+        }
+
+        Log::debug('Making DataForSEO Google Organic SERP live advanced request', [
+            'keyword'                         => $keyword,
+            'url'                             => $url,
+            'depth'                           => $depth,
+            'max_crawl_pages'                 => $maxCrawlPages,
+            'location_name'                   => $locationName,
+            'location_code'                   => $locationCode,
+            'location_coordinate'             => $locationCoordinate,
+            'language_name'                   => $languageName,
+            'language_code'                   => $languageCode,
+            'se_domain'                       => $seDomain,
+            'device'                          => $device,
+            'os'                              => $os,
+            'target'                          => $target,
+            'group_organic_results'           => $groupOrganicResults,
+            'calculate_rectangles'            => $calculateRectangles,
+            'browser_screen_width'            => $browserScreenWidth,
+            'browser_screen_height'           => $browserScreenHeight,
+            'browser_screen_resolution_ratio' => $browserScreenResolutionRatio,
+            'people_also_ask_click_depth'     => $peopleAlsoAskClickDepth,
+            'load_async_ai_overview'          => $loadAsyncAiOverview,
+            'search_param'                    => $searchParam,
+            'remove_from_url'                 => $removeFromUrl,
+            'tag'                             => $tag,
+        ]);
+
+        $originalParams = ['keyword' => $keyword];
+
+        // Add optional parameters only if they're provided
+        if ($url !== null) {
+            $originalParams['url'] = $url;
+        }
+
+        if ($depth !== null) {
+            $originalParams['depth'] = $depth;
+        }
+
+        if ($maxCrawlPages !== null) {
+            $originalParams['max_crawl_pages'] = $maxCrawlPages;
+        }
+
+        if ($locationName !== null) {
+            $originalParams['location_name'] = $locationName;
+        }
+
+        if ($locationCode !== null) {
+            $originalParams['location_code'] = $locationCode;
+        }
+
+        if ($locationCoordinate !== null) {
+            $originalParams['location_coordinate'] = $locationCoordinate;
+        }
+
+        if ($languageName !== null) {
+            $originalParams['language_name'] = $languageName;
+        }
+
+        if ($languageCode !== null) {
+            $originalParams['language_code'] = $languageCode;
+        }
+
+        if ($seDomain !== null) {
+            $originalParams['se_domain'] = $seDomain;
+        }
+
+        if ($device !== null) {
+            $originalParams['device'] = $device;
+        }
+
+        if ($os !== null) {
+            $originalParams['os'] = $os;
+        }
+
+        if ($target !== null) {
+            $originalParams['target'] = $target;
+        }
+
+        if ($groupOrganicResults !== null) {
+            $originalParams['group_organic_results'] = $groupOrganicResults;
+        }
+
+        if ($calculateRectangles !== null) {
+            $originalParams['calculate_rectangles'] = $calculateRectangles;
+        }
+
+        if ($browserScreenWidth !== null) {
+            $originalParams['browser_screen_width'] = $browserScreenWidth;
+        }
+
+        if ($browserScreenHeight !== null) {
+            $originalParams['browser_screen_height'] = $browserScreenHeight;
+        }
+
+        if ($browserScreenResolutionRatio !== null) {
+            $originalParams['browser_screen_resolution_ratio'] = $browserScreenResolutionRatio;
+        }
+
+        if ($peopleAlsoAskClickDepth !== null) {
+            $originalParams['people_also_ask_click_depth'] = $peopleAlsoAskClickDepth;
+        }
+
+        if ($loadAsyncAiOverview !== null) {
+            $originalParams['load_async_ai_overview'] = $loadAsyncAiOverview;
+        }
+
+        if ($searchParam !== null) {
+            $originalParams['search_param'] = $searchParam;
+        }
+
+        if ($removeFromUrl !== null) {
+            $originalParams['remove_from_url'] = $removeFromUrl;
+        }
+
+        if ($tag !== null) {
+            $originalParams['tag'] = $tag;
+        }
+
+        $params = array_merge($additionalParams, $originalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the live advanced endpoint
+        return $this->sendCachedRequest(
+            'serp/google/organic/live/advanced',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
 }

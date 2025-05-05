@@ -563,4 +563,384 @@ class DataForSeoApiClient extends BaseApiClient
             $amount
         );
     }
+
+    /**
+     * Get Amazon Bulk Search Volume data using DataForSEO Labs API
+     *
+     * @param array       $keywords         Target keywords array (max 1000)
+     * @param string|null $locationName     Location name (e.g., "United States")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsAmazonBulkSearchVolumeLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        Log::debug('Making DataForSEO Labs Amazon Bulk Search Volume request', [
+            'keywords_count' => count($keywords),
+            'location_name'  => $locationName,
+            'location_code'  => $locationCode,
+            'language_name'  => $languageName,
+            'language_code'  => $languageCode,
+            'tag'            => $tag,
+        ]);
+
+        $originalParams = ['keywords' => $keywords];
+
+        // Add optional parameters only if they're provided
+        if ($locationName !== null) {
+            $originalParams['location_name'] = $locationName;
+        }
+
+        if ($locationCode !== null) {
+            $originalParams['location_code'] = $locationCode;
+        }
+
+        if ($languageName !== null) {
+            $originalParams['language_name'] = $languageName;
+        }
+
+        if ($languageCode !== null) {
+            $originalParams['language_code'] = $languageCode;
+        }
+
+        if ($tag !== null) {
+            $originalParams['tag'] = $tag;
+        }
+
+        $params = array_merge($additionalParams, $originalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/amazon/bulk_search_volume/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Amazon Related Keywords data using DataForSEO Labs API
+     *
+     * Pricing: $0.01 per task + $0.0001 per returned keyword
+     *
+     * Cost breakdown by depth level (if max possible keywords returned):
+     * - Depth 0: $0.0101 (1 keyword)
+     * - Depth 1: $0.0106 (6 keywords)
+     * - Depth 2: $0.0142 (42 keywords)
+     * - Depth 3: $0.0402 (258 keywords)
+     * - Depth 4: $0.1702 (1554 keywords)
+     *
+     * @param string      $keyword            Seed keyword
+     * @param string|null $locationName       Location name (e.g., "United States")
+     * @param int|null    $locationCode       Location code (e.g., 2840)
+     * @param string|null $languageName       Language name (e.g., "English")
+     * @param string|null $languageCode       Language code (e.g., "en")
+     * @param int|null    $depth              Keyword search depth level (0-4)
+     * @param bool|null   $includeSeedKeyword Include data for the seed keyword
+     * @param bool|null   $ignoreSynonyms     Ignore highly similar keywords
+     * @param int|null    $limit              Maximum number of returned keywords (max 1000)
+     * @param int|null    $offset             Offset in the results array
+     * @param string|null $tag                User-defined task identifier
+     * @param array       $additionalParams   Additional parameters
+     * @param string|null $attributes         Optional attributes to store with cache entry
+     * @param int         $amount             Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsAmazonRelatedKeywordsLive(
+        string $keyword,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $depth = 2,
+        ?bool $includeSeedKeyword = null,
+        ?bool $ignoreSynonyms = null,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that keyword is not empty
+        if (empty($keyword)) {
+            throw new \InvalidArgumentException('Keyword cannot be empty');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate depth parameter is within allowed range
+        if ($depth !== null && ($depth < 0 || $depth > 4)) {
+            throw new \InvalidArgumentException('Depth must be between 0 and 4');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        Log::debug('Making DataForSEO Labs Amazon Related Keywords request', [
+            'keyword'              => $keyword,
+            'location_name'        => $locationName,
+            'location_code'        => $locationCode,
+            'language_name'        => $languageName,
+            'language_code'        => $languageCode,
+            'depth'                => $depth,
+            'include_seed_keyword' => $includeSeedKeyword,
+            'ignore_synonyms'      => $ignoreSynonyms,
+            'limit'                => $limit,
+            'offset'               => $offset,
+            'tag'                  => $tag,
+        ]);
+
+        $originalParams = ['keyword' => $keyword];
+
+        // Add optional parameters only if they're provided
+        if ($locationName !== null) {
+            $originalParams['location_name'] = $locationName;
+        }
+
+        if ($locationCode !== null) {
+            $originalParams['location_code'] = $locationCode;
+        }
+
+        if ($languageName !== null) {
+            $originalParams['language_name'] = $languageName;
+        }
+
+        if ($languageCode !== null) {
+            $originalParams['language_code'] = $languageCode;
+        }
+
+        if ($depth !== null) {
+            $originalParams['depth'] = $depth;
+        }
+
+        if ($includeSeedKeyword !== null) {
+            $originalParams['include_seed_keyword'] = $includeSeedKeyword;
+        }
+
+        if ($ignoreSynonyms !== null) {
+            $originalParams['ignore_synonyms'] = $ignoreSynonyms;
+        }
+
+        if ($limit !== null) {
+            $originalParams['limit'] = $limit;
+        }
+
+        if ($offset !== null) {
+            $originalParams['offset'] = $offset;
+        }
+
+        if ($tag !== null) {
+            $originalParams['tag'] = $tag;
+        }
+
+        $params = array_merge($additionalParams, $originalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/amazon/related_keywords/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Amazon Ranked Keywords data using DataForSEO Labs API
+     *
+     * Returns keywords that the specified product (ASIN) ranks for on Amazon.
+     *
+     * @param string      $asin             Amazon product ID (ASIN)
+     * @param string|null $locationName     Location name (e.g., "United States")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param int|null    $limit            Maximum number of returned keywords (max 1000)
+     * @param bool|null   $ignoreSynonyms   Ignore highly similar keywords
+     * @param array|null  $filters          Array of results filtering parameters
+     * @param array|null  $orderBy          Results sorting rules
+     * @param int|null    $offset           Offset in the results array
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsAmazonRankedKeywordsLive(
+        string $asin,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $limit = null,
+        ?bool $ignoreSynonyms = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?int $offset = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that ASIN is not empty
+        if (empty($asin)) {
+            throw new \InvalidArgumentException('ASIN cannot be empty');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        Log::debug('Making DataForSEO Labs Amazon Ranked Keywords request', [
+            'asin'            => $asin,
+            'location_name'   => $locationName,
+            'location_code'   => $locationCode,
+            'language_name'   => $languageName,
+            'language_code'   => $languageCode,
+            'limit'           => $limit,
+            'ignore_synonyms' => $ignoreSynonyms,
+            'filters'         => $filters,
+            'order_by'        => $orderBy,
+            'offset'          => $offset,
+            'tag'             => $tag,
+        ]);
+
+        $originalParams = ['asin' => $asin];
+
+        // Add optional parameters only if they're provided
+        if ($locationName !== null) {
+            $originalParams['location_name'] = $locationName;
+        }
+
+        if ($locationCode !== null) {
+            $originalParams['location_code'] = $locationCode;
+        }
+
+        if ($languageName !== null) {
+            $originalParams['language_name'] = $languageName;
+        }
+
+        if ($languageCode !== null) {
+            $originalParams['language_code'] = $languageCode;
+        }
+
+        if ($limit !== null) {
+            $originalParams['limit'] = $limit;
+        }
+
+        if ($ignoreSynonyms !== null) {
+            $originalParams['ignore_synonyms'] = $ignoreSynonyms;
+        }
+
+        if ($filters !== null) {
+            $originalParams['filters'] = $filters;
+        }
+
+        if ($orderBy !== null) {
+            $originalParams['order_by'] = $orderBy;
+        }
+
+        if ($offset !== null) {
+            $originalParams['offset'] = $offset;
+        }
+
+        if ($tag !== null) {
+            $originalParams['tag'] = $tag;
+        }
+
+        $params = array_merge($additionalParams, $originalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the ASIN as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $asin;
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/amazon/ranked_keywords/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
 }

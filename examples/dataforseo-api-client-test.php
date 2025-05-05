@@ -21,8 +21,8 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
 
     // Test client configuration
     $clientName = 'dataforseo';
-    config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 10);
-    config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 60);
+    config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 15);
+    config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 300);
     config()->set("api-cache.apis.{$clientName}.compression_enabled", $compressionEnabled);
 
     // Create response tables for the test client
@@ -34,7 +34,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     $client->setTimeout(30);
     $client->clearRateLimit();
 
-    $keyword = 'laravel framework';
+    $keyword = 'cell phones';
 
     // Test Google SERP regular endpoint
     echo "\nTesting Google SERP regular endpoint...\n";
@@ -119,16 +119,39 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
         $result = $client->serpGoogleAutocompleteLiveAdvanced($keyword);
         echo format_api_response($result, $verbose);
 
-        // Test autocomplete search with more parameters
-        echo "\nDetailed autocomplete search...\n";
-        $result = $client->serpGoogleAutocompleteLiveAdvanced(keyword: $keyword, cursorPointer: 0, client: 'gws-wiz-serp');
-
-        // Test autocomplete for YouTube
-        echo "\nAutocomplete search for YouTube...\n";
-        $result = $client->serpGoogleAutocompleteLiveAdvanced(keyword: $keyword, client: 'youtube');
+        // Test detailed autocomplete for YouTube
+        echo "\nDetailed autocomplete search with client 'youtube'...\n";
+        $result = $client->serpGoogleAutocompleteLiveAdvanced(keyword: $keyword, cursorPointer: 0, client: 'youtube');
         echo format_api_response($result, $verbose);
     } catch (\Exception $e) {
         echo "Error testing autocomplete endpoint: {$e->getMessage()}\n";
+    }
+
+    // Testing Amazon Bulk Search Volume endpoint
+    try {
+        echo "\nTesting Amazon Bulk Search Volume endpoint...\n";
+        $result = $client->labsAmazonBulkSearchVolumeLive(['apple iphones', 'samsung phones', 'google phones']);
+        echo format_api_response($result, $verbose);
+    } catch (\Exception $e) {
+        echo "Error testing Amazon Bulk Search Volume endpoint: {$e->getMessage()}\n";
+    }
+
+    // Testing Amazon Related Keywords endpoint
+    try {
+        echo "\nTesting Amazon Related Keywords endpoint...\n";
+        $result = $client->labsAmazonRelatedKeywordsLive($keyword, depth: 2);
+        echo format_api_response($result, $verbose);
+    } catch (\Exception $e) {
+        echo "Error testing Amazon Related Keywords endpoint: {$e->getMessage()}\n";
+    }
+
+    // Testing Amazon Ranked Keywords endpoint
+    try {
+        echo "\nTesting Amazon Ranked Keywords endpoint...\n";
+        $result = $client->labsAmazonRankedKeywordsLive('B00R92CL5E');
+        echo format_api_response($result, $verbose);
+    } catch (\Exception $e) {
+        echo "Error testing Amazon Ranked Keywords endpoint: {$e->getMessage()}\n";
     }
 
     // Test cached request
@@ -149,7 +172,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     try {
         for ($i = 1; $i <= 10; $i++) {
             echo "Request {$i}...\n";
-            $result = $client->serpGoogleOrganicLiveRegular("php framework {$i}");
+            $result = $client->serpGoogleOrganicLiveRegular($keyword . " {$i}");
             echo format_api_response($result, $verbose);
         }
     } catch (RateLimitException $e) {

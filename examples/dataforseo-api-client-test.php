@@ -34,19 +34,21 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     $client->setTimeout(30);
     $client->clearRateLimit();
 
+    $keyword = 'laravel framework';
+
     // Test Google SERP regular endpoint
     echo "\nTesting Google SERP regular endpoint...\n";
 
     try {
         // Test basic search
         echo "Basic SERP search...\n";
-        $result = $client->serpGoogleOrganicLiveRegular('laravel framework');
+        $result = $client->serpGoogleOrganicLiveRegular($keyword);
         echo format_api_response($result, $verbose);
 
         // Test search with more parameters
         echo "\nDetailed SERP search...\n";
         $result = $client->serpGoogleOrganicLiveRegular(
-            'laravel framework',
+            $keyword,
             'United States',
             null,
             null,
@@ -73,13 +75,13 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     try {
         // Test basic advanced search
         echo "Basic advanced SERP search...\n";
-        $result = $client->serpGoogleOrganicLiveAdvanced('php composer');
+        $result = $client->serpGoogleOrganicLiveAdvanced($keyword);
         echo format_api_response($result, $verbose);
 
         // Test advanced search with more parameters
         echo "\nDetailed advanced SERP search...\n";
         $result = $client->serpGoogleOrganicLiveAdvanced(
-            'php composer',
+            $keyword,
             null,
             50,
             2,
@@ -108,18 +110,34 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
         echo "Error testing SERP advanced endpoint: {$e->getMessage()}\n";
     }
 
+    // Test Google Autocomplete endpoint
+    echo "\nTesting Google Autocomplete endpoint...\n";
+
+    try {
+        // Test basic autocomplete search
+        echo "Basic autocomplete search...\n";
+        $result = $client->serpGoogleAutocompleteLiveAdvanced($keyword);
+        echo format_api_response($result, $verbose);
+
+        // Test autocomplete search with more parameters
+        echo "\nDetailed autocomplete search...\n";
+        $result = $client->serpGoogleAutocompleteLiveAdvanced(keyword: $keyword, cursorPointer: 0, client: 'gws-wiz-serp');
+
+        // Test autocomplete for YouTube
+        echo "\nAutocomplete search for YouTube...\n";
+        $result = $client->serpGoogleAutocompleteLiveAdvanced(keyword: $keyword, client: 'youtube');
+        echo format_api_response($result, $verbose);
+    } catch (\Exception $e) {
+        echo "Error testing autocomplete endpoint: {$e->getMessage()}\n";
+    }
+
     // Test cached request
     echo "\nTesting cached request...\n";
 
     try {
-        $query = 'api caching laravel';
-        echo "First request...\n";
-        $result1 = $client->serpGoogleOrganicLiveRegular($query);
-        echo format_api_response($result1, $verbose);
-
-        echo "\nSecond request (should be cached)...\n";
-        $result2 = $client->serpGoogleOrganicLiveRegular($query);
-        echo format_api_response($result2, $verbose);
+        echo "\nSearching again for (should be cached): {$keyword}\n";
+        $result = $client->serpGoogleOrganicLiveRegular($keyword);
+        echo format_api_response($result, $verbose);
     } catch (\Exception $e) {
         echo "Error testing caching: {$e->getMessage()}\n";
     }

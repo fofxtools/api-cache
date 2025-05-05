@@ -461,4 +461,106 @@ class DataForSeoApiClient extends BaseApiClient
             $amount
         );
     }
+
+    /**
+     * Get Google Autocomplete suggestions using DataForSEO's Live API with Advanced endpoints
+     *
+     * @param string      $keyword          The search query
+     * @param string|null $locationName     Location name (e.g., "United States")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param int|null    $cursorPointer    The position of cursor pointer within the keyword
+     * @param string|null $client           Search client for autocomplete (e.g., "gws-wiz-serp")
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function serpGoogleAutocompleteLiveAdvanced(
+        string $keyword,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $cursorPointer = null,
+        ?string $client = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        Log::debug('Making DataForSEO Google Autocomplete SERP live request', [
+            'keyword'        => $keyword,
+            'location_name'  => $locationName,
+            'location_code'  => $locationCode,
+            'language_name'  => $languageName,
+            'language_code'  => $languageCode,
+            'cursor_pointer' => $cursorPointer,
+            'client'         => $client,
+            'tag'            => $tag,
+        ]);
+
+        $originalParams = ['keyword' => $keyword];
+
+        // Add optional parameters only if they're provided
+        if ($locationName !== null) {
+            $originalParams['location_name'] = $locationName;
+        }
+
+        if ($locationCode !== null) {
+            $originalParams['location_code'] = $locationCode;
+        }
+
+        if ($languageName !== null) {
+            $originalParams['language_name'] = $languageName;
+        }
+
+        if ($languageCode !== null) {
+            $originalParams['language_code'] = $languageCode;
+        }
+
+        if ($cursorPointer !== null) {
+            $originalParams['cursor_pointer'] = $cursorPointer;
+        }
+
+        if ($client !== null) {
+            $originalParams['client'] = $client;
+        }
+
+        if ($tag !== null) {
+            $originalParams['tag'] = $tag;
+        }
+
+        $params = array_merge($additionalParams, $originalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the live endpoint
+        return $this->sendCachedRequest(
+            'serp/google/autocomplete/live/advanced',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
 }

@@ -10,6 +10,7 @@ use FOfX\ApiCache\RateLimitException;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class DataForSeoApiClientTest extends TestCase
 {
@@ -583,5 +584,384 @@ class DataForSeoApiClientTest extends TestCase
 
         $cost = $this->client->calculateCost($responseJson);
         $this->assertNull($cost);
+    }
+
+    public function test_makes_successful_serp_google_autocomplete_live_advanced_request()
+    {
+        $id              = '12345678-1234-1234-1234-123456789014';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.1497 sec.',
+            'cost'           => 0.002,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.1397 sec.',
+                    'cost'           => 0.002,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'v3',
+                        'serp',
+                        'google',
+                        'autocomplete',
+                        'live',
+                        'advanced',
+                    ],
+                    'data' => [
+                        'api'            => 'serp',
+                        'function'       => 'live',
+                        'se'             => 'google',
+                        'se_type'        => 'autocomplete',
+                        'keyword'        => 'laravel fram',
+                        'language_code'  => 'en',
+                        'location_code'  => 2840,
+                        'device'         => 'desktop',
+                        'os'             => 'windows',
+                        'cursor_pointer' => 8,
+                        'client'         => 'gws-wiz-serp',
+                    ],
+                    'result' => [
+                        [
+                            'keyword'          => 'laravel fram',
+                            'type'             => 'autocomplete',
+                            'se_domain'        => 'google.com',
+                            'location_code'    => 2840,
+                            'language_code'    => 'en',
+                            'check_url'        => 'https://google.com/search?q=laravel+fram&hl=en&gl=US',
+                            'datetime'         => '2023-08-07 12:55:14 +00:00',
+                            'spell'            => null,
+                            'refinement_chips' => null,
+                            'item_types'       => ['autocomplete'],
+                            'se_results_count' => 0,
+                            'items_count'      => 10,
+                            'items'            => [
+                                [
+                                    'type'             => 'autocomplete',
+                                    'rank_group'       => 1,
+                                    'rank_absolute'    => 1,
+                                    'relevance'        => null,
+                                    'suggestion'       => 'laravel framework',
+                                    'suggestion_type'  => null,
+                                    'search_query_url' => 'https://www.google.com/search?q=laravel+framework',
+                                    'thumbnail_url'    => 'http://t0.gstatic.com/images?q=example',
+                                    'highlighted'      => null,
+                                ],
+                                [
+                                    'type'             => 'autocomplete',
+                                    'rank_group'       => 2,
+                                    'rank_absolute'    => 2,
+                                    'relevance'        => null,
+                                    'suggestion'       => 'laravel framework download',
+                                    'suggestion_type'  => null,
+                                    'search_query_url' => 'https://www.google.com/search?q=laravel+framework+download',
+                                    'thumbnail_url'    => null,
+                                    'highlighted'      => ['download'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleAutocompleteLiveAdvanced(
+            'laravel fram',
+            null,
+            2840,
+            null,
+            'en',
+            8,
+            'gws-wiz-serp'
+        );
+
+        Http::assertSent(function ($request) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['keyword']) &&
+                   $request[0]['keyword'] === 'laravel fram' &&
+                   isset($request[0]['cursor_pointer']) &&
+                   $request[0]['cursor_pointer'] === 8 &&
+                   isset($request[0]['client']) &&
+                   $request[0]['client'] === 'gws-wiz-serp';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_autocomplete_request_validates_required_language_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either languageName or languageCode must be provided');
+
+        // Set both language parameters to null to trigger validation
+        $this->client->serpGoogleAutocompleteLiveAdvanced(
+            'laravel framework',
+            'United States',
+            null,   // locationCode
+            null,   // languageName
+            null    // languageCode
+        );
+    }
+
+    public function test_autocomplete_request_validates_required_location_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either locationName or locationCode must be provided');
+
+        // Set both location parameters to null to trigger validation
+        $this->client->serpGoogleAutocompleteLiveAdvanced(
+            'laravel framework',
+            null,   // locationName
+            null,   // locationCode
+            'English'
+        );
+    }
+
+    #[DataProvider('autocompleteParametersProvider')]
+    public function test_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" => Http::response([
+                'version'        => '0.1.20230807',
+                'status_code'    => 20000,
+                'status_message' => 'Ok.',
+                'tasks'          => [
+                    [
+                        'id'          => '12345',
+                        'status_code' => 20000,
+                        'result'      => [],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Reinitialize client
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Use parameter spreading to call the method with our test parameters
+        $this->client->serpGoogleAutocompleteLiveAdvanced(...$parameters);
+
+        // Check that the request was sent with the expected parameters
+        Http::assertSent(function ($request) use ($expectedParams) {
+            foreach ($expectedParams as $key => $value) {
+                if (!isset($request[0][$key]) || $request[0][$key] !== $value) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    public static function autocompleteParametersProvider()
+    {
+        return [
+            'Basic parameters' => [
+                [
+                    'php composer',          // keyword
+                    null,                    // locationName
+                    2840,                    // locationCode
+                    null,                    // languageName
+                    'en',                    // languageCode
+                ],
+                [
+                    'keyword'       => 'php composer',
+                    'location_code' => 2840,
+                    'language_code' => 'en',
+                ],
+            ],
+            'With cursor pointer' => [
+                [
+                    'php com',               // keyword
+                    null,                    // locationName
+                    2840,                    // locationCode
+                    null,                    // languageName
+                    'en',                    // languageCode
+                    5,                       // cursorPointer
+                ],
+                [
+                    'keyword'        => 'php com',
+                    'location_code'  => 2840,
+                    'language_code'  => 'en',
+                    'cursor_pointer' => 5,
+                ],
+            ],
+            'With client' => [
+                [
+                    'php com',               // keyword
+                    null,                    // locationName
+                    2840,                    // locationCode
+                    null,                    // languageName
+                    'en',                    // languageCode
+                    null,                    // cursorPointer
+                    'chrome',                // client
+                ],
+                [
+                    'keyword'       => 'php com',
+                    'location_code' => 2840,
+                    'language_code' => 'en',
+                    'client'        => 'chrome',
+                ],
+            ],
+            'With tag' => [
+                [
+                    'php com',               // keyword
+                    null,                    // locationName
+                    2840,                    // locationCode
+                    null,                    // languageName
+                    'en',                    // languageCode
+                    null,                    // cursorPointer
+                    null,                    // client
+                    'test-tag',              // tag
+                ],
+                [
+                    'keyword'       => 'php com',
+                    'location_code' => 2840,
+                    'language_code' => 'en',
+                    'tag'           => 'test-tag',
+                ],
+            ],
+            'With location name instead of code' => [
+                [
+                    'php com',               // keyword
+                    'United States',         // locationName
+                    null,                    // locationCode
+                    null,                    // languageName
+                    'en',                    // languageCode
+                ],
+                [
+                    'keyword'       => 'php com',
+                    'location_name' => 'United States',
+                    'language_code' => 'en',
+                ],
+            ],
+            'With language name instead of code' => [
+                [
+                    'php com',               // keyword
+                    null,                    // locationName
+                    2840,                    // locationCode
+                    'English',               // languageName
+                    null,                    // languageCode
+                ],
+                [
+                    'keyword'       => 'php com',
+                    'location_code' => 2840,
+                    'language_name' => 'English',
+                ],
+            ],
+            'With all parameters' => [
+                [
+                    'php com',               // keyword
+                    'United States',         // locationName
+                    2840,                    // locationCode
+                    'English',               // languageName
+                    'en',                    // languageCode
+                    4,                       // cursorPointer
+                    'gws-wiz-serp',          // client
+                    'test-tag',              // tag
+                ],
+                [
+                    'keyword'        => 'php com',
+                    'location_name'  => 'United States',
+                    'location_code'  => 2840,
+                    'language_name'  => 'English',
+                    'language_code'  => 'en',
+                    'cursor_pointer' => 4,
+                    'client'         => 'gws-wiz-serp',
+                    'tag'            => 'test-tag',
+                ],
+            ],
+        ];
+    }
+
+    public function test_autocomplete_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20016,
+            'status_message' => 'API error: invalid keyword format',
+            'time'           => '0.0997 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 0,
+            'tasks_error'    => 1,
+            'tasks'          => [],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" => Http::response($errorResponse, 400),
+        ]);
+
+        // Reinitialize client
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleAutocompleteLiveAdvanced('!@#$%^&');
+
+        // Check that the error response is received properly
+        $this->assertEquals(400, $response['response_status_code']);
+        $this->assertEquals($errorResponse, $response['response']->json());
+    }
+
+    public function test_autocomplete_with_additional_params()
+    {
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [
+                [
+                    'id'          => '12345',
+                    'status_code' => 20000,
+                    'result'      => [],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $additionalParams = ['custom_param' => 'custom_value'];
+
+        $this->client->serpGoogleAutocompleteLiveAdvanced(
+            'laravel',
+            null,
+            2840,
+            null,
+            'en',
+            null,
+            null,
+            null,
+            $additionalParams
+        );
+
+        // Check that the request includes the additional params
+        Http::assertSent(function ($request) {
+            return isset($request[0]['custom_param']) &&
+                   $request[0]['custom_param'] === 'custom_value';
+        });
     }
 }

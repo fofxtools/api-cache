@@ -10,11 +10,13 @@ require_once __DIR__ . '/bootstrap.php';
  * Run DataForSEO API client tests
  *
  * @param bool $compressionEnabled Whether to enable compression for the test
- * @param bool $verbose            Whether to enable verbose output
+ * @param bool $requestInfo        Whether to enable request info
+ * @param bool $responseInfo       Whether to enable response info
+ * @param bool $testRateLimiting   Whether to test rate limiting
  *
  * @return void
  */
-function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): void
+function runDataForSeoTests(bool $compressionEnabled, bool $requestInfo = true, bool $responseInfo = true, bool $testRateLimiting = true): void
 {
     echo "\nRunning DataForSEO API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
@@ -35,6 +37,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     $client->clearRateLimit();
 
     $keyword = 'cell phones';
+    $url     = 'https://www.fiverr.com/categories';
 
     // Test Google SERP regular endpoint
     echo "\nTesting Google SERP regular endpoint...\n";
@@ -43,7 +46,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
         // Test basic search
         echo "Basic SERP search...\n";
         $result = $client->serpGoogleOrganicLiveRegular($keyword);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
 
         // Test search with more parameters
         echo "\nDetailed SERP search...\n";
@@ -64,7 +67,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
             null,
             'test-regular-serp'
         );
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing SERP regular endpoint: {$e->getMessage()}\n";
     }
@@ -76,7 +79,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
         // Test basic advanced search
         echo "Basic advanced SERP search...\n";
         $result = $client->serpGoogleOrganicLiveAdvanced($keyword);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
 
         // Test advanced search with more parameters
         echo "\nDetailed advanced SERP search...\n";
@@ -105,7 +108,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
             null,
             'dfs-test-tag'
         );
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing SERP advanced endpoint: {$e->getMessage()}\n";
     }
@@ -117,12 +120,12 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
         // Test basic autocomplete search
         echo "Basic autocomplete search...\n";
         $result = $client->serpGoogleAutocompleteLiveAdvanced($keyword);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
 
         // Test detailed autocomplete for YouTube
         echo "\nDetailed autocomplete search with client 'youtube'...\n";
         $result = $client->serpGoogleAutocompleteLiveAdvanced(keyword: $keyword, cursorPointer: 0, client: 'youtube');
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing autocomplete endpoint: {$e->getMessage()}\n";
     }
@@ -131,7 +134,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     try {
         echo "\nTesting Amazon Bulk Search Volume endpoint...\n";
         $result = $client->labsAmazonBulkSearchVolumeLive(['apple iphones', 'samsung phones', 'google phones']);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing Amazon Bulk Search Volume endpoint: {$e->getMessage()}\n";
     }
@@ -140,7 +143,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     try {
         echo "\nTesting Amazon Related Keywords endpoint...\n";
         $result = $client->labsAmazonRelatedKeywordsLive($keyword, depth: 2);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing Amazon Related Keywords endpoint: {$e->getMessage()}\n";
     }
@@ -149,9 +152,23 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     try {
         echo "\nTesting Amazon Ranked Keywords endpoint...\n";
         $result = $client->labsAmazonRankedKeywordsLive('B00R92CL5E');
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing Amazon Ranked Keywords endpoint: {$e->getMessage()}\n";
+    }
+
+    // Testing OnPage Instant Pages endpoint with raw HTML
+    try {
+        echo "\nTesting OnPage Instant Pages endpoint with storeRawHtml true...\n";
+        $result = $client->onPageInstantPages(url: $url, storeRawHtml: true);
+        echo format_api_response($result, $requestInfo, $responseInfo);
+
+        echo "\nTesting OnPage Raw HTML endpoint...\n";
+        $taskId = $result['response']['tasks'][0]['id'];
+        $result = $client->onPageRawHtml($taskId);
+        echo format_api_response($result, $requestInfo, $responseInfo);
+    } catch (\Exception $e) {
+        echo "Error testing OnPage Instant Pages endpoint: {$e->getMessage()}\n";
     }
 
     // Test cached request
@@ -160,34 +177,40 @@ function runDataForSeoTests(bool $compressionEnabled, bool $verbose = true): voi
     try {
         echo "\nSearching again for (should be cached): {$keyword}\n";
         $result = $client->serpGoogleOrganicLiveRegular($keyword);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing caching: {$e->getMessage()}\n";
     }
 
     // Test rate limiting with caching disabled
-    echo "\nTesting rate limiting with caching disabled...\n";
-    $client->setUseCache(false);
+    if ($testRateLimiting) {
+        echo "\nTesting rate limiting with caching disabled...\n";
+        $client->setUseCache(false);
 
-    try {
-        for ($i = 1; $i <= 10; $i++) {
-            echo "Request {$i}...\n";
-            $result = $client->serpGoogleOrganicLiveRegular($keyword . " {$i}");
-            echo format_api_response($result, $verbose);
+        try {
+            for ($i = 1; $i <= 10; $i++) {
+                echo "Request {$i}...\n";
+                $result = $client->serpGoogleOrganicLiveRegular($keyword . " {$i}");
+                echo format_api_response($result, $requestInfo, $responseInfo);
+            }
+        } catch (RateLimitException $e) {
+            echo "Successfully hit rate limit: {$e->getMessage()}\n";
+            echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
         }
-    } catch (RateLimitException $e) {
-        echo "Successfully hit rate limit: {$e->getMessage()}\n";
-        echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
     }
 }
 
 $start = microtime(true);
 
+$requestInfo      = false;
+$responseInfo     = false;
+$testRateLimiting = false;
+
 // Run tests without compression
-runDataForSeoTests(false);
+runDataForSeoTests(false, $requestInfo, $responseInfo, $testRateLimiting);
 
 // Run tests with compression
-runDataForSeoTests(true);
+runDataForSeoTests(true, $requestInfo, $responseInfo, $testRateLimiting);
 
 $end = microtime(true);
 

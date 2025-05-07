@@ -422,7 +422,7 @@ class FunctionsTest extends TestCase
      */
     public function test_format_api_response_formats_basic_info(): void
     {
-        $output = format_api_response($this->mockApiResponse, false);
+        $output = format_api_response($this->mockApiResponse);
 
         $this->assertStringContainsString('Status code: 200', $output);
         $this->assertStringContainsString('Response time (seconds): 0.5000', $output);
@@ -430,9 +430,55 @@ class FunctionsTest extends TestCase
         $this->assertStringContainsString('Is cached: Yes', $output);
     }
 
-    public function test_format_api_response_formats_verbose_output(): void
+    public function test_format_api_response_formats_request_info_without_response_info(): void
     {
-        $output = format_api_response($this->mockApiResponse, true);
+        $output = format_api_response($this->mockApiResponse, true, false);
+
+        // Basic info
+        $this->assertStringContainsString('Status code: 200', $output);
+        $this->assertStringContainsString('Response time (seconds): 0.5000', $output);
+
+        // Request details
+        $this->assertStringContainsString('Request details:', $output);
+        $this->assertStringContainsString('URL: https://api.example.com/test', $output);
+        $this->assertStringContainsString('Method: POST', $output);
+
+        // Headers
+        $this->assertStringContainsString('Request headers:', $output);
+        $this->assertStringContainsString('Content-Type: application/json', $output);
+        $this->assertStringContainsString('Authorization: Bearer test-token', $output);
+
+        // Body
+        $this->assertStringContainsString('Request body:', $output);
+        $this->assertStringContainsString('"test": "data"', $output);
+
+        // Response details should not be included
+        $this->assertStringNotContainsString('Response headers:', $output);
+        $this->assertStringNotContainsString('Response body:', $output);
+    }
+
+    public function test_format_api_response_formats_response_info_without_request_info(): void
+    {
+        $output = format_api_response($this->mockApiResponse, false, true);
+
+        // Basic info
+        $this->assertStringContainsString('Status code: 200', $output);
+        $this->assertStringContainsString('Response time (seconds): 0.5000', $output);
+
+        // Request details should not be included
+        $this->assertStringNotContainsString('Request details:', $output);
+        $this->assertStringNotContainsString('Request headers:', $output);
+        $this->assertStringNotContainsString('Request body:', $output);
+
+        // Response details
+        $this->assertStringContainsString('Response headers:', $output);
+        $this->assertStringContainsString('Response body:', $output);
+        $this->assertStringContainsString('"result": "success"', $output);
+    }
+
+    public function test_format_api_response_formats_both_request_and_response_info(): void
+    {
+        $output = format_api_response($this->mockApiResponse, true, true);
 
         // Basic info
         $this->assertStringContainsString('Status code: 200', $output);
@@ -472,7 +518,7 @@ class FunctionsTest extends TestCase
         $this->assertStringContainsString('Is cached: N/A', $output);
     }
 
-    public function test_format_api_response_handles_plain_text(): void
+    public function test_format_api_response_with_both_request_and_response_info_handles_plain_text(): void
     {
         // Here the request body and response body are both plain text, instead of JSON.
         $this->mockApiResponse['request']['body'] = 'plain text data';
@@ -484,7 +530,7 @@ class FunctionsTest extends TestCase
             )
         );
 
-        $output = format_api_response($this->mockApiResponse, true);
+        $output = format_api_response($this->mockApiResponse, true, true);
 
         $this->assertStringContainsString('plain text data', $output);
         $this->assertStringContainsString('plain text response', $output);

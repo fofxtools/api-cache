@@ -492,12 +492,13 @@ function summarize_params(array $params, bool $normalize = true, bool $prettyPri
 /**
  * Format an API response in a clean, readable way
  *
- * @param array $result  The API response array from BaseApiClient or its children
- * @param bool  $verbose Whether to include detailed information like headers and request details
+ * @param array $result       The API response array from BaseApiClient or its children
+ * @param bool  $requestInfo  Whether to include detailed information like headers and request details
+ * @param bool  $responseInfo Whether to include detailed information like headers and response body
  *
  * @return string Formatted response details
  */
-function format_api_response(array $result, bool $verbose = false): string
+function format_api_response(array $result, bool $requestInfo = false, bool $responseInfo = true): string
 {
     $output = [];
 
@@ -517,8 +518,8 @@ function format_api_response(array $result, bool $verbose = false): string
     $output[] = 'Response size (bytes): ' . $responseSizeString;
     $output[] = 'Is cached: ' . $isCachedString;
 
-    // Detailed info (only if verbose)
-    if ($verbose) {
+    // Detailed request info (only if requestInfo is true)
+    if ($requestInfo) {
         // Request details
         if (isset($result['request'])) {
             $output[] = "\nRequest details:";
@@ -550,7 +551,8 @@ function format_api_response(array $result, bool $verbose = false): string
         }
     }
 
-    if (isset($result['response']) && ($result['response'] instanceof \Illuminate\Http\Client\Response)) {
+    // Detailed response info (only if responseInfo is true)
+    if ($responseInfo && isset($result['response']) && ($result['response'] instanceof \Illuminate\Http\Client\Response)) {
         // Response headers
         $output[] = "\nResponse headers:";
         foreach ($result['response']->headers() as $key => $values) {

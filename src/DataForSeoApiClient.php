@@ -943,4 +943,228 @@ class DataForSeoApiClient extends BaseApiClient
             $amount
         );
     }
+
+    /**
+     * Get OnPage data from DataForSEO's Instant Pages API
+     *
+     * @param string      $url                      Target page URL (required)
+     * @param string|null $customUserAgent          Custom user agent for crawling a website
+     * @param string|null $browserPreset            Preset for browser screen parameters ("desktop", "mobile", "tablet")
+     * @param int|null    $browserScreenWidth       Browser screen width in pixels (min: 240, max: 9999)
+     * @param int|null    $browserScreenHeight      Browser screen height in pixels (min: 240, max: 9999)
+     * @param float|null  $browserScreenScaleFactor Browser screen scale factor (min: 0.5, max: 3)
+     * @param bool|null   $storeRawHtml             Store HTML of a crawled page
+     * @param string|null $acceptLanguage           Language header for accessing the website
+     * @param bool|null   $loadResources            Load image, stylesheets, scripts, and broken resources
+     * @param bool|null   $enableJavascript         Load javascript on a page
+     * @param bool|null   $enableBrowserRendering   Emulate browser rendering to measure Core Web Vitals
+     * @param bool|null   $disableCookiePopup       Disable the cookie popup
+     * @param bool|null   $returnDespiteTimeout     Return data on pages despite the timeout error
+     * @param bool|null   $enableXhr                Enable XMLHttpRequest on a page
+     * @param string|null $customJs                 Custom javascript
+     * @param bool|null   $validateMicromarkup      Enable microdata validation
+     * @param bool|null   $checkSpell               Check spelling
+     * @param array|null  $checksThreshold          Custom threshold values for checks
+     * @param bool|null   $switchPool               Switch proxy pool
+     * @param string|null $ipPoolForScan            Proxy pool location ('us', 'de')
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function onPageInstantPages(
+        string $url,
+        ?string $customUserAgent = null,
+        ?string $browserPreset = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?float $browserScreenScaleFactor = null,
+        ?bool $storeRawHtml = null,
+        ?string $acceptLanguage = null,
+        ?bool $loadResources = null,
+        ?bool $enableJavascript = null,
+        ?bool $enableBrowserRendering = null,
+        ?bool $disableCookiePopup = null,
+        ?bool $returnDespiteTimeout = null,
+        ?bool $enableXhr = null,
+        ?string $customJs = null,
+        ?bool $validateMicromarkup = null,
+        ?bool $checkSpell = null,
+        ?array $checksThreshold = null,
+        ?bool $switchPool = null,
+        ?string $ipPoolForScan = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        Log::debug('Making DataForSEO OnPage Instant Pages Live request', [
+            'url'                         => $url,
+            'custom_user_agent'           => $customUserAgent,
+            'browser_preset'              => $browserPreset,
+            'browser_screen_width'        => $browserScreenWidth,
+            'browser_screen_height'       => $browserScreenHeight,
+            'browser_screen_scale_factor' => $browserScreenScaleFactor,
+            'store_raw_html'              => $storeRawHtml,
+            'accept_language'             => $acceptLanguage,
+            'load_resources'              => $loadResources,
+            'enable_javascript'           => $enableJavascript,
+            'enable_browser_rendering'    => $enableBrowserRendering,
+            'disable_cookie_popup'        => $disableCookiePopup,
+            'return_despite_timeout'      => $returnDespiteTimeout,
+            'enable_xhr'                  => $enableXhr,
+            'validate_micromarkup'        => $validateMicromarkup,
+            'check_spell'                 => $checkSpell,
+            'switch_pool'                 => $switchPool,
+            'ip_pool_for_scan'            => $ipPoolForScan,
+        ]);
+
+        $originalParams = ['url' => $url];
+
+        // Add optional parameters only if they're provided
+        if ($customUserAgent !== null) {
+            $originalParams['custom_user_agent'] = $customUserAgent;
+        }
+
+        if ($browserPreset !== null) {
+            $originalParams['browser_preset'] = $browserPreset;
+        }
+
+        if ($browserScreenWidth !== null) {
+            $originalParams['browser_screen_width'] = $browserScreenWidth;
+        }
+
+        if ($browserScreenHeight !== null) {
+            $originalParams['browser_screen_height'] = $browserScreenHeight;
+        }
+
+        if ($browserScreenScaleFactor !== null) {
+            $originalParams['browser_screen_scale_factor'] = $browserScreenScaleFactor;
+        }
+
+        if ($storeRawHtml !== null) {
+            $originalParams['store_raw_html'] = $storeRawHtml;
+        }
+
+        if ($acceptLanguage !== null) {
+            $originalParams['accept_language'] = $acceptLanguage;
+        }
+
+        if ($loadResources !== null) {
+            $originalParams['load_resources'] = $loadResources;
+        }
+
+        if ($enableJavascript !== null) {
+            $originalParams['enable_javascript'] = $enableJavascript;
+        }
+
+        if ($enableBrowserRendering !== null) {
+            $originalParams['enable_browser_rendering'] = $enableBrowserRendering;
+        }
+
+        if ($disableCookiePopup !== null) {
+            $originalParams['disable_cookie_popup'] = $disableCookiePopup;
+        }
+
+        if ($returnDespiteTimeout !== null) {
+            $originalParams['return_despite_timeout'] = $returnDespiteTimeout;
+        }
+
+        if ($enableXhr !== null) {
+            $originalParams['enable_xhr'] = $enableXhr;
+        }
+
+        if ($customJs !== null) {
+            $originalParams['custom_js'] = $customJs;
+        }
+
+        if ($validateMicromarkup !== null) {
+            $originalParams['validate_micromarkup'] = $validateMicromarkup;
+        }
+
+        if ($checkSpell !== null) {
+            $originalParams['check_spell'] = $checkSpell;
+        }
+
+        if ($checksThreshold !== null) {
+            $originalParams['checks_threshold'] = $checksThreshold;
+        }
+
+        if ($switchPool !== null) {
+            $originalParams['switch_pool'] = $switchPool;
+        }
+
+        if ($ipPoolForScan !== null) {
+            $originalParams['ip_pool_for_scan'] = $ipPoolForScan;
+        }
+
+        $params = array_merge($additionalParams, $originalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the URL as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $url;
+        }
+
+        // Make the API request to the onpage/instant_pages endpoint
+        return $this->sendCachedRequest(
+            'on_page/instant_pages',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get raw HTML from DataForSEO's OnPage API
+     *
+     * @param string      $id               ID of the task (required)
+     * @param string|null $url              Page URL (required if not set in Instant Pages task)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function onPageRawHtml(
+        string $id,
+        ?string $url = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        Log::debug('Making DataForSEO OnPage Raw HTML request', [
+            'id'  => $id,
+            'url' => $url,
+        ]);
+
+        $originalParams = ['id' => $id];
+
+        // Add optional parameters only if they're provided
+        if ($url !== null) {
+            $originalParams['url'] = $url;
+        }
+
+        $params = array_merge($additionalParams, $originalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the onpage/raw_html endpoint
+        return $this->sendCachedRequest(
+            'on_page/raw_html',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
 }

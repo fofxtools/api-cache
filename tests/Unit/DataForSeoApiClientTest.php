@@ -1570,4 +1570,440 @@ class DataForSeoApiClientTest extends TestCase
             return true;
         });
     }
+
+    public function test_makes_successful_onpage_instant_pages_request()
+    {
+        $id              = '12345678-1234-1234-1234-123456789014';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.3497 sec.',
+            'cost'           => 0.03,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.3397 sec.',
+                    'cost'           => 0.03,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'on_page',
+                        'instant_pages',
+                    ],
+                    'data' => [
+                        'api'            => 'on_page',
+                        'function'       => 'instant_pages',
+                        'url'            => 'https://example.com',
+                        'browser_preset' => 'desktop',
+                    ],
+                    'result' => [
+                        [
+                            'url'          => 'https://example.com',
+                            'status_code'  => 200,
+                            'page_content' => '<html><body>Example content</body></html>',
+                            'page_metrics' => [
+                                'word_count'         => 2,
+                                'text_to_html_ratio' => 0.1,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->onPageInstantPages('https://example.com', null, 'desktop');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === "{$this->apiBaseUrl}/on_page/instant_pages" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['url']) &&
+                   $request[0]['url'] === 'https://example.com' &&
+                   isset($request[0]['browser_preset']) &&
+                   $request[0]['browser_preset'] === 'desktop';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public static function onPageInstantPagesParametersProvider()
+    {
+        return [
+            'basic request' => [
+                [
+                    'https://example.com',
+                    null, // customUserAgent
+                    null, // browserPreset
+                    null, // browserScreenWidth
+                    null, // browserScreenHeight
+                    null, // browserScreenScaleFactor
+                    null, // storeRawHtml
+                    null, // acceptLanguage
+                    null, // loadResources
+                    null, // enableJavascript
+                    null, // enableBrowserRendering
+                    null, // disableCookiePopup
+                    null, // returnDespiteTimeout
+                    null, // enableXhr
+                    null, // customJs
+                    null, // validateMicromarkup
+                    null, // checkSpell
+                    null, // checksThreshold
+                    null, // switchPool
+                    null, // ipPoolForScan
+                    [], // additionalParams
+                    null, // attributes
+                    1, // amount
+                ],
+                [
+                    'url' => 'https://example.com',
+                ],
+            ],
+            'with browser preset' => [
+                [
+                    'https://example.com',
+                    null,
+                    'mobile',
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    [],
+                    null,
+                    1,
+                ],
+                [
+                    'url'            => 'https://example.com',
+                    'browser_preset' => 'mobile',
+                ],
+            ],
+            'with custom user agent' => [
+                [
+                    'https://example.com',
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    [],
+                    null,
+                    1,
+                ],
+                [
+                    'url'               => 'https://example.com',
+                    'custom_user_agent' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+                ],
+            ],
+            'with browser dimensions' => [
+                [
+                    'https://example.com',
+                    null,
+                    null,
+                    390,
+                    844,
+                    3.0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    [],
+                    null,
+                    1,
+                ],
+                [
+                    'url'                         => 'https://example.com',
+                    'browser_screen_width'        => 390,
+                    'browser_screen_height'       => 844,
+                    'browser_screen_scale_factor' => 3.0,
+                ],
+            ],
+            'with resource loading' => [
+                [
+                    'https://example.com',
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    true, // loadResources
+                    true, // enableJavascript
+                    true, // enableBrowserRendering
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    [],
+                    null,
+                    1,
+                ],
+                [
+                    'url'                      => 'https://example.com',
+                    'load_resources'           => true,
+                    'enable_javascript'        => true,
+                    'enable_browser_rendering' => true,
+                ],
+            ],
+        ];
+    }
+
+    #[DataProvider('onPageInstantPagesParametersProvider')]
+    public function test_onpage_instant_pages_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response(['status_code' => 20000], 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $this->client->onPageInstantPages(...$parameters);
+
+        Http::assertSent(function ($request) use ($expectedParams) {
+            $requestData = $request[0];
+            foreach ($expectedParams as $key => $value) {
+                if (!isset($requestData[$key]) || $requestData[$key] !== $value) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    public function test_makes_successful_onpage_raw_html_request()
+    {
+        $id              = '12345678-1234-1234-1234-123456789015';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2397 sec.',
+                    'cost'           => 0.015,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'on_page',
+                        'raw_html',
+                    ],
+                    'data' => [
+                        'api'      => 'on_page',
+                        'function' => 'raw_html',
+                        'id'       => $id,
+                    ],
+                    'result' => [
+                        [
+                            'id'   => $id,
+                            'url'  => 'https://example.com',
+                            'html' => '<html><body>Example content</body></html>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/raw_html" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->onPageRawHtml($id);
+
+        Http::assertSent(function ($request) use ($id) {
+            return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['id']) &&
+                   $request[0]['id'] === $id;
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_onpage_raw_html_with_url_parameter()
+    {
+        $id              = '12345678-1234-1234-1234-123456789016';
+        $url             = 'https://example.com';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2397 sec.',
+                    'cost'           => 0.015,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'on_page',
+                        'raw_html',
+                    ],
+                    'data' => [
+                        'api'      => 'on_page',
+                        'function' => 'raw_html',
+                        'id'       => $id,
+                        'url'      => $url,
+                    ],
+                    'result' => [
+                        [
+                            'id'   => $id,
+                            'url'  => $url,
+                            'html' => '<html><body>Example content</body></html>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/raw_html" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->onPageRawHtml($id, $url);
+
+        Http::assertSent(function ($request) use ($id, $url) {
+            return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['id']) &&
+                   $request[0]['id'] === $id &&
+                   isset($request[0]['url']) &&
+                   $request[0]['url'] === $url;
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_onpage_raw_html_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40000,
+            'status_message' => 'Bad Request.',
+            'time'           => '0.0497 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'             => '12345678-1234-1234-1234-123456789017',
+                    'status_code'    => 40000,
+                    'status_message' => 'Bad Request.',
+                    'time'           => '0.0397 sec.',
+                    'cost'           => 0,
+                    'result_count'   => 0,
+                    'path'           => [
+                        'on_page',
+                        'raw_html',
+                    ],
+                    'data' => [
+                        'api'      => 'on_page',
+                        'function' => 'raw_html',
+                        'id'       => 'invalid-id',
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/raw_html" => Http::response($errorResponse, 400),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->onPageRawHtml('invalid-id');
+
+        $this->assertEquals(400, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertEquals(40000, $responseData['status_code']);
+        $this->assertEquals('Bad Request.', $responseData['status_message']);
+    }
 }

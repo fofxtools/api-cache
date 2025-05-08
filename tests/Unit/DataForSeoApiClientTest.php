@@ -586,6 +586,119 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertNull($cost);
     }
 
+    public function test_shouldCache_returns_true_for_successful_response()
+    {
+        // Create a successful response with no errors
+        $responseJson = json_encode([
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0, // No errors
+            'tasks'          => [
+                [
+                    'id'             => '12345',
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'result'         => ['some' => 'data'],
+                ],
+            ],
+        ]);
+
+        $shouldCache = $this->client->shouldCache($responseJson);
+        $this->assertTrue($shouldCache);
+    }
+
+    public function test_shouldCache_returns_false_for_all_tasks_errors()
+    {
+        // Create a response where all tasks have errors
+        $responseJson = json_encode([
+            'version'        => '0.1.20250425',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 1, // All tasks have errors
+            'tasks'          => [
+                [
+                    'id'             => '05070545-3399-0275-0000-170e5e716e1e',
+                    'status_code'    => 40207,
+                    'status_message' => 'Access denied. Your IP is not whitelisted.',
+                    'time'           => '0 sec.',
+                    'cost'           => 0,
+                    'result_count'   => 0,
+                    'result'         => null,
+                ],
+            ],
+        ]);
+
+        $shouldCache = $this->client->shouldCache($responseJson);
+        $this->assertFalse($shouldCache);
+    }
+
+    public function test_shouldCache_returns_true_for_partial_tasks_errors()
+    {
+        // Create a response where only some tasks have errors
+        $responseJson = json_encode([
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 2,
+            'tasks_error'    => 1, // One task has an error, but not all
+            'tasks'          => [
+                [
+                    'id'             => '12345',
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'result'         => ['some' => 'data'],
+                ],
+                [
+                    'id'             => '67890',
+                    'status_code'    => 40501,
+                    'status_message' => 'Task error',
+                    'result'         => null,
+                ],
+            ],
+        ]);
+
+        $shouldCache = $this->client->shouldCache($responseJson);
+        $this->assertTrue($shouldCache);
+    }
+
+    public function test_shouldCache_returns_false_for_null_response()
+    {
+        $shouldCache = $this->client->shouldCache(null);
+        $this->assertFalse($shouldCache);
+    }
+
+    public function test_shouldCache_returns_false_for_invalid_json()
+    {
+        $shouldCache = $this->client->shouldCache('not valid json');
+        $this->assertFalse($shouldCache);
+    }
+
+    public function test_shouldCache_returns_true_for_missing_tasks_fields()
+    {
+        // Create a response with missing tasks_error or tasks_count fields
+        $responseJson = json_encode([
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            // No tasks_count or tasks_error fields
+            'tasks' => [],
+        ]);
+
+        $shouldCache = $this->client->shouldCache($responseJson);
+        $this->assertTrue($shouldCache);
+    }
+
     public function test_makes_successful_serp_google_autocomplete_live_advanced_request()
     {
         $id              = '12345678-1234-1234-1234-123456789014';

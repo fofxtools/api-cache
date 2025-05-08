@@ -90,6 +90,63 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Determine if a response should be cached
+     *
+     * Overrides the parent method to handle DataForSEO specific logic.
+     * Returns false if all tasks in the response resulted in errors.
+     *
+     * @param string|null $responseBody The response body
+     *
+     * @return bool Whether the response should be cached
+     */
+    public function shouldCache(?string $responseBody): bool
+    {
+        if ($responseBody === null) {
+            return false;
+        }
+
+        try {
+            $data = json_decode($responseBody, true);
+
+            // Check if JSON is invalid
+            if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
+                Log::debug('shouldCache() - Not caching DataForSEO response - invalid JSON', [
+                    'client'       => $this->clientName,
+                    'error'        => json_last_error_msg(),
+                    'responseBody' => substr($responseBody, 0, 100) . (strlen($responseBody) > 100 ? '...' : ''),
+                ]);
+
+                return false;
+            }
+
+            // Check if this is an error response where all tasks failed
+            if (isset($data['tasks_error']) &&
+                isset($data['tasks_count']) &&
+                $data['tasks_error'] >= 1 &&
+                $data['tasks_error'] === $data['tasks_count']) {
+                Log::debug('shouldCache() - Not caching DataForSEO response - all tasks have errors', [
+                    'client'         => $this->clientName,
+                    'tasks_error'    => $data['tasks_error'],
+                    'tasks_count'    => $data['tasks_count'],
+                    'status_code'    => $data['status_code'] ?? 'unknown',
+                    'status_message' => $data['status_message'] ?? 'unknown',
+                ]);
+
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Error parsing response JSON in shouldCache', [
+                'client' => $this->clientName,
+                'error'  => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
      * Get Google Organic SERP results using DataForSEO's Live API with Regular endpoints
      *
      * @param string      $keyword             The search query

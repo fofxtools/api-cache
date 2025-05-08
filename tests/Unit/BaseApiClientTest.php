@@ -286,6 +286,111 @@ class BaseApiClientTest extends TestCase
         $this->assertNull($childClient->calculateCost(null));
     }
 
+    public function test_shouldCache_returns_true_by_default(): void
+    {
+        $response = '{"data": {"key": "value"}}';
+        $this->assertTrue($this->client->shouldCache($response));
+        $this->assertTrue($this->client->shouldCache(null));
+    }
+
+    public function test_shouldCache_can_be_overridden_by_child_class(): void
+    {
+        // Create anonymous class extending BaseApiClient to test overriding
+        $childClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->cacheManager
+        ) extends BaseApiClient {
+            public function shouldCache(?string $responseBody): bool
+            {
+                if ($responseBody === null) {
+                    return false;
+                }
+
+                // Only cache responses that contain "success": true
+                $data = json_decode($responseBody, true);
+
+                return isset($data['success']) && $data['success'] === true;
+            }
+        };
+
+        // Test with valid success response
+        $successResponse = '{"success": true, "data": {"key": "value"}}';
+        $this->assertTrue($childClient->shouldCache($successResponse));
+
+        // Test with error response
+        $errorResponse = '{"success": false, "error": "Invalid request"}';
+        $this->assertFalse($childClient->shouldCache($errorResponse));
+
+        // Test with null
+        $this->assertFalse($childClient->shouldCache(null));
+
+        // Test with malformed JSON
+        $invalidJson = '{not valid json}';
+        $this->assertFalse($childClient->shouldCache($invalidJson));
+    }
+
+    public function test_sendCachedRequest_respects_shouldCache_result(): void
+    {
+        // Create test client that overrides shouldCache
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->cacheManager
+        ) extends BaseApiClient {
+            public bool $shouldCacheResult = false;
+
+            public function shouldCache(?string $responseBody): bool
+            {
+                return $this->shouldCacheResult;
+            }
+        };
+
+        // Mock the cacheManager for the test
+        $this->cacheManager->shouldReceive('generateCacheKey')
+            ->andReturn('test-cache-key');
+
+        $this->cacheManager->shouldReceive('getCachedResponse')
+            ->andReturnNull();
+
+        $this->cacheManager->shouldReceive('allowRequest')
+            ->andReturnTrue();
+
+        $this->cacheManager->shouldReceive('incrementAttempts')
+            ->with($this->clientName, 1);
+
+        // Configure not to cache response (shouldCache returns false)
+        $testClient->shouldCacheResult = false;
+
+        // storeResponse should NOT be called when shouldCache returns false
+        $this->cacheManager->shouldNotReceive('storeResponse');
+
+        // Make the request
+        $testClient->sendCachedRequest('predictions', ['query' => 'test']);
+
+        // Now reconfigure to cache response (shouldCache returns true)
+        $testClient->shouldCacheResult = true;
+
+        // storeResponse SHOULD be called when shouldCache returns true
+        $this->cacheManager->shouldReceive('storeResponse')
+            ->once()
+            ->withArgs(function ($client, $key, $params, $result, $endpoint, $version) {
+                return $client === $this->clientName &&
+                       $key === 'test-cache-key' &&
+                       $endpoint === 'predictions';
+            });
+
+        // Make another request
+        $testClient->sendCachedRequest('predictions', ['query' => 'test']);
+
+        // Assert that the shouldCache() method returns the expected value
+        $this->assertEquals(true, $testClient->shouldCache('test'));
+    }
+
     public function test_sendRequest_makes_real_http_call(): void
     {
         $result = $this->client->sendRequest('predictions', ['query' => 'test']);

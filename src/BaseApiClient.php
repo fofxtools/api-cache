@@ -323,6 +323,21 @@ class BaseApiClient
     }
 
     /**
+     * Determine if a response should be cached
+     *
+     * Child classes can override this to provide their own caching logic
+     * By default, all successful responses are cached
+     *
+     * @param string|null $responseBody The API response body string
+     *
+     * @return bool Whether the response should be cached
+     */
+    public function shouldCache(?string $responseBody): bool
+    {
+        return true;
+    }
+
+    /**
      * Sends an API request
      *
      * Algorithm:
@@ -517,23 +532,32 @@ class BaseApiClient
                 'method'   => $method,
             ]);
         } elseif ($apiResult['response']->successful()) {
-            $this->cacheManager->storeResponse(
-                $this->clientName,
-                $cacheKey,
-                $params,
-                $apiResult,
-                $endpoint,
-                $this->version,
-                $ttl,
-                $trimmedAttributes,
-                $amount
-            );
-            Log::debug('Cache stored', [
-                'client'    => $this->clientName,
-                'endpoint'  => $endpoint,
-                'method'    => $method,
-                'cache_key' => $cacheKey,
-            ]);
+            if ($this->shouldCache($apiResult['response']->body())) {
+                $this->cacheManager->storeResponse(
+                    $this->clientName,
+                    $cacheKey,
+                    $params,
+                    $apiResult,
+                    $endpoint,
+                    $this->version,
+                    $ttl,
+                    $trimmedAttributes,
+                    $amount
+                );
+                Log::debug('Cache stored', [
+                    'client'    => $this->clientName,
+                    'endpoint'  => $endpoint,
+                    'method'    => $method,
+                    'cache_key' => $cacheKey,
+                ]);
+            } else {
+                Log::debug('sendCachedRequest() - Cache not stored due to shouldCache() returning false', [
+                    'client'    => $this->clientName,
+                    'endpoint'  => $endpoint,
+                    'method'    => $method,
+                    'cache_key' => $cacheKey,
+                ]);
+            }
         } else {
             Log::warning('Failed to store API response in cache', [
                 'client'           => $this->clientName,

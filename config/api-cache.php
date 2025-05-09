@@ -186,4 +186,27 @@ return [
             'extraEntitiesPaths'       => array_filter(explode(',', env('DATAFORSEO_EXTRA_ENTITIES_PATHS', ''))),
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Error Logging Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the database error logging for API Cache.
+    | - enabled: Whether to log errors to the database
+    | - log_events: Which error types to log
+    | - levels: Log level for each error type
+    |
+    */
+    'error_logging' => [
+        'enabled'    => env('API_CACHE_LOGGING_ENABLED', true),
+        'log_events' => [
+            'http_error'     => env('API_CACHE_LOG_HTTP_ERRORS', true),
+            'cache_rejected' => env('API_CACHE_LOG_CACHE_REJECTED', true),
+        ],
+        'levels' => [
+            'http_error'     => env('API_CACHE_HTTP_ERROR_LEVEL', 'error'),
+            'cache_rejected' => env('API_CACHE_CACHE_REJECTED_LEVEL', 'error'),
+        ],
+    ],
 ];

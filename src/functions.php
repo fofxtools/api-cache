@@ -373,6 +373,81 @@ function create_pixabay_images_table(
 }
 
 /**
+ * Create errors table for API error logging
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_errors_table(
+    Builder $schema,
+    string $table = 'api_cache_errors',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing errors table', [
+            'table' => $table,
+        ]);
+
+        $schema->dropIfExists($table);
+    }
+
+    // Create table if it doesn't exist
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating errors table for API error logging', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) {
+            $table->id();
+            $table->string('api_client')->index();      // API client name
+            $table->string('error_type')->index();      // http_error, cache_rejected, etc.
+            $table->string('log_level')->index();                // error, warning, info, etc.
+            $table->text('error_message')->nullable();              // Error message
+            $table->text('response_preview')->nullable(); // First 500 chars of response
+            $table->json('context_data')->nullable();   // Additional context as JSON
+            $table->timestamps();
+        });
+
+        Log::debug('Errors table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        // Get table structure including indexes
+        $pdo    = $schema->getConnection()->getPdo();
+        $driver = $schema->getConnection()->getDriverName();
+
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
  * Normalize parameters for consistent cache keys.
  *
  * Rules:

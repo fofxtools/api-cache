@@ -332,6 +332,101 @@ class BaseApiClientTest extends TestCase
         $this->assertFalse($childClient->shouldCache($invalidJson));
     }
 
+    public function test_logApiError_inserts_record_to_db_when_enabled(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.test_error' => true]);
+        config(['api-cache.error_logging.levels.test_error' => 'error']);
+
+        $errorType = 'test_error';
+        $message   = 'Test error message';
+        $context   = ['test' => 'data'];
+        $response  = 'Test response body';
+
+        $this->client->logApiError($errorType, $message, $context, $response);
+
+        $this->assertDatabaseHas('api_cache_errors', [
+            'api_client'    => $this->clientName,
+            'error_type'    => $errorType,
+            'log_level'     => 'error',
+            'error_message' => $message,
+        ]);
+    }
+
+    public function test_logApiError_skips_db_insert_when_disabled(): void
+    {
+        config(['api-cache.error_logging.enabled' => false]);
+
+        $errorType = 'test_error';
+        $message   = 'Test error message';
+
+        $this->client->logApiError($errorType, $message);
+
+        $this->assertDatabaseMissing('api_cache_errors', [
+            'api_client'    => $this->clientName,
+            'error_type'    => $errorType,
+            'error_message' => $message,
+        ]);
+    }
+
+    public function test_logApiError_skips_db_insert_when_event_type_disabled(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.test_error' => false]);
+
+        $errorType = 'test_error';
+        $message   = 'Test error message';
+
+        $this->client->logApiError($errorType, $message);
+
+        $this->assertDatabaseMissing('api_cache_errors', [
+            'api_client'    => $this->clientName,
+            'error_type'    => $errorType,
+            'error_message' => $message,
+        ]);
+    }
+
+    public function test_logHttpError_calls_logApiError_with_correct_parameters(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.http_error' => true]);
+        config(['api-cache.error_logging.levels.http_error' => 'error']);
+
+        $statusCode = 404;
+        $message    = 'Not found';
+        $context    = ['url' => 'https://example.com'];
+        $response   = 'Error response body';
+
+        $this->client->logHttpError($statusCode, $message, $context, $response);
+
+        $this->assertDatabaseHas('api_cache_errors', [
+            'api_client'    => $this->clientName,
+            'error_type'    => 'http_error',
+            'log_level'     => 'error',
+            'error_message' => $message,
+        ]);
+    }
+
+    public function test_logCacheRejected_calls_logApiError_with_correct_parameters(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.cache_rejected' => true]);
+        config(['api-cache.error_logging.levels.cache_rejected' => 'error']);
+
+        $message  = 'Custom cache rejection reason';
+        $context  = ['reason' => 'invalid_format'];
+        $response = 'Cache rejected response body';
+
+        $this->client->logCacheRejected($message, $context, $response);
+
+        $this->assertDatabaseHas('api_cache_errors', [
+            'api_client'    => $this->clientName,
+            'error_type'    => 'cache_rejected',
+            'log_level'     => 'error',
+            'error_message' => $message,
+        ]);
+    }
+
     public function test_sendCachedRequest_respects_shouldCache_result(): void
     {
         // Create test client that overrides shouldCache

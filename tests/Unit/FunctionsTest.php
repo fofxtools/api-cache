@@ -23,6 +23,7 @@ use function FOfX\ApiCache\normalize_params;
 use function FOfX\ApiCache\summarize_params;
 use function FOfX\ApiCache\download_public_suffix_list;
 use function FOfX\ApiCache\extract_registrable_domain;
+use function FOfX\ApiCache\create_errors_table;
 
 class FunctionsTest extends TestCase
 {
@@ -267,6 +268,86 @@ class FunctionsTest extends TestCase
 
         // Table should be empty
         $this->assertEquals(0, DB::table($testTable)->count());
+    }
+
+    /**
+     * Tests for create_errors_table function
+     */
+    public function test_create_errors_table_creates_table(): void
+    {
+        $schema    = Schema::connection(null);
+        $testTable = 'api_cache_test_errors';
+        create_errors_table($schema, $testTable);
+
+        $this->assertTrue($schema->hasTable($testTable));
+
+        // Verify essential columns
+        $columns = $schema->getColumnListing($testTable);
+        $this->assertContains('id', $columns);
+        $this->assertContains('api_client', $columns);
+        $this->assertContains('error_type', $columns);
+        $this->assertContains('log_level', $columns);
+        $this->assertContains('error_message', $columns);
+        $this->assertContains('response_preview', $columns);
+        $this->assertContains('context_data', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+    }
+
+    public function test_create_errors_table_respects_drop_existing_parameter(): void
+    {
+        $schema    = Schema::connection(null);
+        $testTable = 'api_cache_test_errors';
+
+        // Create table first time
+        create_errors_table($schema, $testTable);
+
+        // Insert a record
+        DB::table($testTable)->insert([
+            'api_client'    => 'test-client',
+            'error_type'    => 'http_error',
+            'log_level'     => 'error',
+            'error_message' => 'Test error message',
+            'created_at'    => now(),
+        ]);
+
+        // Create table again without drop
+        create_errors_table($schema, $testTable, false);
+
+        // Record should still exist
+        $this->assertEquals(1, DB::table($testTable)->count());
+
+        // Create table again with drop
+        create_errors_table($schema, $testTable, true);
+
+        // Table should be empty
+        $this->assertEquals(0, DB::table($testTable)->count());
+    }
+
+    public function test_create_errors_table_with_verify_parameter(): void
+    {
+        $schema    = Schema::connection(null);
+        $testTable = 'api_cache_test_errors';
+
+        // Test with verify = true, should not throw an exception
+        create_errors_table($schema, $testTable, false, true);
+
+        $this->assertTrue($schema->hasTable($testTable));
+
+        // Drop and recreate to test verification
+        $schema->dropIfExists($testTable);
+        create_errors_table($schema, $testTable, false, true);
+
+        // Insert a record to verify table is functional
+        DB::table($testTable)->insert([
+            'api_client'    => 'test-client',
+            'error_type'    => 'cache_rejected',
+            'log_level'     => 'warning',
+            'error_message' => 'Test warning message',
+            'created_at'    => now(),
+        ]);
+
+        $this->assertEquals(1, DB::table($testTable)->count());
     }
 
     public static function normalize_params_provider(): array

@@ -26,6 +26,9 @@ function createClientTables(string $clientName, bool $dropExisting = false, bool
     $repository = app(CacheRepository::class);
     $schema     = app('db')->connection()->getSchemaBuilder();
 
+    // Create errors table
+    create_errors_table($schema, 'api_cache_errors', $dropExisting, $verify);
+
     $originalCompression = config("api-cache.apis.{$clientName}.compression_enabled");
 
     // Create uncompressed table

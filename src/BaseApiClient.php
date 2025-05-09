@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Client\PendingRequest;
 use FOfX\Helper;
+use Illuminate\Support\Facades\DB;
 
 class BaseApiClient
 {
@@ -37,6 +38,12 @@ class BaseApiClient
         ?string $version = null,
         ?ApiCacheManager $cacheManager = null
     ) {
+        // Add class and method name to the log context
+        Log::withContext([
+            'class'        => __CLASS__,
+            'class_method' => __METHOD__,
+        ]);
+
         // Validate that $clientName only contains alphanumeric characters, hyphens, and underscores
         Helper\validate_identifier($clientName);
 
@@ -286,6 +293,12 @@ class BaseApiClient
      */
     public function buildUrl(string $endpoint, ?string $pathSuffix = null): string
     {
+        // Add class and method name to the log context
+        Log::withContext([
+            'class'        => __CLASS__,
+            'class_method' => __METHOD__,
+        ]);
+
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
 
         if ($pathSuffix !== null) {
@@ -338,6 +351,81 @@ class BaseApiClient
     }
 
     /**
+     * Log an API error to the database
+     *
+     * @param string      $errorType Type of error (http_error, cache_rejected, etc.)
+     * @param string|null $message   Error message
+     * @param array       $context   Additional context data
+     * @param string|null $response  Response body (will be truncated to 2000 chars)
+     *
+     * @return void
+     */
+    public function logApiError(string $errorType, ?string $message, array $context = [], ?string $response = null): void
+    {
+        // Add class and method name to the log context
+        Log::withContext([
+            'class'        => __CLASS__,
+            'class_method' => __METHOD__,
+        ]);
+
+        try {
+            if (
+                config('api-cache.error_logging.enabled') &&
+                config("api-cache.error_logging.log_events.{$errorType}")
+            ) {
+                $responsePreview = null;
+
+                if ($response !== null) {
+                    $responsePreview = mb_substr($response, 0, 2000);
+                }
+
+                DB::table('api_cache_errors')->insert([
+                    'api_client'       => $this->clientName,
+                    'error_type'       => $errorType,
+                    'log_level'        => config("api-cache.error_logging.levels.{$errorType}"),
+                    'error_message'    => $message,
+                    'response_preview' => $responsePreview,
+                    'context_data'     => !empty($context) ? json_encode($context) : null,
+                    'created_at'       => now(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to log API error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Log an HTTP error
+     *
+     * @param int         $statusCode HTTP status code
+     * @param string|null $message    Error message
+     * @param array       $context    Additional context data
+     * @param string|null $response   Response body
+     *
+     * @return void
+     */
+    public function logHttpError(int $statusCode, ?string $message = null, array $context = [], ?string $response = null): void
+    {
+        $message = $message ?? 'HTTP error';
+        $this->logApiError('http_error', $message, array_merge(['status_code' => $statusCode], $context), $response);
+    }
+
+    /**
+     * Log a cache rejection event
+     *
+     * @param string|null $message  Error message
+     * @param array       $context  Additional context data
+     * @param string|null $response Response body
+     *
+     * @return void
+     */
+    public function logCacheRejected(?string $message = null, array $context = [], ?string $response = null): void
+    {
+        $message = $message ?? 'Cache rejected';
+        $this->logApiError('cache_rejected', $message, $context, $response);
+    }
+
+    /**
      * Sends an API request
      *
      * Algorithm:
@@ -358,6 +446,12 @@ class BaseApiClient
      */
     public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
     {
+        // Add class and method name to the log context
+        Log::withContext([
+            'class'        => __CLASS__,
+            'class_method' => __METHOD__,
+        ]);
+
         $url         = $this->buildUrl($endpoint);
         $startTime   = microtime(true);
         $requestData = [];
@@ -456,6 +550,12 @@ class BaseApiClient
      */
     public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, int $amount = 1): array
     {
+        // Add class and method name to the log context
+        Log::withContext([
+            'class'        => __CLASS__,
+            'class_method' => __METHOD__,
+        ]);
+
         // Make sure $this->cacheManager is not null
         if ($this->cacheManager === null) {
             throw new \RuntimeException('Cache manager is not initialized');
@@ -524,52 +624,89 @@ class BaseApiClient
         // Increment attempts for the client to track rate limit usage
         $this->cacheManager->incrementAttempts($this->clientName, $amount);
 
-        // Store in cache if response is successful
-        if (!$this->useCache) {
-            Log::debug('Caching disabled for this request', [
-                'client'   => $this->clientName,
-                'endpoint' => $endpoint,
-                'method'   => $method,
-            ]);
-        } elseif ($apiResult['response']->successful()) {
-            if ($this->shouldCache($apiResult['response']->body())) {
-                $this->cacheManager->storeResponse(
-                    $this->clientName,
-                    $cacheKey,
-                    $params,
-                    $apiResult,
-                    $endpoint,
-                    $this->version,
-                    $ttl,
-                    $trimmedAttributes,
-                    $amount
-                );
-                Log::debug('Cache stored', [
-                    'client'    => $this->clientName,
-                    'endpoint'  => $endpoint,
+        // Handle the API Response
+        if (!$apiResult['response']->successful()) {
+            // Log the HTTP error with relevant details
+            $this->logHttpError(
+                $apiResult['response']->status(),
+                'API request failed',
+                [
+                    'url'       => $apiResult['request']['full_url'],
                     'method'    => $method,
                     'cache_key' => $cacheKey,
-                ]);
-            } else {
-                Log::debug('sendCachedRequest() - Cache not stored due to shouldCache() returning false', [
-                    'client'    => $this->clientName,
-                    'endpoint'  => $endpoint,
-                    'method'    => $method,
-                    'cache_key' => $cacheKey,
+                ],
+                $apiResult['response']->body()
+            );
+
+            // If caching is enabled, log the cache failure due to the failed API request
+            if ($this->useCache) {
+                Log::warning('Failed to store API response in cache', [
+                    'client'           => $this->clientName,
+                    'endpoint'         => $endpoint,
+                    'version'          => $this->version,
+                    'cache_key'        => $cacheKey,
+                    'status_code'      => $apiResult['response']->status(),
+                    'response_headers' => $apiResult['response']->headers(),
+                    'response_body'    => $apiResult['response']->body(),
                 ]);
             }
         } else {
-            Log::warning('Failed to store API response in cache', [
-                'client'           => $this->clientName,
-                'endpoint'         => $endpoint,
-                'version'          => $this->version,
-                'cache_key'        => $cacheKey,
-                'status_code'      => $apiResult['response']->status(),
-                'response_headers' => $apiResult['response']->headers(),
-                'response_body'    => $apiResult['response']->body(),
-            ]);
+            // Check if Caching is Disabled
+            if (!$this->useCache) {
+                Log::debug('Caching disabled for this request', [
+                    'client'   => $this->clientName,
+                    'endpoint' => $endpoint,
+                    'method'   => $method,
+                ]);
+            } else {
+                // Proceed with caching Logic if the response is successful and caching is enabled
+                $shouldCache = $this->shouldCache($apiResult['response']->body());
+
+                if ($shouldCache) {
+                    // Store the response in cache
+                    $this->cacheManager->storeResponse(
+                        $this->clientName,
+                        $cacheKey,
+                        $params,
+                        $apiResult,
+                        $endpoint,
+                        $this->version,
+                        $ttl,
+                        $trimmedAttributes,
+                        $amount
+                    );
+
+                    // Log that the cache was stored successfully
+                    Log::debug('Cache stored', [
+                        'client'    => $this->clientName,
+                        'endpoint'  => $endpoint,
+                        'method'    => $method,
+                        'cache_key' => $cacheKey,
+                    ]);
+                } else {
+                    // Log the rejection of the cache due to shouldCache() failing
+                    $this->logCacheRejected(
+                        'Response failed shouldCache() check',
+                        [
+                            'url'       => $apiResult['request']['full_url'],
+                            'endpoint'  => $endpoint,
+                            'cache_key' => $cacheKey,
+                        ],
+                        $apiResult['response']->body()
+                    );
+
+                    // Log that the cache was not stored due to shouldCache() returning false
+                    Log::debug('Cache not stored due to shouldCache() returning false', [
+                        'client'    => $this->clientName,
+                        'endpoint'  => $endpoint,
+                        'method'    => $method,
+                        'cache_key' => $cacheKey,
+                    ]);
+                }
+            }
         }
 
+        // Return the API result (regardless of caching status)
         return $apiResult;
     }
 

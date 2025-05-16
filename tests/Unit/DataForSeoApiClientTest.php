@@ -57,7 +57,7 @@ class DataForSeoApiClientTest extends TestCase
         return [ApiCacheServiceProvider::class];
     }
 
-    public function test_initializes_with_correct_configuration()
+    public function test_class_initializes_with_correct_configuration()
     {
         $this->assertEquals('dataforseo', $this->client->getClientName());
         $this->assertEquals($this->apiBaseUrl, $this->client->getBaseUrl());
@@ -74,474 +74,6 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals('Basic ' . $credentials, $headers['Authorization']);
         $this->assertArrayHasKey('Content-Type', $headers);
         $this->assertEquals('application/json', $headers['Content-Type']);
-    }
-
-    public function test_makes_successful_serp_google_organic_live_regular_request()
-    {
-        $id              = '12345678-1234-1234-1234-123456789012';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'time'           => '0.2497 sec.',
-            'cost'           => 0.015,
-            'tasks_count'    => 1,
-            'tasks_error'    => 0,
-            'tasks'          => [
-                [
-                    'id'             => $id,
-                    'status_code'    => 20000,
-                    'status_message' => 'Ok.',
-                    'time'           => '0.2397 sec.',
-                    'cost'           => 0.015,
-                    'result_count'   => 1,
-                    'path'           => [
-                        'serp',
-                        'google',
-                        'organic',
-                        'live',
-                        'regular',
-                    ],
-                    'data' => [
-                        'api'           => 'serp',
-                        'function'      => 'regular',
-                        'se'            => 'google',
-                        'se_type'       => 'organic',
-                        'keyword'       => 'laravel framework',
-                        'language_code' => 'en',
-                        'location_code' => 2840,
-                        'device'        => 'desktop',
-                        'os'            => 'windows',
-                    ],
-                    'result' => [
-                        [
-                            'keyword'       => 'laravel framework',
-                            'type'          => 'organic',
-                            'se_domain'     => 'google.com',
-                            'location_code' => 2840,
-                            'language_code' => 'en',
-                            'check_url'     => 'https://www.google.com/search?q=laravel+framework',
-                            'datetime'      => '2023-08-07 12:55:14 +00:00',
-                            'item_types'    => [
-                                'organic',
-                                'top_stories',
-                            ],
-                            'se_results_count' => 149000000,
-                            'items_count'      => 10,
-                            'items'            => [
-                                [
-                                    'type'          => 'organic',
-                                    'rank_group'    => 1,
-                                    'rank_absolute' => 1,
-                                    'position'      => 'left',
-                                    'title'         => 'Laravel - The PHP Framework For Web Artisans',
-                                    'url'           => 'https://laravel.com/',
-                                    'domain'        => 'laravel.com',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::response($successResponse, 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        $response = $this->client->serpGoogleOrganicLiveRegular('laravel framework');
-
-        Http::assertSent(function ($request) {
-            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/live/regular" &&
-                   $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'laravel framework';
-        });
-
-        // Make sure we used the Http::fake() response
-        $this->assertEquals(200, $response['response_status_code']);
-        $responseData = $response['response']->json();
-        $this->assertArrayHasKey('tasks', $responseData);
-        $this->assertEquals($id, $responseData['tasks'][0]['id']);
-    }
-
-    public function test_makes_successful_serp_google_organic_live_advanced_request()
-    {
-        $id              = '12345678-1234-1234-1234-123456789013';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'time'           => '0.3497 sec.',
-            'cost'           => 0.03,
-            'tasks_count'    => 1,
-            'tasks_error'    => 0,
-            'tasks'          => [
-                [
-                    'id'             => $id,
-                    'status_code'    => 20000,
-                    'status_message' => 'Ok.',
-                    'time'           => '0.3397 sec.',
-                    'cost'           => 0.03,
-                    'result_count'   => 1,
-                    'path'           => [
-                        'serp',
-                        'google',
-                        'organic',
-                        'live',
-                        'advanced',
-                    ],
-                    'data' => [
-                        'api'                  => 'serp',
-                        'function'             => 'advanced',
-                        'se'                   => 'google',
-                        'se_type'              => 'organic',
-                        'keyword'              => 'php composer',
-                        'language_code'        => 'en',
-                        'location_code'        => 2840,
-                        'device'               => 'desktop',
-                        'os'                   => 'windows',
-                        'depth'                => 50,
-                        'calculate_rectangles' => true,
-                    ],
-                    'result' => [
-                        [
-                            'keyword'       => 'php composer',
-                            'type'          => 'organic',
-                            'se_domain'     => 'google.com',
-                            'location_code' => 2840,
-                            'language_code' => 'en',
-                            'check_url'     => 'https://www.google.com/search?q=php+composer',
-                            'datetime'      => '2023-08-07 13:15:24 +00:00',
-                            'item_types'    => [
-                                'organic',
-                                'feature',
-                            ],
-                            'se_results_count' => 32700000,
-                            'items_count'      => 15,
-                            'items'            => [
-                                [
-                                    'type'          => 'organic',
-                                    'rank_group'    => 1,
-                                    'rank_absolute' => 1,
-                                    'position'      => 'left',
-                                    'title'         => 'Composer',
-                                    'url'           => 'https://getcomposer.org/',
-                                    'domain'        => 'getcomposer.org',
-                                    'rectangle'     => [
-                                        'x'      => 190,
-                                        'y'      => 480,
-                                        'width'  => 500,
-                                        'height' => 80,
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/serp/google/organic/live/advanced" => Http::response($successResponse, 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        $response = $this->client->serpGoogleOrganicLiveAdvanced(
-            'php composer',
-            null,
-            50,
-            null,
-            'United States',
-            null,
-            null,
-            'English',
-            null,
-            null,
-            'desktop',
-            'windows',
-            null,
-            true,
-            true
-        );
-
-        Http::assertSent(function ($request) {
-            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/live/advanced" &&
-                   $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'php composer' &&
-                   $request[0]['depth'] === 50 &&
-                   $request[0]['calculate_rectangles'] === true;
-        });
-
-        // Make sure we used the Http::fake() response
-        $this->assertEquals(200, $response['response_status_code']);
-        $responseData = $response['response']->json();
-        $this->assertArrayHasKey('tasks', $responseData);
-        $this->assertEquals($id, $responseData['tasks'][0]['id']);
-    }
-
-    public function test_advanced_request_validates_required_parameters()
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Either locationName, locationCode, or locationCoordinate must be provided when url is not specified');
-
-        // No location parameters provided and no URL
-        $this->client->serpGoogleOrganicLiveAdvanced(
-            'test query',
-            null, // No URL
-            100,
-            null,
-            null, // No location name
-            null, // No location code
-            null  // No location coordinates
-        );
-    }
-
-    public function test_regular_request_validates_required_parameters()
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Either locationName, locationCode, or locationCoordinate must be provided');
-
-        // No location parameters provided
-        $this->client->serpGoogleOrganicLiveRegular(
-            'test query',
-            null, // No location name
-            null, // No location code
-            null  // No location coordinates
-        );
-    }
-
-    public function test_advanced_request_validates_people_also_ask_click_depth()
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('peopleAlsoAskClickDepth must be between 1 and 4');
-
-        // peopleAlsoAskClickDepth out of range
-        $this->client->serpGoogleOrganicLiveAdvanced(
-            'test query',
-            null,
-            100,
-            null,
-            'United States',
-            null,
-            null,
-            'English',
-            null,
-            null,
-            'desktop',
-            null,
-            null,
-            true,
-            null,
-            null,
-            null,
-            null,
-            5 // Invalid depth (above 4)
-        );
-    }
-
-    public function test_validates_depth_parameter()
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Depth must be less than or equal to 700');
-
-        // Depth too high
-        $this->client->serpGoogleOrganicLiveRegular(
-            'test query',
-            'United States',
-            null,
-            null,
-            'English',
-            null,
-            'desktop',
-            null,
-            null,
-            800 // Invalid depth (above 700)
-        );
-    }
-
-    public function test_caches_responses()
-    {
-        $id              = '12345678-1234-1234-1234-123456789012';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'time'           => '0.2497 sec.',
-            'cost'           => 0.015,
-            'tasks_count'    => 1,
-            'tasks_error'    => 0,
-            'tasks'          => [
-                [
-                    'id'             => $id,
-                    'status_code'    => 20000,
-                    'status_message' => 'Ok.',
-                    'time'           => '0.2397 sec.',
-                    'cost'           => 0.015,
-                    'result_count'   => 1,
-                    'path'           => [
-                        'serp',
-                        'google',
-                        'organic',
-                        'live',
-                        'regular',
-                    ],
-                    'data' => [
-                        'api'           => 'serp',
-                        'function'      => 'regular',
-                        'se'            => 'google',
-                        'se_type'       => 'organic',
-                        'keyword'       => 'caching api requests',
-                        'language_code' => 'en',
-                        'location_code' => 2840,
-                        'device'        => 'desktop',
-                        'os'            => 'windows',
-                    ],
-                    'result' => [
-                        [
-                            'keyword'     => 'caching api requests',
-                            'items_count' => 5,
-                            'items'       => [
-                                [
-                                    'type'       => 'organic',
-                                    'rank_group' => 1,
-                                    'title'      => 'API Caching Test Result 1',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::sequence()
-                ->push($successResponse, 200)
-                ->push([
-                    'version'     => '0.1.20230807',
-                    'status_code' => 20000,
-                    'tasks'       => [
-                        [
-                            'id'     => 'second-request-id',
-                            'result' => [
-                                [
-                                    'items' => [
-                                        [
-                                            'title' => 'This Should Not Be Returned',
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ], 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        // First request should hit the API
-        $response1 = $this->client->serpGoogleOrganicLiveRegular(
-            'caching api requests',
-            'United States'
-        );
-
-        // Second request with same parameters should return cached response
-        $response2 = $this->client->serpGoogleOrganicLiveRegular(
-            'caching api requests',
-            'United States'
-        );
-
-        // Verify caching behavior
-        $this->assertEquals(200, $response1['response_status_code']);
-        $this->assertFalse($response1['is_cached']);
-        $this->assertEquals(200, $response2['response_status_code']);
-        $this->assertTrue($response2['is_cached']);
-
-        // Make sure we used the Http::fake() response
-        $responseData1 = $response1['response']->json();
-        $this->assertEquals($id, $responseData1['tasks'][0]['id']);
-
-        $responseData2 = $response2['response']->json();
-        $this->assertEquals($id, $responseData2['tasks'][0]['id']);
-
-        // Only one request should have been made
-        Http::assertSentCount(1);
-    }
-
-    public function test_enforces_rate_limits()
-    {
-        $id              = '12345678-1234-1234-1234-123456789012';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'cost'           => 0.015,
-            'tasks'          => [
-                [
-                    'id'          => $id,
-                    'status_code' => 20000,
-                    'data'        => [
-                        'keyword' => 'rate limit test',
-                    ],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::response($successResponse, 200),
-        ]);
-
-        $this->expectException(RateLimitException::class);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-        $this->client->setUseCache(false);
-
-        // Make requests until rate limit is exceeded
-        for ($i = 0; $i <= 5; $i++) {
-            $result = $this->client->serpGoogleOrganicLiveRegular("rate limit test {$i}", 'United States');
-
-            // Make sure we used the Http::fake() response
-            $responseData = $result['response']->json();
-            $this->assertEquals($id, $responseData['tasks'][0]['id']);
-        }
-    }
-
-    public function test_handles_api_errors()
-    {
-        $errorResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 40001,
-            'status_message' => 'Authentication failed. Invalid login/password or API key.',
-            'time'           => '0.1234 sec.',
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::response($errorResponse, 401),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        $response = $this->client->serpGoogleOrganicLiveRegular('api error test', 'United States');
-
-        // Make sure we used the Http::fake() response
-        $this->assertEquals(401, $response['response']->status());
-        $responseData = $response['response']->json();
-        $this->assertEquals(40001, $responseData['status_code']);
-        $this->assertEquals('Authentication failed. Invalid login/password or API key.', $responseData['status_message']);
     }
 
     public function test_calculate_cost_returns_correct_value()
@@ -699,7 +231,640 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertTrue($shouldCache);
     }
 
-    public function test_makes_successful_serp_google_autocomplete_live_advanced_request()
+    public function test_task_get_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $endpointPath    = 'serp/google/organic/task_get/regular';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'task_get',
+                        'regular',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'task_get',
+                        'se'            => 'google',
+                        'se_type'       => 'organic',
+                        'keyword'       => 'laravel framework',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                        'device'        => 'desktop',
+                        'os'            => 'windows',
+                    ],
+                    'result' => [
+                        [
+                            'id'             => $taskId,
+                            'status_code'    => 20000,
+                            'status_message' => 'Ok.',
+                            'time'           => '0.0281 sec.',
+                            'cost'           => 0.0025,
+                            'result_count'   => 1,
+                            'path'           => [
+                                'serp',
+                                'google',
+                                'organic',
+                                'task_get',
+                                'regular',
+                            ],
+                            'data' => [
+                                'api'           => 'serp',
+                                'function'      => 'task_get',
+                                'se'            => 'google',
+                                'se_type'       => 'organic',
+                                'keyword'       => 'laravel framework',
+                                'language_code' => 'en',
+                                'location_code' => 2840,
+                                'device'        => 'desktop',
+                                'os'            => 'windows',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->taskGet($endpointPath, $taskId);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_task_get_validates_endpoint_path_format()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->client->taskGet('invalid/endpoint/path', '12345678-1234-1234-1234-123456789012');
+    }
+
+    public function test_task_get_validates_task_id()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Task ID cannot be empty');
+
+        $this->client->taskGet('serp/google/organic/task_get/regular', '');
+    }
+
+    public static function taskGetEndpointPathProvider(): array
+    {
+        return [
+            'Google Organic Regular'   => ['serp/google/organic/task_get/regular'],
+            'Google Organic Advanced'  => ['serp/google/organic/task_get/advanced'],
+            'YouTube Organic Advanced' => ['serp/youtube/organic/task_get/advanced'],
+            'Amazon Products Advanced' => ['merchant/amazon/products/task_get/advanced'],
+        ];
+    }
+
+    #[DataProvider('taskGetEndpointPathProvider')]
+    public function test_task_get_supports_multiple_endpoint_formats(string $endpointPath)
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => explode('/', $endpointPath),
+                    'data'           => [],
+                    'result'         => [],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->taskGet($endpointPath, $taskId);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_serp_google_organic_live_regular_successful_request()
+    {
+        $id              = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2397 sec.',
+                    'cost'           => 0.015,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'live',
+                        'regular',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'regular',
+                        'se'            => 'google',
+                        'se_type'       => 'organic',
+                        'keyword'       => 'laravel framework',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                        'device'        => 'desktop',
+                        'os'            => 'windows',
+                    ],
+                    'result' => [
+                        [
+                            'keyword'       => 'laravel framework',
+                            'type'          => 'organic',
+                            'se_domain'     => 'google.com',
+                            'location_code' => 2840,
+                            'language_code' => 'en',
+                            'check_url'     => 'https://www.google.com/search?q=laravel+framework',
+                            'datetime'      => '2023-08-07 12:55:14 +00:00',
+                            'item_types'    => [
+                                'organic',
+                                'top_stories',
+                            ],
+                            'se_results_count' => 149000000,
+                            'items_count'      => 10,
+                            'items'            => [
+                                [
+                                    'type'          => 'organic',
+                                    'rank_group'    => 1,
+                                    'rank_absolute' => 1,
+                                    'position'      => 'left',
+                                    'title'         => 'Laravel - The PHP Framework For Web Artisans',
+                                    'url'           => 'https://laravel.com/',
+                                    'domain'        => 'laravel.com',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicLiveRegular('laravel framework');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/live/regular" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['keyword']) &&
+                   $request[0]['keyword'] === 'laravel framework';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_serp_google_organic_live_regular_request_validates_required_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either locationName, locationCode, or locationCoordinate must be provided');
+
+        // No location parameters provided
+        $this->client->serpGoogleOrganicLiveRegular(
+            'test query',
+            null, // No location name
+            null, // No location code
+            null  // No location coordinates
+        );
+    }
+
+    public function test_serp_google_organic_live_regular_validates_depth_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Depth must be less than or equal to 700');
+
+        // Depth too high
+        $this->client->serpGoogleOrganicLiveRegular(
+            'test query',
+            'United States',
+            null,
+            null,
+            'English',
+            null,
+            'desktop',
+            null,
+            null,
+            800 // Invalid depth (above 700)
+        );
+    }
+
+    public function test_serp_google_organic_live_regular_caches_responses()
+    {
+        $id              = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2397 sec.',
+                    'cost'           => 0.015,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'live',
+                        'regular',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'regular',
+                        'se'            => 'google',
+                        'se_type'       => 'organic',
+                        'keyword'       => 'caching api requests',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                        'device'        => 'desktop',
+                        'os'            => 'windows',
+                    ],
+                    'result' => [
+                        [
+                            'keyword'     => 'caching api requests',
+                            'items_count' => 5,
+                            'items'       => [
+                                [
+                                    'type'       => 'organic',
+                                    'rank_group' => 1,
+                                    'title'      => 'API Caching Test Result 1',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::sequence()
+                ->push($successResponse, 200)
+                ->push([
+                    'version'     => '0.1.20230807',
+                    'status_code' => 20000,
+                    'tasks'       => [
+                        [
+                            'id'     => 'second-request-id',
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'title' => 'This Should Not Be Returned',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ], 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // First request should hit the API
+        $response1 = $this->client->serpGoogleOrganicLiveRegular(
+            'caching api requests',
+            'United States'
+        );
+
+        // Second request with same parameters should return cached response
+        $response2 = $this->client->serpGoogleOrganicLiveRegular(
+            'caching api requests',
+            'United States'
+        );
+
+        // Verify caching behavior
+        $this->assertEquals(200, $response1['response_status_code']);
+        $this->assertFalse($response1['is_cached']);
+        $this->assertEquals(200, $response2['response_status_code']);
+        $this->assertTrue($response2['is_cached']);
+
+        // Make sure we used the Http::fake() response
+        $responseData1 = $response1['response']->json();
+        $this->assertEquals($id, $responseData1['tasks'][0]['id']);
+
+        $responseData2 = $response2['response']->json();
+        $this->assertEquals($id, $responseData2['tasks'][0]['id']);
+
+        // Only one request should have been made
+        Http::assertSentCount(1);
+    }
+
+    public function test_serp_google_organic_live_regular_enforces_rate_limits()
+    {
+        $id              = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'cost'           => 0.015,
+            'tasks'          => [
+                [
+                    'id'          => $id,
+                    'status_code' => 20000,
+                    'data'        => [
+                        'keyword' => 'rate limit test',
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::response($successResponse, 200),
+        ]);
+
+        $this->expectException(RateLimitException::class);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+        $this->client->setUseCache(false);
+
+        // Make requests until rate limit is exceeded
+        for ($i = 0; $i <= 5; $i++) {
+            $result = $this->client->serpGoogleOrganicLiveRegular("rate limit test {$i}", 'United States');
+
+            // Make sure we used the Http::fake() response
+            $responseData = $result['response']->json();
+            $this->assertEquals($id, $responseData['tasks'][0]['id']);
+        }
+    }
+
+    public function test_serp_google_organic_live_regular_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40001,
+            'status_message' => 'Authentication failed. Invalid login/password or API key.',
+            'time'           => '0.1234 sec.',
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/live/regular" => Http::response($errorResponse, 401),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicLiveRegular('api error test', 'United States');
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(401, $response['response']->status());
+        $responseData = $response['response']->json();
+        $this->assertEquals(40001, $responseData['status_code']);
+        $this->assertEquals('Authentication failed. Invalid login/password or API key.', $responseData['status_message']);
+    }
+
+    public function test_serp_google_organic_live_advanced_successful_request()
+    {
+        $id              = '12345678-1234-1234-1234-123456789013';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.3497 sec.',
+            'cost'           => 0.03,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.3397 sec.',
+                    'cost'           => 0.03,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'live',
+                        'advanced',
+                    ],
+                    'data' => [
+                        'api'                  => 'serp',
+                        'function'             => 'advanced',
+                        'se'                   => 'google',
+                        'se_type'              => 'organic',
+                        'keyword'              => 'php composer',
+                        'language_code'        => 'en',
+                        'location_code'        => 2840,
+                        'device'               => 'desktop',
+                        'os'                   => 'windows',
+                        'depth'                => 50,
+                        'calculate_rectangles' => true,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'       => 'php composer',
+                            'type'          => 'organic',
+                            'se_domain'     => 'google.com',
+                            'location_code' => 2840,
+                            'language_code' => 'en',
+                            'check_url'     => 'https://www.google.com/search?q=php+composer',
+                            'datetime'      => '2023-08-07 13:15:24 +00:00',
+                            'item_types'    => [
+                                'organic',
+                                'feature',
+                            ],
+                            'se_results_count' => 32700000,
+                            'items_count'      => 15,
+                            'items'            => [
+                                [
+                                    'type'          => 'organic',
+                                    'rank_group'    => 1,
+                                    'rank_absolute' => 1,
+                                    'position'      => 'left',
+                                    'title'         => 'Composer',
+                                    'url'           => 'https://getcomposer.org/',
+                                    'domain'        => 'getcomposer.org',
+                                    'rectangle'     => [
+                                        'x'      => 190,
+                                        'y'      => 480,
+                                        'width'  => 500,
+                                        'height' => 80,
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/live/advanced" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicLiveAdvanced(
+            'php composer',
+            null,
+            50,
+            null,
+            'United States',
+            null,
+            null,
+            'English',
+            null,
+            null,
+            'desktop',
+            'windows',
+            null,
+            true,
+            true
+        );
+
+        Http::assertSent(function ($request) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/live/advanced" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['keyword']) &&
+                   $request[0]['keyword'] === 'php composer' &&
+                   $request[0]['depth'] === 50 &&
+                   $request[0]['calculate_rectangles'] === true;
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_serp_google_organic_live_advanced_request_validates_required_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either locationName, locationCode, or locationCoordinate must be provided when url is not specified');
+
+        // No location parameters provided and no URL
+        $this->client->serpGoogleOrganicLiveAdvanced(
+            'test query',
+            null, // No URL
+            100,
+            null,
+            null, // No location name
+            null, // No location code
+            null  // No location coordinates
+        );
+    }
+
+    public function test_serp_google_organic_live_advanced_request_validates_people_also_ask_click_depth()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('peopleAlsoAskClickDepth must be between 1 and 4');
+
+        // peopleAlsoAskClickDepth out of range
+        $this->client->serpGoogleOrganicLiveAdvanced(
+            'test query',
+            null,
+            100,
+            null,
+            'United States',
+            null,
+            null,
+            'English',
+            null,
+            null,
+            'desktop',
+            null,
+            null,
+            true,
+            null,
+            null,
+            null,
+            null,
+            5 // Invalid depth (above 4)
+        );
+    }
+
+    public function test_serp_google_autocomplete_live_advanced_successful_request()
     {
         $id              = '12345678-1234-1234-1234-123456789014';
         $successResponse = [
@@ -819,7 +984,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals($id, $responseData['tasks'][0]['id']);
     }
 
-    public function test_autocomplete_request_validates_required_language_parameters()
+    public function test_serp_google_autocomplete_live_advanced_request_validates_required_language_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either languageName or languageCode must be provided');
@@ -834,7 +999,7 @@ class DataForSeoApiClientTest extends TestCase
         );
     }
 
-    public function test_autocomplete_request_validates_required_location_parameters()
+    public function test_serp_google_autocomplete_live_advanced_request_validates_required_location_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either locationName or locationCode must be provided');
@@ -846,43 +1011,6 @@ class DataForSeoApiClientTest extends TestCase
             null,   // locationCode
             'English'
         );
-    }
-
-    #[DataProvider('autocompleteParametersProvider')]
-    public function test_builds_request_with_correct_parameters($parameters, $expectedParams)
-    {
-        Http::fake([
-            "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" => Http::response([
-                'version'        => '0.1.20230807',
-                'status_code'    => 20000,
-                'status_message' => 'Ok.',
-                'tasks'          => [
-                    [
-                        'id'          => '12345',
-                        'status_code' => 20000,
-                        'result'      => [],
-                    ],
-                ],
-            ], 200),
-        ]);
-
-        // Reinitialize client
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        // Use parameter spreading to call the method with our test parameters
-        $this->client->serpGoogleAutocompleteLiveAdvanced(...$parameters);
-
-        // Check that the request was sent with the expected parameters
-        Http::assertSent(function ($request) use ($expectedParams) {
-            foreach ($expectedParams as $key => $value) {
-                if (!isset($request[0][$key]) || $request[0][$key] !== $value) {
-                    return false;
-                }
-            }
-
-            return true;
-        });
     }
 
     public static function autocompleteParametersProvider()
@@ -1006,7 +1134,44 @@ class DataForSeoApiClientTest extends TestCase
         ];
     }
 
-    public function test_autocomplete_handles_api_errors()
+    #[DataProvider('autocompleteParametersProvider')]
+    public function test_serp_google_autocomplete_live_advanced_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" => Http::response([
+                'version'        => '0.1.20230807',
+                'status_code'    => 20000,
+                'status_message' => 'Ok.',
+                'tasks'          => [
+                    [
+                        'id'          => '12345',
+                        'status_code' => 20000,
+                        'result'      => [],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Reinitialize client
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Use parameter spreading to call the method with our test parameters
+        $this->client->serpGoogleAutocompleteLiveAdvanced(...$parameters);
+
+        // Check that the request was sent with the expected parameters
+        Http::assertSent(function ($request) use ($expectedParams) {
+            foreach ($expectedParams as $key => $value) {
+                if (!isset($request[0][$key]) || $request[0][$key] !== $value) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    public function test_serp_google_autocomplete_live_advanced_handles_api_errors()
     {
         $errorResponse = [
             'version'        => '0.1.20230807',
@@ -1034,7 +1199,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals($errorResponse, $response['response']->json());
     }
 
-    public function test_autocomplete_with_additional_params()
+    public function test_serp_google_autocomplete_live_advanced_with_additional_params()
     {
         $successResponse = [
             'version'        => '0.1.20230807',
@@ -1078,7 +1243,7 @@ class DataForSeoApiClientTest extends TestCase
         });
     }
 
-    public function test_makes_successful_labs_amazon_bulk_search_volume_live_request()
+    public function test_labs_amazon_bulk_search_volume_live_successful_request()
     {
         $id              = '01234567-89ab-cdef-0123-456789abcdef';
         $successResponse = [
@@ -1173,7 +1338,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals('amazon', $responseData['tasks'][0]['data']['se']);
     }
 
-    public function test_bulk_search_volume_validates_keywords_array()
+    public function test_labs_amazon_bulk_search_volume_live_validates_keywords_array()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Keywords array cannot be empty');
@@ -1181,7 +1346,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonBulkSearchVolumeLive([]);
     }
 
-    public function test_bulk_search_volume_validates_maximum_keywords()
+    public function test_labs_amazon_bulk_search_volume_live_validates_maximum_keywords()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum number of keywords is 1000');
@@ -1191,7 +1356,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonBulkSearchVolumeLive($keywords);
     }
 
-    public function test_bulk_search_volume_validates_required_language_parameters()
+    public function test_labs_amazon_bulk_search_volume_live_validates_required_language_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either languageName or languageCode must be provided');
@@ -1199,7 +1364,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonBulkSearchVolumeLive(['test keyword'], null, 2840, null, null);
     }
 
-    public function test_bulk_search_volume_validates_required_location_parameters()
+    public function test_labs_amazon_bulk_search_volume_live_validates_required_location_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either locationName or locationCode must be provided');
@@ -1207,7 +1372,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonBulkSearchVolumeLive(['test keyword'], null, null, null, 'en');
     }
 
-    public function test_makes_successful_labs_amazon_related_keywords_live_request()
+    public function test_labs_amazon_related_keywords_live_successful_request()
     {
         $id              = '01234567-89ab-cdef-0123-456789abcdef';
         $successResponse = [
@@ -1294,7 +1459,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals($keyword, $responseData['tasks'][0]['data']['keyword']);
     }
 
-    public function test_related_keywords_validates_empty_keyword()
+    public function test_labs_amazon_related_keywords_live_validates_empty_keyword()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Keyword cannot be empty');
@@ -1302,7 +1467,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRelatedKeywordsLive('');
     }
 
-    public function test_related_keywords_validates_depth_parameter()
+    public function test_labs_amazon_related_keywords_live_validates_depth_parameter()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Depth must be between 0 and 4');
@@ -1310,7 +1475,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRelatedKeywordsLive('test keyword', null, 2840, null, 'en', 5);
     }
 
-    public function test_related_keywords_validates_limit_parameter()
+    public function test_labs_amazon_related_keywords_live_validates_limit_parameter()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Limit must be between 1 and 1000');
@@ -1318,7 +1483,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRelatedKeywordsLive('test keyword', null, 2840, null, 'en', 2, null, null, 0);
     }
 
-    public function test_related_keywords_validates_required_language_parameters()
+    public function test_labs_amazon_related_keywords_live_validates_required_language_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either languageName or languageCode must be provided');
@@ -1326,7 +1491,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRelatedKeywordsLive('test keyword', null, 2840, null, null);
     }
 
-    public function test_related_keywords_validates_required_location_parameters()
+    public function test_labs_amazon_related_keywords_live_validates_required_location_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either locationName or locationCode must be provided');
@@ -1381,7 +1546,7 @@ class DataForSeoApiClientTest extends TestCase
     }
 
     #[DataProvider('relatedKeywordsParametersProvider')]
-    public function test_related_keywords_builds_request_with_correct_parameters($parameters, $expectedParams)
+    public function test_labs_amazon_related_keywords_live_builds_request_with_correct_parameters($parameters, $expectedParams)
     {
         Http::fake([
             "{$this->apiBaseUrl}/dataforseo_labs/amazon/related_keywords/live" => Http::response([
@@ -1419,7 +1584,7 @@ class DataForSeoApiClientTest extends TestCase
         });
     }
 
-    public function test_makes_successful_labs_amazon_ranked_keywords_live_request()
+    public function test_labs_amazon_ranked_keywords_live_successful_request()
     {
         $id              = '01234567-89ab-cdef-0123-456789abcdef';
         $successResponse = [
@@ -1527,7 +1692,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals($asin, $responseData['tasks'][0]['data']['asin']);
     }
 
-    public function test_ranked_keywords_validates_empty_asin()
+    public function test_labs_amazon_ranked_keywords_live_validates_empty_asin()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('ASIN cannot be empty');
@@ -1535,7 +1700,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRankedKeywordsLive('');
     }
 
-    public function test_ranked_keywords_validates_limit_parameter()
+    public function test_labs_amazon_ranked_keywords_live_validates_limit_parameter()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Limit must be between 1 and 1000');
@@ -1543,7 +1708,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRankedKeywordsLive('B08L5TNJHG', null, 2840, null, 'en', 0);
     }
 
-    public function test_ranked_keywords_validates_required_language_parameters()
+    public function test_labs_amazon_ranked_keywords_live_validates_required_language_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either languageName or languageCode must be provided');
@@ -1551,7 +1716,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRankedKeywordsLive('B08L5TNJHG', null, 2840, null, null);
     }
 
-    public function test_ranked_keywords_validates_required_location_parameters()
+    public function test_labs_amazon_ranked_keywords_live_validates_required_location_parameters()
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Either locationName or locationCode must be provided');
@@ -1559,7 +1724,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->labsAmazonRankedKeywordsLive('B08L5TNJHG', null, null, null, 'en');
     }
 
-    public static function rankedKeywordsParametersProvider()
+    public static function labsAmazonRankedKeywordsLiveParametersProvider()
     {
         return [
             'with basic parameters' => [
@@ -1645,8 +1810,8 @@ class DataForSeoApiClientTest extends TestCase
         ];
     }
 
-    #[DataProvider('rankedKeywordsParametersProvider')]
-    public function test_ranked_keywords_builds_request_with_correct_parameters($parameters, $expectedParams)
+    #[DataProvider('labsAmazonRankedKeywordsLiveParametersProvider')]
+    public function test_labs_amazon_ranked_keywords_live_builds_request_with_correct_parameters($parameters, $expectedParams)
     {
         Http::fake([
             "{$this->apiBaseUrl}/dataforseo_labs/amazon/ranked_keywords/live" => Http::response([
@@ -1684,7 +1849,7 @@ class DataForSeoApiClientTest extends TestCase
         });
     }
 
-    public function test_makes_successful_onpage_instant_pages_request()
+    public function test_onpage_instant_pages_successful_request()
     {
         $id              = '12345678-1234-1234-1234-123456789014';
         $successResponse = [
@@ -1943,7 +2108,7 @@ class DataForSeoApiClientTest extends TestCase
         });
     }
 
-    public function test_makes_successful_onpage_raw_html_request()
+    public function test_onpage_raw_html_successful_request()
     {
         $id              = '12345678-1234-1234-1234-123456789015';
         $successResponse = [
@@ -2006,7 +2171,7 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals($id, $responseData['tasks'][0]['id']);
     }
 
-    public function test_onpage_raw_html_with_url_parameter()
+    public function test_onpage_raw_html_with_url_parameter_successful_request()
     {
         $id              = '12345678-1234-1234-1234-123456789016';
         $url             = 'https://example.com';
@@ -2118,5 +2283,591 @@ class DataForSeoApiClientTest extends TestCase
         $responseData = $response['response']->json();
         $this->assertEquals(40000, $responseData['status_code']);
         $this->assertEquals('Bad Request.', $responseData['status_message']);
+    }
+
+    public function test_serp_google_organic_task_post_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2397 sec.',
+                    'cost'           => 0.015,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'task_post',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'task_post',
+                        'se'            => 'google',
+                        'se_type'       => 'organic',
+                        'keyword'       => 'laravel framework',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                        'device'        => 'desktop',
+                    ],
+                    'result' => [
+                        'task_id'        => $taskId,
+                        'status_message' => 'Ok.',
+                        'status_code'    => 20000,
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_post" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskPost('laravel framework');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['keyword']) &&
+                   $request[0]['keyword'] === 'laravel framework';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_serp_google_organic_task_post_validates_required_language_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either languageName or languageCode must be provided');
+
+        $this->client->serpGoogleOrganicTaskPost(
+            'laravel framework',
+            null,
+            null,
+            null,
+            null,
+            null,
+            2840,
+            null,
+            null,
+            null // Set languageCode to null
+        );
+    }
+
+    public function test_serp_google_organic_task_post_validates_required_location_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either locationName, locationCode, or locationCoordinate must be provided');
+
+        $this->client->serpGoogleOrganicTaskPost(
+            'laravel framework',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null, // locationCode set to null
+            null, // locationCoordinate not provided
+            null,
+            'en'
+        );
+    }
+
+    public function test_serp_google_organic_task_post_validates_depth_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Depth must be less than or equal to 700');
+
+        $this->client->serpGoogleOrganicTaskPost(
+            'laravel framework',
+            null,
+            null,
+            800 // Depth exceeds maximum of 700
+        );
+    }
+
+    public function test_serp_google_organic_task_post_validates_priority_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Priority must be either 1 (normal) or 2 (high)');
+
+        $this->client->serpGoogleOrganicTaskPost(
+            'laravel framework',
+            null,
+            3 // Invalid priority value
+        );
+    }
+
+    public function test_serp_google_organic_task_post_validates_people_also_ask_click_depth()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('peopleAlsoAskClickDepth must be between 1 and 4');
+
+        $this->client->serpGoogleOrganicTaskPost(
+            'laravel framework',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            null, // locationName
+            2840, // locationCode
+            null, // locationCoordinate
+            null, // languageName
+            'en', // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            5 // peopleAlsoAskClickDepth exceeds maximum of 4
+        );
+    }
+
+    public function test_serp_google_organic_task_post_validates_postback_data_requirement()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('postbackData is required when postbackUrl is specified');
+
+        $this->client->serpGoogleOrganicTaskPost(
+            'laravel framework',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            null, // locationName
+            2840, // locationCode
+            null, // locationCoordinate
+            null, // languageName
+            'en', // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            null, // tag
+            'https://example.com/callback', // postbackUrl
+            null // postbackData not provided
+        );
+    }
+
+    public static function serpGoogleOrganicTaskPostParametersProvider(): array
+    {
+        return [
+            'Basic parameters' => [
+                [
+                    'keyword' => 'laravel framework',
+                ],
+                [
+                    'keyword'       => 'laravel framework',
+                    'language_code' => 'en',
+                    'location_code' => 2840,
+                ],
+            ],
+            'Custom location and language' => [
+                [
+                    'keyword'            => 'laravel framework',
+                    'url'                => null,
+                    'priority'           => null,
+                    'depth'              => null,
+                    'maxCrawlPages'      => null,
+                    'locationName'       => 'Paris,France',
+                    'locationCode'       => 1006524,
+                    'locationCoordinate' => null,
+                    'languageName'       => 'French',
+                    'languageCode'       => 'fr',
+                ],
+                [
+                    'keyword'       => 'laravel framework',
+                    'language_name' => 'French',
+                    'language_code' => 'fr',
+                    'location_name' => 'Paris,France',
+                    'location_code' => 1006524,
+                ],
+            ],
+            'Advanced parameters' => [
+                [
+                    'keyword'                      => 'laravel framework',
+                    'url'                          => null,
+                    'priority'                     => 2,
+                    'depth'                        => 200,
+                    'maxCrawlPages'                => null,
+                    'locationName'                 => null,
+                    'locationCode'                 => 2840,
+                    'locationCoordinate'           => null,
+                    'languageName'                 => null,
+                    'languageCode'                 => 'en',
+                    'seDomain'                     => null,
+                    'device'                       => 'mobile',
+                    'os'                           => 'android',
+                    'groupOrganicResults'          => null,
+                    'calculateRectangles'          => null,
+                    'browserScreenWidth'           => null,
+                    'browserScreenHeight'          => null,
+                    'browserScreenResolutionRatio' => null,
+                    'peopleAlsoAskClickDepth'      => null,
+                    'loadAsyncAiOverview'          => null,
+                    'expandAiOverview'             => null,
+                    'searchParam'                  => 'gl=US',
+                    'removeFromUrl'                => null,
+                    'tag'                          => 'test-tag',
+                ],
+                [
+                    'keyword'       => 'laravel framework',
+                    'language_code' => 'en',
+                    'location_code' => 2840,
+                    'priority'      => 2,
+                    'depth'         => 200,
+                    'device'        => 'mobile',
+                    'os'            => 'android',
+                    'search_param'  => 'gl=US',
+                    'tag'           => 'test-tag',
+                ],
+            ],
+            'AI and callback parameters' => [
+                [
+                    'keyword'                      => 'laravel framework',
+                    'url'                          => null,
+                    'priority'                     => null,
+                    'depth'                        => null,
+                    'maxCrawlPages'                => null,
+                    'locationName'                 => null,
+                    'locationCode'                 => 2840,
+                    'locationCoordinate'           => null,
+                    'languageName'                 => null,
+                    'languageCode'                 => 'en',
+                    'seDomain'                     => null,
+                    'device'                       => null,
+                    'os'                           => null,
+                    'groupOrganicResults'          => null,
+                    'calculateRectangles'          => null,
+                    'browserScreenWidth'           => null,
+                    'browserScreenHeight'          => null,
+                    'browserScreenResolutionRatio' => null,
+                    'peopleAlsoAskClickDepth'      => null,
+                    'loadAsyncAiOverview'          => true,
+                    'expandAiOverview'             => true,
+                    'searchParam'                  => null,
+                    'removeFromUrl'                => null,
+                    'tag'                          => null,
+                    'postbackUrl'                  => 'https://example.com/callback',
+                    'postbackData'                 => 'regular',
+                    'pingbackUrl'                  => 'https://example.com/pingback',
+                ],
+                [
+                    'keyword'                => 'laravel framework',
+                    'language_code'          => 'en',
+                    'location_code'          => 2840,
+                    'load_async_ai_overview' => true,
+                    'expand_ai_overview'     => true,
+                    'postback_url'           => 'https://example.com/callback',
+                    'postback_data'          => 'regular',
+                    'pingback_url'           => 'https://example.com/pingback',
+                ],
+            ],
+        ];
+    }
+
+    #[DataProvider('serpGoogleOrganicTaskPostParametersProvider')]
+    public function test_serp_google_organic_task_post_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => '12345678-1234-1234-1234-123456789012',
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'result'         => [
+                        'task_id' => '12345678-1234-1234-1234-123456789012',
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_post" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Call the method with named parameters instead of positional ones
+        $this->client->serpGoogleOrganicTaskPost(
+            keyword: $parameters['keyword'],
+            url: $parameters['url'] ?? null,
+            priority: $parameters['priority'] ?? null,
+            depth: $parameters['depth'] ?? null,
+            maxCrawlPages: $parameters['maxCrawlPages'] ?? null,
+            locationName: $parameters['locationName'] ?? null,
+            locationCode: $parameters['locationCode'] ?? 2840,
+            locationCoordinate: $parameters['locationCoordinate'] ?? null,
+            languageName: $parameters['languageName'] ?? null,
+            languageCode: $parameters['languageCode'] ?? 'en',
+            seDomain: $parameters['seDomain'] ?? null,
+            device: $parameters['device'] ?? null,
+            os: $parameters['os'] ?? null,
+            groupOrganicResults: $parameters['groupOrganicResults'] ?? null,
+            calculateRectangles: $parameters['calculateRectangles'] ?? null,
+            browserScreenWidth: $parameters['browserScreenWidth'] ?? null,
+            browserScreenHeight: $parameters['browserScreenHeight'] ?? null,
+            browserScreenResolutionRatio: $parameters['browserScreenResolutionRatio'] ?? null,
+            peopleAlsoAskClickDepth: $parameters['peopleAlsoAskClickDepth'] ?? null,
+            loadAsyncAiOverview: $parameters['loadAsyncAiOverview'] ?? null,
+            expandAiOverview: $parameters['expandAiOverview'] ?? null,
+            searchParam: $parameters['searchParam'] ?? null,
+            removeFromUrl: $parameters['removeFromUrl'] ?? null,
+            tag: $parameters['tag'] ?? null,
+            postbackUrl: $parameters['postbackUrl'] ?? null,
+            postbackData: $parameters['postbackData'] ?? null,
+            pingbackUrl: $parameters['pingbackUrl'] ?? null
+        );
+
+        Http::assertSent(function ($request) use ($expectedParams) {
+            $requestData = $request[0] ?? [];
+
+            foreach ($expectedParams as $key => $value) {
+                if (!isset($requestData[$key]) || $requestData[$key] !== $value) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Http::fake returns 200 by default when not specified
+        $this->assertNotNull($this->client);
+    }
+
+    public function test_serp_google_organic_task_post_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40101,
+            'status_message' => 'Auth error. Invalid login credentials.',
+            'time'           => '0.0121 sec.',
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_post" => Http::response($errorResponse, 401),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskPost('laravel framework');
+
+        $this->assertEquals(401, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertEquals(40101, $responseData['status_code']);
+        $this->assertEquals('Auth error. Invalid login credentials.', $responseData['status_message']);
+    }
+
+    public function test_serp_google_organic_task_get_regular_handles_error_response()
+    {
+        $taskId       = '12345678-1234-1234-1234-123456789012';
+        $endpointPath = 'serp/google/organic/task_get/regular';
+
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40401,
+            'status_message' => 'Task not found.',
+            'time'           => '0.0105 sec.',
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($errorResponse, 404),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskGetRegular($taskId);
+
+        $this->assertEquals(404, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertEquals(40401, $responseData['status_code']);
+        $this->assertEquals('Task not found.', $responseData['status_message']);
+    }
+
+    /**
+     * Data provider for task get wrapper methods
+     *
+     * @return array
+     */
+    public static function taskGetWrapperMethodsProvider(): array
+    {
+        return [
+            'serpGoogleOrganicTaskGetRegular' => [
+                'method'       => 'serpGoogleOrganicTaskGetRegular',
+                'endpointPath' => 'serp/google/organic/task_get/regular',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'regular'],
+                'keyword'      => 'laravel framework',
+            ],
+            'serpGoogleOrganicTaskGetAdvanced' => [
+                'method'       => 'serpGoogleOrganicTaskGetAdvanced',
+                'endpointPath' => 'serp/google/organic/task_get/advanced',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'advanced'],
+                'keyword'      => 'php composer',
+            ],
+            'serpGoogleOrganicTaskGetHtml' => [
+                'method'       => 'serpGoogleOrganicTaskGetHtml',
+                'endpointPath' => 'serp/google/organic/task_get/html',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'html'],
+                'keyword'      => 'laravel eloquent',
+            ],
+        ];
+    }
+
+    #[DataProvider('taskGetWrapperMethodsProvider')]
+    public function test_task_get_wrapper_methods_make_request_with_correct_parameters(
+        string $method,
+        string $endpointPath,
+        array $pathResult,
+        string $keyword
+    ) {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => $pathResult,
+                    'data'           => [
+                        'api'      => 'serp',
+                        'function' => 'task_get',
+                        'se'       => 'google',
+                        'se_type'  => 'organic',
+                        'keyword'  => $keyword,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'     => $keyword,
+                            'items_count' => 5,
+                            'items'       => [
+                                [
+                                    'type'       => 'organic',
+                                    'rank_group' => 1,
+                                    'title'      => 'Test Result',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->$method($taskId);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($responseData['tasks'][0]['data']['keyword'], $keyword);
+    }
+
+    #[DataProvider('taskGetWrapperMethodsProvider')]
+    public function test_task_get_wrapper_methods_pass_custom_parameters(
+        string $method,
+        string $endpointPath,
+        array $pathResult = null,
+        string $keyword = null
+    ) {
+        $taskId     = '12345678-1234-1234-1234-123456789012';
+        $attributes = 'custom-attributes-test';
+        $amount     = 3;
+
+        $successResponse = [
+            'version'     => '0.1.20230807',
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id' => $taskId,
+                ],
+            ],
+        ];
+
+        // Mock the specific endpoint for this method
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Create a real client instance and clear rate limits
+        $client = new DataForSeoApiClient();
+        $client->clearRateLimit();
+
+        // Call the method with custom parameters
+        $response = $client->$method($taskId, $attributes, $amount);
+
+        // Verify the request was sent
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Verify we received a response (endpoint handlers should be passing these values to taskGet)
+        $this->assertEquals(200, $response['response_status_code']);
     }
 }

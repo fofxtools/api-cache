@@ -184,6 +184,16 @@ return [
             'apiVersion'               => env('DATAFORSEO_API_VERSION', '/v3/'),
             'url'                      => env('DATAFORSEO_BASE_URL', 'https://api.dataforseo.com'),
             'extraEntitiesPaths'       => array_filter(explode(',', env('DATAFORSEO_EXTRA_ENTITIES_PATHS', ''))),
+            'whitelisted_ips'          => env('DATAFORSEO_WHITELISTED_IPS', [
+                '88.99.215.15',
+                '94.130.93.29',
+                '94.130.155.89',
+                '144.76.153.106',
+                '144.76.153.113',
+                '144.76.154.130',
+                '178.63.193.217',
+                '195.201.63.107',
+            ]),
         ],
     ],
 

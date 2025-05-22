@@ -231,6 +231,168 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertTrue($shouldCache);
     }
 
+    public function test_buildApiParams_converts_camel_case_to_snake_case()
+    {
+        // Create a class with a test method that calls buildApiParams
+        $clientMock = new class () extends DataForSeoApiClient {
+            // Test method that will call buildApiParams internally
+            public function testMethod(string $testParam, int $anotherParam): array
+            {
+                // Now that buildApiParams is public, we can call it directly
+                return $this->buildApiParams();
+            }
+        };
+
+        // Call the test method with actual camelCase parameters
+        $result = $clientMock->testMethod('test value', 123);
+
+        // Verify parameters are converted to snake_case
+        $this->assertArrayHasKey('test_param', $result);
+        $this->assertArrayHasKey('another_param', $result);
+        $this->assertEquals('test value', $result['test_param']);
+        $this->assertEquals(123, $result['another_param']);
+    }
+
+    public function test_buildApiParams_removes_null_values()
+    {
+        // Create a class with a test method that calls buildApiParams
+        $clientMock = new class () extends DataForSeoApiClient {
+            // Test method with nullable parameters
+            public function testMethod(
+                string $nonNullParam,
+                ?string $nullParam = null,
+                ?int $zeroParam = 0,
+                string $emptyStringParam = '',
+                ?bool $falseParam = false
+            ): array {
+                // Call buildApiParams directly
+                return $this->buildApiParams();
+            }
+        };
+
+        // Call with mixed null and non-null values
+        $result = $clientMock->testMethod('value', null, 0, '', false);
+
+        // Verify only non-null parameters are included
+        $this->assertArrayHasKey('non_null_param', $result);
+        $this->assertArrayHasKey('zero_param', $result);
+        $this->assertArrayHasKey('empty_string_param', $result);
+        $this->assertArrayHasKey('false_param', $result);
+        $this->assertArrayNotHasKey('null_param', $result);
+
+        $this->assertEquals('value', $result['non_null_param']);
+        $this->assertEquals(0, $result['zero_param']);
+        $this->assertEquals('', $result['empty_string_param']);
+        $this->assertEquals(false, $result['false_param']);
+    }
+
+    public function test_buildApiParams_excludes_specified_arguments()
+    {
+        // Create a class with a test method that calls buildApiParams
+        $clientMock = new class () extends DataForSeoApiClient {
+            // Test method with parameters that should be excluded
+            public function testMethod(
+                string $normalParam,
+                array $additionalParams = [],
+                ?string $attributes = null,
+                ?int $amount = null
+            ): array {
+                // Pass the additionalParams directly to buildApiParams
+                return $this->buildApiParams($additionalParams);
+            }
+        };
+
+        // Extra parameters to pass as additionalParams
+        $additionalParams = ['some' => 'value'];
+
+        // Call with all types of parameters
+        $result = $clientMock->testMethod('value', $additionalParams, 'test', 5);
+
+        // Verify excluded parameters are not present
+        $this->assertArrayHasKey('normal_param', $result);
+        $this->assertArrayHasKey('some', $result); // From additionalParams
+        $this->assertArrayNotHasKey('additional_params', $result); // Excluded
+        $this->assertArrayNotHasKey('attributes', $result); // Excluded
+        $this->assertArrayNotHasKey('amount', $result); // Excluded
+
+        $this->assertEquals('value', $result['normal_param']);
+        $this->assertEquals('value', $result['some']);
+    }
+
+    public function test_buildApiParams_merges_additional_params()
+    {
+        // Create a class with a test method that calls buildApiParams
+        $clientMock = new class () extends DataForSeoApiClient {
+            // Test method with overlapping parameters
+            public function testMethod(string $param1, string $param2, array $additionalParams = []): array
+            {
+                // Call buildApiParams directly with the additionalParams
+                return $this->buildApiParams($additionalParams);
+            }
+        };
+
+        // Create additionalParams with overlapping and new keys
+        $additionalParams = [
+            'param1' => 'additional value', // Should be overridden by the method parameter
+            'param3' => 'value3',          // Should be included as-is
+        ];
+
+        // Call with overlapping parameters
+        $result = $clientMock->testMethod('original value', 'value2', $additionalParams);
+
+        // Verify parameter precedence and merging
+        $this->assertArrayHasKey('param1', $result);
+        $this->assertArrayHasKey('param2', $result);
+        $this->assertArrayHasKey('param3', $result);
+
+        // Method parameters should take precedence over additionalParams
+        $this->assertEquals('original value', $result['param1']);
+        $this->assertEquals('value2', $result['param2']);
+        $this->assertEquals('value3', $result['param3']);
+    }
+
+    public function test_buildApiParams_real_world_example()
+    {
+        // Create a class with a test method that calls buildApiParams
+        $clientMock = new class () extends DataForSeoApiClient {
+            // Realistic API endpoint method
+            public function searchMethod(
+                string $keyword,
+                ?string $locationName = null,
+                ?int $locationCode = null,
+                bool $enableFeature = false,
+                array $additionalParams = []
+            ): array {
+                return $this->buildApiParams($additionalParams);
+            }
+        };
+
+        // Additional parameters to include
+        $additionalParams = ['extra_param' => 'extra value'];
+
+        // Call with a mix of parameters, including null
+        $result = $clientMock->searchMethod(
+            'test keyword',
+            'United States',
+            null,
+            true,
+            $additionalParams
+        );
+
+        // Verify the parameter processing
+        $this->assertArrayHasKey('keyword', $result);
+        $this->assertArrayHasKey('location_name', $result);
+        $this->assertArrayHasKey('enable_feature', $result);
+        $this->assertArrayHasKey('extra_param', $result);
+        $this->assertArrayNotHasKey('location_code', $result); // Should be removed as it's null
+        $this->assertArrayNotHasKey('additional_params', $result); // Should be excluded
+
+        $this->assertEquals('test keyword', $result['keyword']);
+        $this->assertEquals('United States', $result['location_name']);
+        $this->assertEquals(true, $result['enable_feature']);
+        $this->assertEquals('extra value', $result['extra_param']);
+    }
+
     public function test_task_get_successful_request()
     {
         $taskId          = '12345678-1234-1234-1234-123456789012';
@@ -394,6 +556,150 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals(200, $response['response_status_code']);
         $responseData = $response['response']->json();
         $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+    }
+
+    /**
+     * Data provider for task get wrapper methods
+     *
+     * @return array
+     */
+    public static function taskGetWrapperMethodsProvider(): array
+    {
+        return [
+            'serpGoogleOrganicTaskGetRegular' => [
+                'method'       => 'serpGoogleOrganicTaskGetRegular',
+                'endpointPath' => 'serp/google/organic/task_get/regular',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'regular'],
+                'keyword'      => 'laravel framework',
+            ],
+            'serpGoogleOrganicTaskGetAdvanced' => [
+                'method'       => 'serpGoogleOrganicTaskGetAdvanced',
+                'endpointPath' => 'serp/google/organic/task_get/advanced',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'advanced'],
+                'keyword'      => 'php composer',
+            ],
+            'serpGoogleOrganicTaskGetHtml' => [
+                'method'       => 'serpGoogleOrganicTaskGetHtml',
+                'endpointPath' => 'serp/google/organic/task_get/html',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'html'],
+                'keyword'      => 'laravel eloquent',
+            ],
+        ];
+    }
+
+    #[DataProvider('taskGetWrapperMethodsProvider')]
+    public function test_task_get_wrapper_methods_make_request_with_correct_parameters(
+        string $method,
+        string $endpointPath,
+        array $pathResult,
+        string $keyword
+    ) {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => $pathResult,
+                    'data'           => [
+                        'api'      => 'serp',
+                        'function' => 'task_get',
+                        'se'       => 'google',
+                        'se_type'  => 'organic',
+                        'keyword'  => $keyword,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'     => $keyword,
+                            'items_count' => 5,
+                            'items'       => [
+                                [
+                                    'type'       => 'organic',
+                                    'rank_group' => 1,
+                                    'title'      => 'Test Result',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->$method($taskId);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($responseData['tasks'][0]['data']['keyword'], $keyword);
+    }
+
+    #[DataProvider('taskGetWrapperMethodsProvider')]
+    public function test_task_get_wrapper_methods_pass_custom_parameters(
+        string $method,
+        string $endpointPath,
+        array $pathResult = null,
+        string $keyword = null
+    ) {
+        $taskId     = '12345678-1234-1234-1234-123456789012';
+        $attributes = 'custom-attributes-test';
+        $amount     = 3;
+
+        $successResponse = [
+            'version'     => '0.1.20230807',
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id' => $taskId,
+                ],
+            ],
+        ];
+
+        // Mock the specific endpoint for this method
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Create a real client instance and clear rate limits
+        $client = new DataForSeoApiClient();
+        $client->clearRateLimit();
+
+        // Call the method with custom parameters
+        $response = $client->$method($taskId, $attributes, $amount);
+
+        // Verify the request was sent
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Verify we received a response (endpoint handlers should be passing these values to taskGet)
+        $this->assertEquals(200, $response['response_status_code']);
     }
 
     public function test_serp_google_organic_live_regular_successful_request()
@@ -2725,149 +3031,5 @@ class DataForSeoApiClientTest extends TestCase
         $responseData = $response['response']->json();
         $this->assertEquals(40401, $responseData['status_code']);
         $this->assertEquals('Task not found.', $responseData['status_message']);
-    }
-
-    /**
-     * Data provider for task get wrapper methods
-     *
-     * @return array
-     */
-    public static function taskGetWrapperMethodsProvider(): array
-    {
-        return [
-            'serpGoogleOrganicTaskGetRegular' => [
-                'method'       => 'serpGoogleOrganicTaskGetRegular',
-                'endpointPath' => 'serp/google/organic/task_get/regular',
-                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'regular'],
-                'keyword'      => 'laravel framework',
-            ],
-            'serpGoogleOrganicTaskGetAdvanced' => [
-                'method'       => 'serpGoogleOrganicTaskGetAdvanced',
-                'endpointPath' => 'serp/google/organic/task_get/advanced',
-                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'advanced'],
-                'keyword'      => 'php composer',
-            ],
-            'serpGoogleOrganicTaskGetHtml' => [
-                'method'       => 'serpGoogleOrganicTaskGetHtml',
-                'endpointPath' => 'serp/google/organic/task_get/html',
-                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'html'],
-                'keyword'      => 'laravel eloquent',
-            ],
-        ];
-    }
-
-    #[DataProvider('taskGetWrapperMethodsProvider')]
-    public function test_task_get_wrapper_methods_make_request_with_correct_parameters(
-        string $method,
-        string $endpointPath,
-        array $pathResult,
-        string $keyword
-    ) {
-        $taskId          = '12345678-1234-1234-1234-123456789012';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'time'           => '0.0482 sec.',
-            'cost'           => 0.0025,
-            'tasks_count'    => 1,
-            'tasks_error'    => 0,
-            'tasks'          => [
-                [
-                    'id'             => $taskId,
-                    'status_code'    => 20000,
-                    'status_message' => 'Ok.',
-                    'time'           => '0.0382 sec.',
-                    'cost'           => 0.0025,
-                    'result_count'   => 1,
-                    'path'           => $pathResult,
-                    'data'           => [
-                        'api'      => 'serp',
-                        'function' => 'task_get',
-                        'se'       => 'google',
-                        'se_type'  => 'organic',
-                        'keyword'  => $keyword,
-                    ],
-                    'result' => [
-                        [
-                            'keyword'     => $keyword,
-                            'items_count' => 5,
-                            'items'       => [
-                                [
-                                    'type'       => 'organic',
-                                    'rank_group' => 1,
-                                    'title'      => 'Test Result',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        $response = $this->client->$method($taskId);
-
-        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
-            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
-                   $request->method() === 'GET';
-        });
-
-        // Make sure we used the Http::fake() response
-        $this->assertEquals(200, $response['response_status_code']);
-        $responseData = $response['response']->json();
-        $this->assertArrayHasKey('tasks', $responseData);
-        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
-        $this->assertEquals($responseData['tasks'][0]['data']['keyword'], $keyword);
-    }
-
-    #[DataProvider('taskGetWrapperMethodsProvider')]
-    public function test_task_get_wrapper_methods_pass_custom_parameters(
-        string $method,
-        string $endpointPath,
-        array $pathResult = null,
-        string $keyword = null
-    ) {
-        $taskId     = '12345678-1234-1234-1234-123456789012';
-        $attributes = 'custom-attributes-test';
-        $amount     = 3;
-
-        $successResponse = [
-            'version'     => '0.1.20230807',
-            'status_code' => 20000,
-            'tasks'       => [
-                [
-                    'id' => $taskId,
-                ],
-            ],
-        ];
-
-        // Mock the specific endpoint for this method
-        Http::fake([
-            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
-        ]);
-
-        // Create a real client instance and clear rate limits
-        $client = new DataForSeoApiClient();
-        $client->clearRateLimit();
-
-        // Call the method with custom parameters
-        $response = $client->$method($taskId, $attributes, $amount);
-
-        // Verify the request was sent
-        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
-            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
-                   $request->method() === 'GET';
-        });
-
-        // Verify we received a response (endpoint handlers should be passing these values to taskGet)
-        $this->assertEquals(200, $response['response_status_code']);
     }
 }

@@ -5,9 +5,23 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use FOfX\Helper\ReflectionUtils;
 
 class DataForSeoApiClient extends BaseApiClient
 {
+    /**
+     * Parameters that should never be forwarded to the API
+     * - additionalParams: Used for internal parameter merging
+     * - attributes: Used for cache key generation
+     * - amount: Used for rate limiting
+     */
+    public array $excludedArgs = [
+        'additionalParams',
+        'attributes',
+        'amount',
+    ];
+
     /**
      * Constructor for DataForSeoApiClient
      *
@@ -147,6 +161,35 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Build API parameters from method arguments
+     *
+     * @param array $additionalParams Additional parameters to merge
+     *
+     * @return array Parameters ready for API request
+     */
+    public function buildApiParams(array $additionalParams = []): array
+    {
+        // Get caller's arguments
+        $args = ReflectionUtils::extractBoundArgsFromBacktrace(2);
+
+        // Remove excluded arguments
+        foreach ($this->excludedArgs as $skip) {
+            unset($args[$skip]);
+        }
+
+        // Convert to snake_case and drop nulls
+        $params = [];
+        foreach ($args as $name => $value) {
+            if ($value !== null) {
+                $params[Str::snake($name)] = $value;
+            }
+        }
+
+        // Merge with additional params (original params take precedence)
+        return array_merge($additionalParams, $params);
+    }
+
+    /**
      * Get the results of a previously submitted task using DataForSEO's Task GET endpoints
      *
      * This generic method works with any DataForSEO Task GET endpoint, including:
@@ -181,10 +224,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Task ID cannot be empty');
         }
 
-        Log::debug('Making DataForSEO task_get request', [
-            'endpoint_path' => $endpointPath,
-            'id'            => $id,
-        ]);
+        // Add the caller method, if any, to the extracted arguments
+        $callerMethod = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'] ?? null;
+        $args         = ['caller_method' => $callerMethod] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
+
+        Log::debug('Making DataForSEO task_get request', $args);
 
         // Pass the task ID as attributes if attributes is not provided
         if ($attributes === null) {
@@ -263,84 +307,12 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Depth must be less than or equal to 700');
         }
 
-        Log::debug('Making DataForSEO Google Organic SERP live request', [
-            'keyword'               => $keyword,
-            'location_name'         => $locationName,
-            'location_code'         => $locationCode,
-            'location_coordinate'   => $locationCoordinate,
-            'language_name'         => $languageName,
-            'language_code'         => $languageCode,
-            'device'                => $device,
-            'os'                    => $os,
-            'se_domain'             => $seDomain,
-            'depth'                 => $depth,
-            'target'                => $target,
-            'group_organic_results' => $groupOrganicResults,
-            'max_crawl_pages'       => $maxCrawlPages,
-            'search_param'          => $searchParam,
-            'tag'                   => $tag,
-        ]);
+        Log::debug(
+            'Making DataForSEO Google Organic SERP live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['keyword' => $keyword];
-
-        // Add optional parameters only if they're provided
-        if ($locationName !== null) {
-            $originalParams['location_name'] = $locationName;
-        }
-
-        if ($locationCode !== null) {
-            $originalParams['location_code'] = $locationCode;
-        }
-
-        if ($locationCoordinate !== null) {
-            $originalParams['location_coordinate'] = $locationCoordinate;
-        }
-
-        if ($languageName !== null) {
-            $originalParams['language_name'] = $languageName;
-        }
-
-        if ($languageCode !== null) {
-            $originalParams['language_code'] = $languageCode;
-        }
-
-        if ($device !== null) {
-            $originalParams['device'] = $device;
-        }
-
-        if ($os !== null) {
-            $originalParams['os'] = $os;
-        }
-
-        if ($seDomain !== null) {
-            $originalParams['se_domain'] = $seDomain;
-        }
-
-        if ($depth !== null) {
-            $originalParams['depth'] = $depth;
-        }
-
-        if ($target !== null) {
-            $originalParams['target'] = $target;
-        }
-
-        if ($groupOrganicResults !== null) {
-            $originalParams['group_organic_results'] = $groupOrganicResults;
-        }
-
-        if ($maxCrawlPages !== null) {
-            $originalParams['max_crawl_pages'] = $maxCrawlPages;
-        }
-
-        if ($searchParam !== null) {
-            $originalParams['search_param'] = $searchParam;
-        }
-
-        if ($tag !== null) {
-            $originalParams['tag'] = $tag;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -440,124 +412,12 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('peopleAlsoAskClickDepth must be between 1 and 4');
         }
 
-        Log::debug('Making DataForSEO Google Organic SERP live advanced request', [
-            'keyword'                         => $keyword,
-            'url'                             => $url,
-            'depth'                           => $depth,
-            'max_crawl_pages'                 => $maxCrawlPages,
-            'location_name'                   => $locationName,
-            'location_code'                   => $locationCode,
-            'location_coordinate'             => $locationCoordinate,
-            'language_name'                   => $languageName,
-            'language_code'                   => $languageCode,
-            'se_domain'                       => $seDomain,
-            'device'                          => $device,
-            'os'                              => $os,
-            'target'                          => $target,
-            'group_organic_results'           => $groupOrganicResults,
-            'calculate_rectangles'            => $calculateRectangles,
-            'browser_screen_width'            => $browserScreenWidth,
-            'browser_screen_height'           => $browserScreenHeight,
-            'browser_screen_resolution_ratio' => $browserScreenResolutionRatio,
-            'people_also_ask_click_depth'     => $peopleAlsoAskClickDepth,
-            'load_async_ai_overview'          => $loadAsyncAiOverview,
-            'search_param'                    => $searchParam,
-            'remove_from_url'                 => $removeFromUrl,
-            'tag'                             => $tag,
-        ]);
+        Log::debug(
+            'Making DataForSEO Google Organic SERP live advanced request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['keyword' => $keyword];
-
-        // Add optional parameters only if they're provided
-        if ($url !== null) {
-            $originalParams['url'] = $url;
-        }
-
-        if ($depth !== null) {
-            $originalParams['depth'] = $depth;
-        }
-
-        if ($maxCrawlPages !== null) {
-            $originalParams['max_crawl_pages'] = $maxCrawlPages;
-        }
-
-        if ($locationName !== null) {
-            $originalParams['location_name'] = $locationName;
-        }
-
-        if ($locationCode !== null) {
-            $originalParams['location_code'] = $locationCode;
-        }
-
-        if ($locationCoordinate !== null) {
-            $originalParams['location_coordinate'] = $locationCoordinate;
-        }
-
-        if ($languageName !== null) {
-            $originalParams['language_name'] = $languageName;
-        }
-
-        if ($languageCode !== null) {
-            $originalParams['language_code'] = $languageCode;
-        }
-
-        if ($seDomain !== null) {
-            $originalParams['se_domain'] = $seDomain;
-        }
-
-        if ($device !== null) {
-            $originalParams['device'] = $device;
-        }
-
-        if ($os !== null) {
-            $originalParams['os'] = $os;
-        }
-
-        if ($target !== null) {
-            $originalParams['target'] = $target;
-        }
-
-        if ($groupOrganicResults !== null) {
-            $originalParams['group_organic_results'] = $groupOrganicResults;
-        }
-
-        if ($calculateRectangles !== null) {
-            $originalParams['calculate_rectangles'] = $calculateRectangles;
-        }
-
-        if ($browserScreenWidth !== null) {
-            $originalParams['browser_screen_width'] = $browserScreenWidth;
-        }
-
-        if ($browserScreenHeight !== null) {
-            $originalParams['browser_screen_height'] = $browserScreenHeight;
-        }
-
-        if ($browserScreenResolutionRatio !== null) {
-            $originalParams['browser_screen_resolution_ratio'] = $browserScreenResolutionRatio;
-        }
-
-        if ($peopleAlsoAskClickDepth !== null) {
-            $originalParams['people_also_ask_click_depth'] = $peopleAlsoAskClickDepth;
-        }
-
-        if ($loadAsyncAiOverview !== null) {
-            $originalParams['load_async_ai_overview'] = $loadAsyncAiOverview;
-        }
-
-        if ($searchParam !== null) {
-            $originalParams['search_param'] = $searchParam;
-        }
-
-        if ($removeFromUrl !== null) {
-            $originalParams['remove_from_url'] = $removeFromUrl;
-        }
-
-        if ($tag !== null) {
-            $originalParams['tag'] = $tag;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -617,49 +477,12 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
         }
 
-        Log::debug('Making DataForSEO Google Autocomplete SERP live request', [
-            'keyword'        => $keyword,
-            'location_name'  => $locationName,
-            'location_code'  => $locationCode,
-            'language_name'  => $languageName,
-            'language_code'  => $languageCode,
-            'cursor_pointer' => $cursorPointer,
-            'client'         => $client,
-            'tag'            => $tag,
-        ]);
+        Log::debug(
+            'Making DataForSEO Google Autocomplete SERP live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['keyword' => $keyword];
-
-        // Add optional parameters only if they're provided
-        if ($locationName !== null) {
-            $originalParams['location_name'] = $locationName;
-        }
-
-        if ($locationCode !== null) {
-            $originalParams['location_code'] = $locationCode;
-        }
-
-        if ($languageName !== null) {
-            $originalParams['language_name'] = $languageName;
-        }
-
-        if ($languageCode !== null) {
-            $originalParams['language_code'] = $languageCode;
-        }
-
-        if ($cursorPointer !== null) {
-            $originalParams['cursor_pointer'] = $cursorPointer;
-        }
-
-        if ($client !== null) {
-            $originalParams['client'] = $client;
-        }
-
-        if ($tag !== null) {
-            $originalParams['tag'] = $tag;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -725,39 +548,12 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
         }
 
-        Log::debug('Making DataForSEO Labs Amazon Bulk Search Volume request', [
-            'keywords_count' => count($keywords),
-            'location_name'  => $locationName,
-            'location_code'  => $locationCode,
-            'language_name'  => $languageName,
-            'language_code'  => $languageCode,
-            'tag'            => $tag,
-        ]);
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
 
-        $originalParams = ['keywords' => $keywords];
+        Log::debug('Making DataForSEO Labs Amazon Bulk Search Volume request', $args);
 
-        // Add optional parameters only if they're provided
-        if ($locationName !== null) {
-            $originalParams['location_name'] = $locationName;
-        }
-
-        if ($locationCode !== null) {
-            $originalParams['location_code'] = $locationCode;
-        }
-
-        if ($languageName !== null) {
-            $originalParams['language_name'] = $languageName;
-        }
-
-        if ($languageCode !== null) {
-            $originalParams['language_code'] = $languageCode;
-        }
-
-        if ($tag !== null) {
-            $originalParams['tag'] = $tag;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -847,64 +643,12 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Limit must be between 1 and 1000');
         }
 
-        Log::debug('Making DataForSEO Labs Amazon Related Keywords request', [
-            'keyword'              => $keyword,
-            'location_name'        => $locationName,
-            'location_code'        => $locationCode,
-            'language_name'        => $languageName,
-            'language_code'        => $languageCode,
-            'depth'                => $depth,
-            'include_seed_keyword' => $includeSeedKeyword,
-            'ignore_synonyms'      => $ignoreSynonyms,
-            'limit'                => $limit,
-            'offset'               => $offset,
-            'tag'                  => $tag,
-        ]);
+        Log::debug(
+            'Making DataForSEO Labs Amazon Related Keywords request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['keyword' => $keyword];
-
-        // Add optional parameters only if they're provided
-        if ($locationName !== null) {
-            $originalParams['location_name'] = $locationName;
-        }
-
-        if ($locationCode !== null) {
-            $originalParams['location_code'] = $locationCode;
-        }
-
-        if ($languageName !== null) {
-            $originalParams['language_name'] = $languageName;
-        }
-
-        if ($languageCode !== null) {
-            $originalParams['language_code'] = $languageCode;
-        }
-
-        if ($depth !== null) {
-            $originalParams['depth'] = $depth;
-        }
-
-        if ($includeSeedKeyword !== null) {
-            $originalParams['include_seed_keyword'] = $includeSeedKeyword;
-        }
-
-        if ($ignoreSynonyms !== null) {
-            $originalParams['ignore_synonyms'] = $ignoreSynonyms;
-        }
-
-        if ($limit !== null) {
-            $originalParams['limit'] = $limit;
-        }
-
-        if ($offset !== null) {
-            $originalParams['offset'] = $offset;
-        }
-
-        if ($tag !== null) {
-            $originalParams['tag'] = $tag;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -982,64 +726,12 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Limit must be between 1 and 1000');
         }
 
-        Log::debug('Making DataForSEO Labs Amazon Ranked Keywords request', [
-            'asin'            => $asin,
-            'location_name'   => $locationName,
-            'location_code'   => $locationCode,
-            'language_name'   => $languageName,
-            'language_code'   => $languageCode,
-            'limit'           => $limit,
-            'ignore_synonyms' => $ignoreSynonyms,
-            'filters'         => $filters,
-            'order_by'        => $orderBy,
-            'offset'          => $offset,
-            'tag'             => $tag,
-        ]);
+        Log::debug(
+            'Making DataForSEO Labs Amazon Ranked Keywords request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['asin' => $asin];
-
-        // Add optional parameters only if they're provided
-        if ($locationName !== null) {
-            $originalParams['location_name'] = $locationName;
-        }
-
-        if ($locationCode !== null) {
-            $originalParams['location_code'] = $locationCode;
-        }
-
-        if ($languageName !== null) {
-            $originalParams['language_name'] = $languageName;
-        }
-
-        if ($languageCode !== null) {
-            $originalParams['language_code'] = $languageCode;
-        }
-
-        if ($limit !== null) {
-            $originalParams['limit'] = $limit;
-        }
-
-        if ($ignoreSynonyms !== null) {
-            $originalParams['ignore_synonyms'] = $ignoreSynonyms;
-        }
-
-        if ($filters !== null) {
-            $originalParams['filters'] = $filters;
-        }
-
-        if ($orderBy !== null) {
-            $originalParams['order_by'] = $orderBy;
-        }
-
-        if ($offset !== null) {
-            $originalParams['offset'] = $offset;
-        }
-
-        if ($tag !== null) {
-            $originalParams['tag'] = $tag;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -1113,107 +805,12 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        Log::debug('Making DataForSEO OnPage Instant Pages Live request', [
-            'url'                         => $url,
-            'custom_user_agent'           => $customUserAgent,
-            'browser_preset'              => $browserPreset,
-            'browser_screen_width'        => $browserScreenWidth,
-            'browser_screen_height'       => $browserScreenHeight,
-            'browser_screen_scale_factor' => $browserScreenScaleFactor,
-            'store_raw_html'              => $storeRawHtml,
-            'accept_language'             => $acceptLanguage,
-            'load_resources'              => $loadResources,
-            'enable_javascript'           => $enableJavascript,
-            'enable_browser_rendering'    => $enableBrowserRendering,
-            'disable_cookie_popup'        => $disableCookiePopup,
-            'return_despite_timeout'      => $returnDespiteTimeout,
-            'enable_xhr'                  => $enableXhr,
-            'validate_micromarkup'        => $validateMicromarkup,
-            'check_spell'                 => $checkSpell,
-            'switch_pool'                 => $switchPool,
-            'ip_pool_for_scan'            => $ipPoolForScan,
-        ]);
+        Log::debug(
+            'Making DataForSEO OnPage Instant Pages Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['url' => $url];
-
-        // Add optional parameters only if they're provided
-        if ($customUserAgent !== null) {
-            $originalParams['custom_user_agent'] = $customUserAgent;
-        }
-
-        if ($browserPreset !== null) {
-            $originalParams['browser_preset'] = $browserPreset;
-        }
-
-        if ($browserScreenWidth !== null) {
-            $originalParams['browser_screen_width'] = $browserScreenWidth;
-        }
-
-        if ($browserScreenHeight !== null) {
-            $originalParams['browser_screen_height'] = $browserScreenHeight;
-        }
-
-        if ($browserScreenScaleFactor !== null) {
-            $originalParams['browser_screen_scale_factor'] = $browserScreenScaleFactor;
-        }
-
-        if ($storeRawHtml !== null) {
-            $originalParams['store_raw_html'] = $storeRawHtml;
-        }
-
-        if ($acceptLanguage !== null) {
-            $originalParams['accept_language'] = $acceptLanguage;
-        }
-
-        if ($loadResources !== null) {
-            $originalParams['load_resources'] = $loadResources;
-        }
-
-        if ($enableJavascript !== null) {
-            $originalParams['enable_javascript'] = $enableJavascript;
-        }
-
-        if ($enableBrowserRendering !== null) {
-            $originalParams['enable_browser_rendering'] = $enableBrowserRendering;
-        }
-
-        if ($disableCookiePopup !== null) {
-            $originalParams['disable_cookie_popup'] = $disableCookiePopup;
-        }
-
-        if ($returnDespiteTimeout !== null) {
-            $originalParams['return_despite_timeout'] = $returnDespiteTimeout;
-        }
-
-        if ($enableXhr !== null) {
-            $originalParams['enable_xhr'] = $enableXhr;
-        }
-
-        if ($customJs !== null) {
-            $originalParams['custom_js'] = $customJs;
-        }
-
-        if ($validateMicromarkup !== null) {
-            $originalParams['validate_micromarkup'] = $validateMicromarkup;
-        }
-
-        if ($checkSpell !== null) {
-            $originalParams['check_spell'] = $checkSpell;
-        }
-
-        if ($checksThreshold !== null) {
-            $originalParams['checks_threshold'] = $checksThreshold;
-        }
-
-        if ($switchPool !== null) {
-            $originalParams['switch_pool'] = $switchPool;
-        }
-
-        if ($ipPoolForScan !== null) {
-            $originalParams['ip_pool_for_scan'] = $ipPoolForScan;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -1251,19 +848,12 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        Log::debug('Making DataForSEO OnPage Raw HTML request', [
-            'id'  => $id,
-            'url' => $url,
-        ]);
+        Log::debug(
+            'Making DataForSEO OnPage Raw HTML request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['id' => $id];
-
-        // Add optional parameters only if they're provided
-        if ($url !== null) {
-            $originalParams['url'] = $url;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -1381,144 +971,12 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('postbackData is required when postbackUrl is specified');
         }
 
-        Log::debug('Creating DataForSEO Google Organic SERP task', [
-            'keyword'                         => $keyword,
-            'url'                             => $url,
-            'priority'                        => $priority,
-            'depth'                           => $depth,
-            'max_crawl_pages'                 => $maxCrawlPages,
-            'location_name'                   => $locationName,
-            'location_code'                   => $locationCode,
-            'location_coordinate'             => $locationCoordinate,
-            'language_name'                   => $languageName,
-            'language_code'                   => $languageCode,
-            'se_domain'                       => $seDomain,
-            'device'                          => $device,
-            'os'                              => $os,
-            'group_organic_results'           => $groupOrganicResults,
-            'calculate_rectangles'            => $calculateRectangles,
-            'browser_screen_width'            => $browserScreenWidth,
-            'browser_screen_height'           => $browserScreenHeight,
-            'browser_screen_resolution_ratio' => $browserScreenResolutionRatio,
-            'people_also_ask_click_depth'     => $peopleAlsoAskClickDepth,
-            'load_async_ai_overview'          => $loadAsyncAiOverview,
-            'expand_ai_overview'              => $expandAiOverview,
-            'search_param'                    => $searchParam,
-            'remove_from_url'                 => $removeFromUrl,
-            'tag'                             => $tag,
-            'postback_url'                    => $postbackUrl,
-            'postback_data'                   => $postbackData,
-            'pingback_url'                    => $pingbackUrl,
-        ]);
+        Log::debug(
+            'Creating DataForSEO Google Organic SERP task',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
-        $originalParams = ['keyword' => $keyword];
-
-        // Add optional parameters only if they're provided
-        if ($url !== null) {
-            $originalParams['url'] = $url;
-        }
-
-        if ($priority !== null) {
-            $originalParams['priority'] = $priority;
-        }
-
-        if ($depth !== null) {
-            $originalParams['depth'] = $depth;
-        }
-
-        if ($maxCrawlPages !== null) {
-            $originalParams['max_crawl_pages'] = $maxCrawlPages;
-        }
-
-        if ($locationName !== null) {
-            $originalParams['location_name'] = $locationName;
-        }
-
-        if ($locationCode !== null) {
-            $originalParams['location_code'] = $locationCode;
-        }
-
-        if ($locationCoordinate !== null) {
-            $originalParams['location_coordinate'] = $locationCoordinate;
-        }
-
-        if ($languageName !== null) {
-            $originalParams['language_name'] = $languageName;
-        }
-
-        if ($languageCode !== null) {
-            $originalParams['language_code'] = $languageCode;
-        }
-
-        if ($seDomain !== null) {
-            $originalParams['se_domain'] = $seDomain;
-        }
-
-        if ($device !== null) {
-            $originalParams['device'] = $device;
-        }
-
-        if ($os !== null) {
-            $originalParams['os'] = $os;
-        }
-
-        if ($groupOrganicResults !== null) {
-            $originalParams['group_organic_results'] = $groupOrganicResults;
-        }
-
-        if ($calculateRectangles !== null) {
-            $originalParams['calculate_rectangles'] = $calculateRectangles;
-        }
-
-        if ($browserScreenWidth !== null) {
-            $originalParams['browser_screen_width'] = $browserScreenWidth;
-        }
-
-        if ($browserScreenHeight !== null) {
-            $originalParams['browser_screen_height'] = $browserScreenHeight;
-        }
-
-        if ($browserScreenResolutionRatio !== null) {
-            $originalParams['browser_screen_resolution_ratio'] = $browserScreenResolutionRatio;
-        }
-
-        if ($peopleAlsoAskClickDepth !== null) {
-            $originalParams['people_also_ask_click_depth'] = $peopleAlsoAskClickDepth;
-        }
-
-        if ($loadAsyncAiOverview !== null) {
-            $originalParams['load_async_ai_overview'] = $loadAsyncAiOverview;
-        }
-
-        if ($expandAiOverview !== null) {
-            $originalParams['expand_ai_overview'] = $expandAiOverview;
-        }
-
-        if ($searchParam !== null) {
-            $originalParams['search_param'] = $searchParam;
-        }
-
-        if ($removeFromUrl !== null) {
-            $originalParams['remove_from_url'] = $removeFromUrl;
-        }
-
-        if ($tag !== null) {
-            $originalParams['tag'] = $tag;
-        }
-
-        if ($postbackUrl !== null) {
-            $originalParams['postback_url'] = $postbackUrl;
-        }
-
-        if ($postbackData !== null) {
-            $originalParams['postback_data'] = $postbackData;
-        }
-
-        if ($pingbackUrl !== null) {
-            $originalParams['pingback_url'] = $pingbackUrl;
-        }
-
-        $params = array_merge($additionalParams, $originalParams);
+        $params = $this->buildApiParams($additionalParams);
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];

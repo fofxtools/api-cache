@@ -3032,4 +3032,454 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals(40401, $responseData['status_code']);
         $this->assertEquals('Task not found.', $responseData['status_message']);
     }
+
+    public function test_serp_google_organic_task_get_regular_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $keyword         = 'laravel framework';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => ['serp', 'google', 'organic', 'task_get', 'regular'],
+                    'data'           => [
+                        'api'      => 'serp',
+                        'function' => 'task_get',
+                        'se'       => 'google',
+                        'se_type'  => 'organic',
+                        'keyword'  => $keyword,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'     => $keyword,
+                            'items_count' => 5,
+                            'items'       => [
+                                [
+                                    'type'       => 'organic',
+                                    'rank_group' => 1,
+                                    'title'      => 'Test Result',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/regular/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskGetRegular($taskId);
+
+        Http::assertSent(function ($request) use ($taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_get/regular/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($keyword, $responseData['tasks'][0]['data']['keyword']);
+    }
+
+    public function test_serp_google_organic_task_get_regular_passes_attributes_and_amount()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $attributes      = 'custom-attributes-test';
+        $amount          = 5;
+        $successResponse = [
+            'version'     => '0.1.20230807',
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id' => $taskId,
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/regular/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        $client = new DataForSeoApiClient();
+        $client->clearRateLimit();
+
+        // Mock the taskGet method to verify it's called with the correct parameters
+        $mockClient = $this->getMockBuilder(DataForSeoApiClient::class)
+            ->onlyMethods(['taskGet'])
+            ->getMock();
+
+        $mockClient->expects($this->once())
+            ->method('taskGet')
+            ->with(
+                'serp/google/organic/task_get/regular',
+                $taskId,
+                $attributes,
+                $amount
+            )
+            ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
+
+        $mockClient->serpGoogleOrganicTaskGetRegular($taskId, $attributes, $amount);
+    }
+
+    public function test_serp_google_organic_task_get_regular_handles_error_response_with_more_details()
+    {
+        $taskId        = '12345678-1234-1234-1234-123456789012';
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40400,
+            'status_message' => 'Task not found.',
+            'time'           => '0.0123 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 40400,
+                    'status_message' => 'Task not found.',
+                    'time'           => '0.0123 sec.',
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/regular/{$taskId}" => Http::response($errorResponse, 404),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskGetRegular($taskId);
+
+        Http::assertSent(function ($request) use ($taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_get/regular/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        $this->assertEquals(404, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals(40400, $responseData['tasks'][0]['status_code']);
+    }
+
+    public function test_serp_google_organic_task_get_advanced_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $keyword         = 'advanced seo techniques';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => ['serp', 'google', 'organic', 'task_get', 'advanced'],
+                    'data'           => [
+                        'api'      => 'serp',
+                        'function' => 'task_get',
+                        'se'       => 'google',
+                        'se_type'  => 'organic',
+                        'keyword'  => $keyword,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'     => $keyword,
+                            'items_count' => 7,
+                            'items'       => [
+                                [
+                                    'type'       => 'organic',
+                                    'rank_group' => 1,
+                                    'title'      => 'Advanced SEO Techniques',
+                                ],
+                                [
+                                    'type'       => 'featured_snippet',
+                                    'rank_group' => 0,
+                                    'title'      => 'Featured Snippet',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/advanced/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskGetAdvanced($taskId);
+
+        Http::assertSent(function ($request) use ($taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_get/advanced/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($keyword, $responseData['tasks'][0]['data']['keyword']);
+    }
+
+    public function test_serp_google_organic_task_get_advanced_passes_attributes_and_amount()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $attributes      = 'custom-attributes-advanced';
+        $amount          = 3;
+        $successResponse = [
+            'version'     => '0.1.20230807',
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id' => $taskId,
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/advanced/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        $client = new DataForSeoApiClient();
+        $client->clearRateLimit();
+
+        // Mock the taskGet method to verify it's called with the correct parameters
+        $mockClient = $this->getMockBuilder(DataForSeoApiClient::class)
+            ->onlyMethods(['taskGet'])
+            ->getMock();
+
+        $mockClient->expects($this->once())
+            ->method('taskGet')
+            ->with(
+                'serp/google/organic/task_get/advanced',
+                $taskId,
+                $attributes,
+                $amount
+            )
+            ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
+
+        $mockClient->serpGoogleOrganicTaskGetAdvanced($taskId, $attributes, $amount);
+    }
+
+    public function test_serp_google_organic_task_get_advanced_handles_error_response()
+    {
+        $taskId        = '12345678-1234-1234-1234-123456789012';
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40400,
+            'status_message' => 'Task not found.',
+            'time'           => '0.0123 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 40400,
+                    'status_message' => 'Task not found.',
+                    'time'           => '0.0123 sec.',
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/advanced/{$taskId}" => Http::response($errorResponse, 404),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskGetAdvanced($taskId);
+
+        Http::assertSent(function ($request) use ($taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_get/advanced/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        $this->assertEquals(404, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals(40400, $responseData['tasks'][0]['status_code']);
+    }
+
+    public function test_serp_google_organic_task_get_html_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $keyword         = 'php unit testing';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => ['serp', 'google', 'organic', 'task_get', 'html'],
+                    'data'           => [
+                        'api'      => 'serp',
+                        'function' => 'task_get',
+                        'se'       => 'google',
+                        'se_type'  => 'organic',
+                        'keyword'  => $keyword,
+                    ],
+                    'result' => [
+                        [
+                            'keyword' => $keyword,
+                            'type'    => 'html',
+                            'html'    => '<!DOCTYPE html><html><body><h1>Search Results</h1></body></html>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/html/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskGetHtml($taskId);
+
+        Http::assertSent(function ($request) use ($taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_get/html/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($keyword, $responseData['tasks'][0]['data']['keyword']);
+        $this->assertStringContainsString('DOCTYPE html', $responseData['tasks'][0]['result'][0]['html']);
+    }
+
+    public function test_serp_google_organic_task_get_html_passes_attributes_and_amount()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $attributes      = 'custom-attributes-html';
+        $amount          = 2;
+        $successResponse = [
+            'version'     => '0.1.20230807',
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id' => $taskId,
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/html/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        $client = new DataForSeoApiClient();
+        $client->clearRateLimit();
+
+        // Mock the taskGet method to verify it's called with the correct parameters
+        $mockClient = $this->getMockBuilder(DataForSeoApiClient::class)
+            ->onlyMethods(['taskGet'])
+            ->getMock();
+
+        $mockClient->expects($this->once())
+            ->method('taskGet')
+            ->with(
+                'serp/google/organic/task_get/html',
+                $taskId,
+                $attributes,
+                $amount
+            )
+            ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
+
+        $mockClient->serpGoogleOrganicTaskGetHtml($taskId, $attributes, $amount);
+    }
+
+    public function test_serp_google_organic_task_get_html_handles_error_response()
+    {
+        $taskId        = '12345678-1234-1234-1234-123456789012';
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40400,
+            'status_message' => 'Task not found.',
+            'time'           => '0.0123 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 40400,
+                    'status_message' => 'Task not found.',
+                    'time'           => '0.0123 sec.',
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_get/html/{$taskId}" => Http::response($errorResponse, 404),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleOrganicTaskGetHtml($taskId);
+
+        Http::assertSent(function ($request) use ($taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_get/html/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        $this->assertEquals(404, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals(40400, $responseData['tasks'][0]['status_code']);
+    }
 }

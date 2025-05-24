@@ -369,20 +369,28 @@ class BaseApiClient
         ]);
 
         try {
-            if (
-                config('api-cache.error_logging.enabled') &&
-                config("api-cache.error_logging.log_events.{$errorType}")
-            ) {
+            $logEnabled = config('api-cache.error_logging.enabled');
+            $logEvent   = config("api-cache.error_logging.log_events.{$errorType}");
+            $logLevel   = config("api-cache.error_logging.levels.{$errorType}") ?? 'error';
+
+            if ($logEnabled && (is_null($logEvent) || $logEvent === true)) {
                 $responsePreview = null;
 
                 if ($response !== null) {
                     $responsePreview = mb_substr($response, 0, 2000);
                 }
 
+                Log::debug('Logging API error', [
+                    'client'        => $this->clientName,
+                    'error_type'    => $errorType,
+                    'log_level'     => $logLevel,
+                    'error_message' => $message,
+                ]);
+
                 DB::table('api_cache_errors')->insert([
                     'api_client'       => $this->clientName,
                     'error_type'       => $errorType,
-                    'log_level'        => config("api-cache.error_logging.levels.{$errorType}"),
+                    'log_level'        => $logLevel,
                     'error_message'    => $message,
                     'response_preview' => $responsePreview,
                     'context_data'     => !empty($context) ? json_encode($context) : null,

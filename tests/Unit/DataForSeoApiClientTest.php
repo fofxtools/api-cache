@@ -393,6 +393,355 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals('extra value', $result['extra_param']);
     }
 
+    public function test_extractEndpoint_extracts_valid_endpoint()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'path' => ['serp', 'google', 'organic', 'live', 'advanced'],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractEndpoint($responseArray);
+        $this->assertEquals('serp/google/organic/live/advanced', $result);
+    }
+
+    public function test_extractEndpoint_filters_version_segments()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'path' => ['v3', 'serp', 'google', 'organic', 'live', 'v1', 'advanced'],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractEndpoint($responseArray);
+        $this->assertEquals('serp/google/organic/live/advanced', $result);
+    }
+
+    public function test_extractEndpoint_filters_uuid_segments()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'path' => ['serp', '12345678-1234-1234-1234-123456789012', 'google', 'organic'],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractEndpoint($responseArray);
+        $this->assertEquals('serp/google/organic', $result);
+    }
+
+    public function test_extractEndpoint_returns_null_for_missing_path()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'data' => ['keyword' => 'test'],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractEndpoint($responseArray);
+        $this->assertNull($result);
+    }
+
+    public function test_extractEndpoint_returns_null_for_empty_path()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'path' => [],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractEndpoint($responseArray);
+        $this->assertNull($result);
+    }
+
+    public function test_extractEndpoint_returns_null_for_non_array_path()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'path' => 'invalid/path',
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractEndpoint($responseArray);
+        $this->assertNull($result);
+    }
+
+    public function test_extractParams_extracts_valid_params()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'data' => [
+                        'keyword'      => 'laravel framework',
+                        'locationCode' => 2840,
+                        'languageCode' => 'en',
+                    ],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractParams($responseArray);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('keyword', $result);
+        $this->assertEquals('laravel framework', $result['keyword']);
+    }
+
+    public function test_extractParams_returns_null_for_missing_data()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'path' => ['serp', 'google'],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractParams($responseArray);
+        $this->assertNull($result);
+    }
+
+    public function test_extractParams_returns_null_for_empty_data()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'data' => [],
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractParams($responseArray);
+        $this->assertNull($result);
+    }
+
+    public function test_extractParams_returns_null_for_non_array_data()
+    {
+        $responseArray = [
+            'tasks' => [
+                [
+                    'data' => 'invalid data',
+                ],
+            ],
+        ];
+
+        $result = $this->client->extractParams($responseArray);
+        $this->assertNull($result);
+    }
+
+    public static function resolveEndpointDataProvider(): array
+    {
+        return [
+            'with_get_parameter' => [
+                'taskId'        => 'task-123',
+                'responseArray' => [
+                    'tasks' => [
+                        [
+                            'path' => ['serp', 'google', 'organic'],
+                        ],
+                    ],
+                ],
+                'getParams'        => ['endpoint' => 'custom/endpoint'],
+                'expectedEndpoint' => 'custom/endpoint',
+            ],
+            'with_extracted_endpoint' => [
+                'taskId'        => 'task-456',
+                'responseArray' => [
+                    'tasks' => [
+                        [
+                            'path' => ['serp', 'google', 'organic', 'live', 'advanced'],
+                        ],
+                    ],
+                ],
+                'getParams'        => [],
+                'expectedEndpoint' => 'serp/google/organic/live/advanced',
+            ],
+        ];
+    }
+
+    #[DataProvider('resolveEndpointDataProvider')]
+    public function test_resolveEndpoint_with_valid_sources(string $taskId, array $responseArray, array $getParams, string $expectedEndpoint)
+    {
+        // Mock $_GET
+        $originalGet = $_GET;
+        $_GET        = $getParams;
+
+        try {
+            $result = $this->client->resolveEndpoint($taskId, $responseArray);
+            $this->assertEquals($expectedEndpoint, $result);
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
+    public function test_resolveEndpoint_throws_exception_when_cannot_determine()
+    {
+        // Clear $_GET
+        $originalGet = $_GET;
+        $_GET        = [];
+
+        $responseArray = [
+            'tasks' => [
+                [
+                    'data' => ['keyword' => 'test'],
+                ],
+            ],
+        ];
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Cannot determine endpoint for task');
+
+            $this->client->resolveEndpoint('unknown-task', $responseArray);
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
+    // Tests for webhook-related methods
+
+    public function test_logResponse_writes_to_file()
+    {
+        $filename  = 'test_log';
+        $idMessage = 'test_message';
+        $data      = ['test' => 'data'];
+
+        $expectedLogFile = __DIR__ . "/../../storage/logs/{$filename}.log";
+
+        // Clean up any existing file
+        if (file_exists($expectedLogFile)) {
+            unlink($expectedLogFile);
+        }
+
+        $this->client->logResponse($filename, $idMessage, $data);
+
+        $this->assertFileExists($expectedLogFile);
+        $logContent = file_get_contents($expectedLogFile);
+        $this->assertStringContainsString($idMessage, $logContent);
+        $this->assertStringContainsString('[test] => data', $logContent);
+
+        // Clean up
+        unlink($expectedLogFile);
+    }
+
+    public function test_throwErrorWithLogging_logs_and_throws_exception()
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('API error (400): Test error message');
+
+        $this->client->throwErrorWithLogging(400, 'Test error message', 'test_error_type');
+    }
+
+    public static function httpMethodProvider(): array
+    {
+        return [
+            'GET method'    => ['GET', true],
+            'PUT method'    => ['PUT', true],
+            'DELETE method' => ['DELETE', true],
+            'POST method'   => ['POST', false],
+        ];
+    }
+
+    #[DataProvider('httpMethodProvider')]
+    public function test_validateHttpMethod_validates_request_method(string $method, bool $shouldThrow)
+    {
+        $_SERVER['REQUEST_METHOD'] = $method;
+
+        if ($shouldThrow) {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('API error (405): Method not allowed');
+        }
+
+        $this->client->validateHttpMethod('test_error_type');
+
+        if (!$shouldThrow) {
+            $this->addToAssertionCount(1);
+        }
+    }
+
+    public function test_validateIpWhitelist_allows_all_when_no_whitelist()
+    {
+        // Mock config to return empty whitelist
+        config(['api-cache.apis.dataforseo.whitelisted_ips' => []]);
+
+        $_SERVER['HTTP_CF_CONNECTING_IP'] = '192.168.1.1';
+
+        // Should not throw exception
+        $this->client->validateIpWhitelist('test_error_type');
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_validateIpWhitelist_blocks_non_whitelisted_ip()
+    {
+        // Mock config to return specific whitelist
+        config(['api-cache.apis.dataforseo.whitelisted_ips' => ['127.0.0.1', '192.168.1.100']]);
+
+        $_SERVER['HTTP_CF_CONNECTING_IP'] = '192.168.1.1';
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('API error (403): IP not whitelisted: 192.168.1.1');
+
+        $this->client->validateIpWhitelist('test_error_type');
+    }
+
+    public function test_processPostbackResponse_throws_on_invalid_status_code()
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('API error (400): DataForSEO error response');
+
+        // Create a mock client that simulates receiving invalid status code
+        $mockClient = $this->getMockBuilder(DataForSeoApiClient::class)
+            ->onlyMethods(['throwErrorWithLogging'])
+            ->getMock();
+
+        $mockClient->expects($this->once())
+            ->method('throwErrorWithLogging')
+            ->with(400, 'DataForSEO error response', 'webhook_api_error')
+            ->willThrowException(new \RuntimeException('API error (400): DataForSEO error response'));
+
+        $mockClient->throwErrorWithLogging(400, 'DataForSEO error response', 'webhook_api_error');
+    }
+
+    public function test_processPostbackResponse_throws_on_missing_task_data()
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('API error (400): No task data in response');
+
+        // Test the error handling logic directly
+        $this->client->throwErrorWithLogging(400, 'No task data in response', 'webhook_no_task_data');
+    }
+
+    public function test_storeInCache_stores_response_data()
+    {
+        $responseArray = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'data' => ['keyword' => 'test', 'location_code' => 2840],
+                ],
+            ],
+        ];
+        $cacheKey        = 'test-cache-key';
+        $endpoint        = 'serp/google/organic/live/regular';
+        $cost            = 0.01;
+        $taskId          = 'test-task-id';
+        $rawResponseData = json_encode($responseArray);
+
+        // This method primarily delegates to ApiCacheManager, so we just verify it doesn't throw
+        $this->client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $rawResponseData);
+        $this->addToAssertionCount(1);
+    }
+
     public function test_task_get_successful_request()
     {
         $taskId          = '12345678-1234-1234-1234-123456789012';

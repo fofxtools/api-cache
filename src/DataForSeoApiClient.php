@@ -190,6 +190,291 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Extract endpoint from DataForSEO response array
+     *
+     * This method extracts the endpoint path from a DataForSEO response by processing
+     * the path segments and filtering out version identifiers and UUIDs.
+     *
+     * @param array $responseArray The DataForSEO response array containing task data
+     *
+     * @return string|null The extracted endpoint path, or null if not found
+     */
+    public function extractEndpoint(array $responseArray): ?string
+    {
+        $path = $responseArray['tasks'][0]['path'] ?? null;
+
+        if (!is_array($path) || empty($path)) {
+            return null;
+        }
+
+        $segments = $path;
+
+        // Filter out any 'vD' segments with v followed by digits
+        $segments = array_filter($segments, function ($segment) {
+            return !preg_match('/^v\d+$/i', $segment);
+        });
+
+        // Filter out any UUID segments using Helper\is_valid_uuid
+        $segments = array_filter($segments, function ($segment) {
+            return !\FOfX\Helper\is_valid_uuid($segment);
+        });
+
+        return implode('/', array_values($segments));
+    }
+
+    /**
+     * Extract parameters from DataForSEO response array
+     *
+     * This method extracts and normalizes the parameters from a DataForSEO response
+     * task data section.
+     *
+     * @param array $responseArray The DataForSEO response array containing task data
+     *
+     * @return array|null The extracted and normalized parameters, or null if not found
+     */
+    public function extractParams(array $responseArray): ?array
+    {
+        $params = $responseArray['tasks'][0]['data'] ?? null;
+        if (!is_array($params) || empty($params)) {
+            return null;
+        }
+
+        return \FOfX\ApiCache\normalize_params($params);
+    }
+
+    /**
+     * Resolve endpoint for a DataForSEO task
+     *
+     * This method attempts to determine the endpoint for a DataForSEO task by:
+     * - Checking GET parameters
+     * - Extracting from the response array
+     * - Looking up in the database
+     *
+     * @param string $taskId        The DataForSEO task ID
+     * @param array  $responseArray The DataForSEO response array
+     *
+     * @throws \RuntimeException When endpoint cannot be determined
+     *
+     * @return string The resolved endpoint
+     */
+    public function resolveEndpoint(string $taskId, array $responseArray): string
+    {
+        // Try the GET parameter
+        $endpoint = $_GET['endpoint'] ?? null;
+        if ($endpoint) {
+            return $endpoint;
+        }
+
+        // Try to extract from the response array
+        $endpoint = $this->extractEndpoint($responseArray);
+        if ($endpoint) {
+            return $endpoint;
+        }
+
+        // Try database lookup
+        $endpoint = \Illuminate\Support\Facades\DB::table('api_cache_dataforseo_responses')
+                      ->where('attributes', $taskId)
+                      ->value('endpoint');
+
+        if ($endpoint) {
+            return $endpoint;
+        }
+
+        $jsonData = json_encode($responseArray);
+
+        throw new \RuntimeException('Cannot determine endpoint for task: ' . $jsonData);
+    }
+
+    /**
+     * Log response data to a file for debugging purposes
+     *
+     * @param string $filename  The base filename (without extension)
+     * @param string $idMessage The log message identifier
+     * @param mixed  $data      The data to log
+     */
+    public function logResponse(string $filename, string $idMessage, mixed $data): void
+    {
+        $logFile  = __DIR__ . "/../storage/logs/{$filename}.log";
+        $logEntry = PHP_EOL . date('Y-m-d H:i:s') . ': ' . $idMessage . PHP_EOL . '---------' . PHP_EOL . print_r($data, true) . PHP_EOL . '---------';
+
+        @file_put_contents($logFile, $logEntry, FILE_APPEND);
+    }
+
+    /**
+     * Throw an error with logging
+     *
+     * @param int         $httpCode  The HTTP status code
+     * @param string      $message   The error message
+     * @param string      $errorType The error type for logging
+     * @param string|null $response  Optional response data
+     *
+     * @throws \RuntimeException Always throws to indicate the error
+     */
+    public function throwErrorWithLogging(int $httpCode, string $message, string $errorType, ?string $response = null): never
+    {
+        $context = [
+            'http_code'   => $httpCode,
+            'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+            'user_agent'  => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'ip_address'  => $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '',
+        ];
+
+        // Use client's error logging infrastructure
+        $this->logApiError($errorType, $message, $context, $response);
+
+        throw new \RuntimeException("API error ({$httpCode}): {$message}");
+    }
+
+    /**
+     * Validate that the HTTP method is POST
+     *
+     * @param string|null $errorType Optional error type for logging
+     *
+     * @throws \RuntimeException If the method is not POST
+     */
+    public function validateHttpMethod(?string $errorType = null): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            $this->throwErrorWithLogging(405, 'Method not allowed', $errorType ?? 'webhook_invalid_method');
+        }
+    }
+
+    /**
+     * Validate client IP against whitelist
+     *
+     * @param string|null $errorType Optional error type for logging
+     *
+     * @throws \RuntimeException If IP is not whitelisted
+     */
+    public function validateIpWhitelist(?string $errorType = null): void
+    {
+        $allowedIps = config('api-cache.apis.dataforseo.whitelisted_ips');
+
+        if (empty($allowedIps)) {
+            return; // No whitelist = allow all
+        }
+
+        // Multi-header IP check for Cloudflare/proxy environments
+        $clientIp = $_SERVER['HTTP_CF_CONNECTING_IP']
+                 ?? $_SERVER['HTTP_X_FORWARDED_FOR']
+                 ?? $_SERVER['REMOTE_ADDR']
+                 ?? '';
+
+        if (!in_array($clientIp, $allowedIps, true)) {
+            $this->throwErrorWithLogging(403, "IP not whitelisted: $clientIp", $errorType ?? 'webhook_ip_not_whitelisted');
+        }
+    }
+
+    /**
+     * Process postback response from DataForSEO webhook
+     *
+     * @param string|null $logFilename Optional filename for response logging
+     * @param string|null $errorType   Optional error type for logging
+     *
+     * @throws \RuntimeException If response is invalid
+     *
+     * @return array Array containing [responseArray, task, taskId, cacheKey, cost, rawData]
+     */
+    public function processPostbackResponse(?string $logFilename = null, ?string $errorType = null): array
+    {
+        $raw = file_get_contents('php://input');
+
+        if (empty($raw)) {
+            $this->throwErrorWithLogging(400, 'Empty POST data', $errorType ?? 'webhook_empty_response');
+        }
+
+        // Handle DataForSEO gzip compression
+        $decompressed = gzdecode($raw);
+        $jsonData     = $decompressed !== false ? $decompressed : $raw;
+
+        $responseArray = json_decode($jsonData, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->throwErrorWithLogging(400, 'Invalid JSON: ' . json_last_error_msg(), $errorType ?? 'webhook_invalid_json', $jsonData);
+        }
+
+        if (($responseArray['status_code'] ?? 0) !== 20000) {
+            $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'webhook_api_error', $jsonData);
+        }
+
+        // Log response if filename provided
+        if ($logFilename !== null) {
+            $this->logResponse($logFilename, 'result', $responseArray);
+        }
+
+        $task = $responseArray['tasks'][0] ?? null;
+        if (!$task) {
+            $this->throwErrorWithLogging(400, 'No task data in response', $errorType ?? 'webhook_no_task_data', $jsonData);
+        }
+
+        $taskId   = $task['id'] ?? null;
+        $cost     = $responseArray['cost'] ?? null;
+        $cacheKey = $task['data']['tag'] ?? null;
+
+        if (!$taskId) {
+            $this->throwErrorWithLogging(400, 'Missing task ID', $errorType ?? 'webhook_missing_task_id', $jsonData);
+        }
+
+        if (!$cacheKey) {
+            $this->throwErrorWithLogging(400, 'Missing cache key in tag', $errorType ?? 'webhook_missing_cache_key', $jsonData);
+        }
+
+        return [$responseArray, $task, $taskId, $cacheKey, $cost, $jsonData];
+    }
+
+    /**
+     * Store webhook response in cache
+     *
+     * @param array      $responseArray   The DataForSEO response array
+     * @param string     $cacheKey        The cache key for storage
+     * @param string     $endpoint        The API endpoint
+     * @param float|null $cost            The API call cost
+     * @param string     $taskId          The task ID
+     * @param string     $rawResponseData The raw response data
+     */
+    public function storeInCache(array $responseArray, string $cacheKey, string $endpoint, ?float $cost, string $taskId, string $rawResponseData): void
+    {
+        $manager = app(\FOfX\ApiCache\ApiCacheManager::class);
+
+        $response = new \Illuminate\Http\Client\Response(
+            new \GuzzleHttp\Psr7\Response(
+                200,
+                ['Content-Type' => 'application/json'],
+                $rawResponseData
+            )
+        );
+
+        $params = $this->extractParams($responseArray);
+
+        $apiResult = [
+            'params'  => [],
+            'request' => [
+                'method'     => 'POST',
+                'base_url'   => null,
+                'full_url'   => null,
+                'headers'    => null, // We don't have original outbound headers
+                'body'       => null, // We don't have original request body in webhook context
+                'attributes' => $taskId,
+                'cost'       => $cost,
+            ],
+            'response'             => $response,
+            'response_status_code' => 200,
+            'response_size'        => strlen($rawResponseData),
+            'response_time'        => null,
+            'is_cached'            => false,
+        ];
+
+        $manager->storeResponse(
+            $this->getClientName(),
+            $cacheKey,
+            $params,
+            $apiResult,
+            $endpoint,
+            attributes: $taskId
+        );
+    }
+
+    /**
      * Get the results of a previously submitted task using DataForSEO's Task GET endpoints
      *
      * This generic method works with any DataForSEO Task GET endpoint, including:

@@ -344,8 +344,9 @@ class CacheRepositoryTest extends TestCase
     #[DataProvider('clientNamesProvider')]
     public function test_deleteExpired_removes_expired_data(string $clientName): void
     {
+        $ttl = 2;
         // Store data with TTL
-        $this->repository->store($clientName, $this->key, $this->testData, 1);
+        $this->repository->store($clientName, $this->key, $this->testData, $ttl);
 
         // Verify row exists and is active before expiry
         $this->assertEquals(
@@ -364,7 +365,8 @@ class CacheRepositoryTest extends TestCase
             'Should have no expired responses before expiry'
         );
 
-        usleep(1100000);
+        // Wait for expiry with buffer
+        usleep($ttl * 1000000 + 100000);
 
         // Verify row is now expired but still exists
         $this->assertEquals(

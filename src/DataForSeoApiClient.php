@@ -247,28 +247,30 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * This method attempts to determine the endpoint for a DataForSEO task by:
      * - Checking GET parameters
-     * - Extracting from the response array
+     * - Extracting from the response array (if provided)
      * - Looking up in the database
      *
-     * @param string $taskId        The DataForSEO task ID
-     * @param array  $responseArray The DataForSEO response array
+     * @param string     $taskId        The DataForSEO task ID
+     * @param array|null $responseArray The DataForSEO response array (optional)
      *
      * @throws \RuntimeException When endpoint cannot be determined
      *
      * @return string The resolved endpoint
      */
-    public function resolveEndpoint(string $taskId, array $responseArray): string
+    public function resolveEndpoint(string $taskId, ?array $responseArray = null): string
     {
-        // Try the GET parameter
+        // Try the GET parameter first
         $endpoint = $_GET['endpoint'] ?? null;
         if ($endpoint) {
             return $endpoint;
         }
 
-        // Try to extract from the response array
-        $endpoint = $this->extractEndpoint($responseArray);
-        if ($endpoint) {
-            return $endpoint;
+        // Try to extract from the response array (only if provided)
+        if ($responseArray !== null) {
+            $endpoint = $this->extractEndpoint($responseArray);
+            if ($endpoint) {
+                return $endpoint;
+            }
         }
 
         // Try database lookup
@@ -280,7 +282,7 @@ class DataForSeoApiClient extends BaseApiClient
             return $endpoint;
         }
 
-        $jsonData = json_encode($responseArray);
+        $jsonData = $responseArray ? json_encode($responseArray) : "Task ID: {$taskId}";
 
         throw new \RuntimeException('Cannot determine endpoint for task: ' . $jsonData);
     }
@@ -326,15 +328,17 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
-     * Validate that the HTTP method is POST
+     * Validate HTTP method
      *
-     * @param string|null $errorType Optional error type for logging
+     * @param string      $expectedMethod The expected HTTP method (default: 'POST')
+     * @param string|null $errorType      Optional error type for logging
      *
-     * @throws \RuntimeException If the method is not POST
+     * @throws \RuntimeException If the method does not match expected
      */
-    public function validateHttpMethod(?string $errorType = null): void
+    public function validateHttpMethod(string $expectedMethod = 'POST', ?string $errorType = null): void
     {
-        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+        $actualMethod = $_SERVER['REQUEST_METHOD'] ?? '';
+        if ($actualMethod !== $expectedMethod) {
             $this->throwErrorWithLogging(405, 'Method not allowed', $errorType ?? 'webhook_invalid_method');
         }
     }
@@ -370,31 +374,33 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @param string|null $logFilename Optional filename for response logging
      * @param string|null $errorType   Optional error type for logging
+     * @param string|null $rawData     Optional raw POST data (injected for testing)
      *
      * @throws \RuntimeException If response is invalid
      *
-     * @return array Array containing [responseArray, task, taskId, cacheKey, cost, rawData]
+     * @return array Array containing [responseArray, task, taskId, cacheKey, cost, jsonData, endpoint, method]
      */
-    public function processPostbackResponse(?string $logFilename = null, ?string $errorType = null): array
+    public function processPostbackResponse(?string $logFilename = null, ?string $errorType = null, ?string $rawData = null): array
     {
-        $raw = file_get_contents('php://input');
+        $rawData = $rawData ?? file_get_contents('php://input');
 
-        if (empty($raw)) {
-            $this->throwErrorWithLogging(400, 'Empty POST data', $errorType ?? 'webhook_empty_response');
+        if (empty($rawData)) {
+            $this->throwErrorWithLogging(400, 'Empty POST data', $errorType ?? 'postback_empty_response');
         }
 
         // Handle DataForSEO gzip compression
-        $decompressed = gzdecode($raw);
-        $jsonData     = $decompressed !== false ? $decompressed : $raw;
+        $decompressed = gzdecode($rawData);
+        $jsonData     = $decompressed !== false ? $decompressed : $rawData;
 
         $responseArray = json_decode($jsonData, true);
+        $statusCode    = $responseArray['status_code'] ?? 0;
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->throwErrorWithLogging(400, 'Invalid JSON: ' . json_last_error_msg(), $errorType ?? 'webhook_invalid_json', $jsonData);
+            $this->throwErrorWithLogging(400, 'Invalid JSON: ' . json_last_error_msg(), $errorType ?? 'postback_invalid_json', $jsonData);
         }
 
-        if (($responseArray['status_code'] ?? 0) !== 20000) {
-            $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'webhook_api_error', $jsonData);
+        if ($statusCode !== 20000) {
+            $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'postback_api_error', $jsonData);
         }
 
         // Log response if filename provided
@@ -402,24 +408,118 @@ class DataForSeoApiClient extends BaseApiClient
             $this->logResponse($logFilename, 'result', $responseArray);
         }
 
-        $task = $responseArray['tasks'][0] ?? null;
-        if (!$task) {
-            $this->throwErrorWithLogging(400, 'No task data in response', $errorType ?? 'webhook_no_task_data', $jsonData);
-        }
-
+        $task     = $responseArray['tasks'][0] ?? null;
         $taskId   = $task['id'] ?? null;
         $cost     = $responseArray['cost'] ?? null;
         $cacheKey = $task['data']['tag'] ?? null;
+        $params   = $this->extractParams($responseArray);
+        $endpoint = $this->resolveEndpoint($taskId, $responseArray);
+        $method   = 'POST';
+
+        if (!$task) {
+            $this->throwErrorWithLogging(400, 'No task data in response', $errorType ?? 'postback_no_task_data', $jsonData);
+        }
 
         if (!$taskId) {
-            $this->throwErrorWithLogging(400, 'Missing task ID', $errorType ?? 'webhook_missing_task_id', $jsonData);
+            $this->throwErrorWithLogging(400, 'Missing task ID', $errorType ?? 'postback_missing_task_id', $jsonData);
         }
 
         if (!$cacheKey) {
-            $this->throwErrorWithLogging(400, 'Missing cache key in tag', $errorType ?? 'webhook_missing_cache_key', $jsonData);
+            $cacheKey = $this->cacheManager->generateCacheKey(
+                $this->clientName,
+                $endpoint,
+                $params,
+                $method,
+                $this->version
+            );
         }
 
-        return [$responseArray, $task, $taskId, $cacheKey, $cost, $jsonData];
+        return [$responseArray, $task, $taskId, $cacheKey, $cost, $jsonData, $endpoint, $method];
+    }
+
+    /**
+     * Process pingback response from DataForSEO webhook
+     *
+     * @param string|null $logFilename Optional filename for response logging
+     * @param string|null $errorType   Optional error type for logging
+     *
+     * @throws \RuntimeException If response is invalid
+     *
+     * @return array Array containing [responseArray, task, taskId, cacheKey, cost, jsonData, storageEndpoint, method]
+     */
+    public function processPingbackResponse(?string $logFilename = null, ?string $errorType = null): array
+    {
+        $taskId          = $_GET['id'] ?? null;
+        $tag             = $_GET['tag'] ?? null;
+        $taskGetEndpoint = $_GET['endpoint'] ?? null;
+
+        if (!$taskId) {
+            $this->throwErrorWithLogging(400, 'Missing task ID in pingback', $errorType ?? 'pingback_missing_task_id');
+        }
+
+        if (!$taskGetEndpoint) {
+            $this->throwErrorWithLogging(400, 'Missing endpoint in pingback', $errorType ?? 'pingback_missing_endpoint');
+        }
+
+        // If tag is literal '$tag', don't use it as attributes
+        if ($tag === '$tag') {
+            $attributes = null;
+        } else {
+            $attributes = $tag;
+        }
+
+        // Make the taskGet call
+        $taskGetResult = $this->taskGet($taskGetEndpoint, $taskId, $attributes);
+
+        // Extract the response array from the response body
+        $jsonData      = $taskGetResult['response']->body();
+        $responseArray = json_decode($jsonData, true);
+        $statusCode    = $responseArray['status_code'] ?? 0;
+        $task          = $responseArray['tasks'][0] ?? null;
+        $taskId        = $task['id'] ?? null;
+        $cost          = $taskGetResult['request']['cost'] ?? null;
+        $tag           = $task['data']['tag'] ?? null;
+        $params        = $this->extractParams($responseArray);
+        $method        = 'GET';
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->throwErrorWithLogging(400, 'Invalid JSON: ' . json_last_error_msg(), $errorType ?? 'pingback_invalid_json', $jsonData);
+        }
+
+        if ($statusCode !== 20000) {
+            $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'pingback_api_error', $jsonData);
+        }
+
+        // Use resolveEndpoint with response array for storage purposes
+        $storageEndpoint = $this->resolveEndpoint($taskId, $responseArray);
+
+        // Log pingback if filename provided
+        if ($logFilename !== null) {
+            $this->logResponse($logFilename, 'get', $_GET);
+            $this->logResponse($logFilename, 'result', $responseArray);
+        }
+
+        if (!$task) {
+            $this->throwErrorWithLogging(400, 'No task data in response', $errorType ?? 'pingback_no_task_data', $jsonData);
+        }
+
+        if (!$taskId) {
+            $this->throwErrorWithLogging(400, 'Missing task ID', $errorType ?? 'pingback_missing_task_id', $jsonData);
+        }
+
+        if (!$tag) {
+            $cacheKey = $this->cacheManager->generateCacheKey(
+                $this->clientName,
+                $storageEndpoint,
+                $params,
+                $method,
+                $this->version
+            );
+        } else {
+            $cacheKey = $tag;
+        }
+
+        return [$responseArray, $task, $taskId, $cacheKey, $cost, $jsonData, $storageEndpoint, $method];
     }
 
     /**
@@ -431,9 +531,17 @@ class DataForSeoApiClient extends BaseApiClient
      * @param float|null $cost            The API call cost
      * @param string     $taskId          The task ID
      * @param string     $rawResponseData The raw response data
+     * @param string     $httpMethod      The HTTP method used (default: 'POST')
      */
-    public function storeInCache(array $responseArray, string $cacheKey, string $endpoint, ?float $cost, string $taskId, string $rawResponseData): void
-    {
+    public function storeInCache(
+        array $responseArray,
+        string $cacheKey,
+        string $endpoint,
+        ?float $cost,
+        string $taskId,
+        string $rawResponseData,
+        string $httpMethod = 'POST'
+    ): void {
         $manager = app(\FOfX\ApiCache\ApiCacheManager::class);
 
         $response = new \Illuminate\Http\Client\Response(
@@ -449,7 +557,7 @@ class DataForSeoApiClient extends BaseApiClient
         $apiResult = [
             'params'  => [],
             'request' => [
-                'method'     => 'POST',
+                'method'     => $httpMethod,
                 'base_url'   => null,
                 'full_url'   => null,
                 'headers'    => null, // We don't have original outbound headers

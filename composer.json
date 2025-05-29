@@ -17,7 +17,7 @@
         }
     },
     "require": {
-        "php": "^8.2",
+        "php": "^8.3",
         "laravel/framework": "^11.38",
         "fofx/helper": "^1.1",
         "jeremykendall/php-domain-parser": "^6.3",

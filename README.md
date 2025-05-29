@@ -4,6 +4,12 @@
 
 A Laravel-based PHP library for caching API responses. Currently in early development.
 
+## Requirements
+
+- **PHP 8.3+**
+- **Laravel 11.38+**
+- **Redis** (for distributed rate limiting)
+
 ## Documentation
 
 Please see the [docs](docs) folder for:

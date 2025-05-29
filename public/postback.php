@@ -12,11 +12,10 @@ use FOfX\ApiCache\ApiCacheManager;
 $client = new DataForSeoApiClient(app(ApiCacheManager::class));
 
 try {
-    $client->validateHttpMethod('postback_invalid_method');
+    $client->validateHttpMethod('POST', 'postback_invalid_method');
     $client->validateIpWhitelist('postback_ip_not_whitelisted');
-    [$payload, $task, $taskId, $cacheKey, $cost, $rawData] = $client->processPostbackResponse('postback', 'postback_response_error');
-    $endpoint                                              = $client->resolveEndpoint($taskId, $payload);
-    $client->storeInCache($payload, $cacheKey, $endpoint, $cost, $taskId, $rawData);
+    [$responseArray, $task, $taskId, $cacheKey, $cost, $jsonData, $endpoint, $method] = $client->processPostbackResponse('postback', 'postback_response_error');
+    $client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $jsonData, $method);
 
     echo 'ok';
 } catch (\RuntimeException $e) {

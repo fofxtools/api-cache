@@ -405,4 +405,61 @@ class CacheRepositoryTest extends TestCase
             'Should have no expired responses after deleteExpired'
         );
     }
+
+    public function test_prepareBody_pretty_prints_json_by_default(): void
+    {
+        $clientName     = $this->uncompressedClient;
+        $jsonData       = '{"name":"test","data":{"value":123,"array":[1,2,3]}}';
+        $expectedPretty = "{\n    \"name\": \"test\",\n    \"data\": {\n        \"value\": 123,\n        \"array\": [\n            1,\n            2,\n            3\n        ]\n    }\n}";
+
+        $result = $this->repository->prepareBody($clientName, $jsonData);
+
+        $this->assertEquals($expectedPretty, $result);
+    }
+
+    public function test_prepareBody_preserves_non_json_content(): void
+    {
+        $clientName = $this->uncompressedClient;
+        $htmlData   = '<html><body>Hello World</body></html>';
+
+        $result = $this->repository->prepareBody($clientName, $htmlData);
+
+        $this->assertEquals($htmlData, $result);
+    }
+
+    public function test_prepareBody_can_disable_pretty_printing(): void
+    {
+        $clientName = $this->uncompressedClient;
+        $jsonData   = '{"name":"test","value":123}';
+
+        $result = $this->repository->prepareBody($clientName, $jsonData, null, false);
+
+        $this->assertEquals($jsonData, $result);
+    }
+
+    public function test_prepareHeaders_pretty_prints_json_by_default(): void
+    {
+        $clientName     = $this->uncompressedClient;
+        $headers        = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer token123'];
+        $expectedPretty = "{\n    \"Content-Type\": \"application/json\",\n    \"Authorization\": \"Bearer token123\"\n}";
+
+        $result = $this->repository->prepareHeaders($clientName, $headers);
+
+        $this->assertEquals($expectedPretty, $result);
+    }
+
+    public function test_prepareHeaders_can_disable_pretty_printing(): void
+    {
+        $clientName = $this->uncompressedClient;
+        $headers    = ['Content-Type' => 'application/json'];
+
+        $result = $this->repository->prepareHeaders($clientName, $headers, null, false);
+
+        // Parse the result as JSON to verify it's valid and contains expected data
+        $decodedResult = json_decode($result, true);
+        $this->assertEquals($headers, $decodedResult);
+
+        // Verify it's compact (no pretty printing) by checking it doesn't contain newlines
+        $this->assertStringNotContainsString("\n", $result);
+    }
 }

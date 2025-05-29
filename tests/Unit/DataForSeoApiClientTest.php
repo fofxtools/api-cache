@@ -608,6 +608,36 @@ class DataForSeoApiClientTest extends TestCase
         }
     }
 
+    public function test_resolveEndpoint_with_null_response_array()
+    {
+        // Clear $_GET
+        $originalGet = $_GET;
+        $_GET        = ['endpoint' => 'custom/pingback/endpoint'];
+
+        try {
+            $result = $this->client->resolveEndpoint('task-123', null);
+            $this->assertEquals('custom/pingback/endpoint', $result);
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
+    public function test_resolveEndpoint_throws_exception_with_null_response_array_and_no_get_param()
+    {
+        // Clear $_GET
+        $originalGet = $_GET;
+        $_GET        = [];
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Cannot determine endpoint for task: Task ID: unknown-task');
+
+            $this->client->resolveEndpoint('unknown-task', null);
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
     // Tests for webhook-related methods
 
     public function test_logResponse_writes_to_file()
@@ -662,11 +692,30 @@ class DataForSeoApiClientTest extends TestCase
             $this->expectExceptionMessage('API error (405): Method not allowed');
         }
 
-        $this->client->validateHttpMethod('test_error_type');
+        $this->client->validateHttpMethod('POST', 'test_error_type');
 
         if (!$shouldThrow) {
             $this->addToAssertionCount(1);
         }
+    }
+
+    public function test_validateHttpMethod_validates_get_request()
+    {
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+
+        // Should not throw exception when expecting GET
+        $this->client->validateHttpMethod('GET', 'test_error_type');
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_validateHttpMethod_throws_when_get_expected_but_post_received()
+    {
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('API error (405): Method not allowed');
+
+        $this->client->validateHttpMethod('GET', 'test_error_type');
     }
 
     public function test_validateIpWhitelist_allows_all_when_no_whitelist()
@@ -721,6 +770,376 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->throwErrorWithLogging(400, 'No task data in response', 'webhook_no_task_data');
     }
 
+    public function test_processPostbackResponse_successful_processing()
+    {
+        $taskId   = '12345678-1234-1234-1234-123456789012';
+        $cacheKey = 'test-cache-key';
+
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'live',
+                        'regular',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'live',
+                        'se'            => 'google',
+                        'se_type'       => 'organic',
+                        'keyword'       => 'laravel framework',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                        'device'        => 'desktop',
+                        'os'            => 'windows',
+                        'tag'           => $cacheKey,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'       => 'laravel framework',
+                            'type'          => 'organic',
+                            'se_domain'     => 'google.com',
+                            'location_code' => 2840,
+                            'language_code' => 'en',
+                            'check_url'     => 'https://www.google.com/search?q=laravel+framework',
+                            'datetime'      => '2023-08-07 12:00:00 +00:00',
+                            'items_count'   => 10,
+                            'items'         => [
+                                [
+                                    'type'          => 'organic',
+                                    'rank_group'    => 1,
+                                    'rank_absolute' => 1,
+                                    'position'      => 'left',
+                                    'domain'        => 'laravel.com',
+                                    'title'         => 'Laravel - The PHP Framework For Web Artisans',
+                                    'url'           => 'https://laravel.com/',
+                                    'description'   => 'Laravel is a web application framework with expressive, elegant syntax.',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $gzippedJsonData = gzencode(json_encode($successResponse));
+
+        // Set up cache manager mock
+        $cacheManagerMock = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $cacheManagerMock->method('generateCacheKey')->willReturn('generated-cache-key-123');
+
+        // Create a mock client that overrides extractParams and resolveEndpoint
+        $mockClient = $this->getMockBuilder(DataForSeoApiClient::class)
+            ->setConstructorArgs([$cacheManagerMock])
+            ->onlyMethods(['extractParams', 'resolveEndpoint'])
+            ->getMock();
+
+        $mockClient->method('extractParams')->willReturn([
+            'keyword'       => 'laravel framework',
+            'language_code' => 'en',
+            'location_code' => 2840,
+            'device'        => 'desktop',
+            'os'            => 'windows',
+        ]);
+        $mockClient->method('resolveEndpoint')->willReturn('serp/google/organic/live/regular');
+
+        [$responseArray, $task, $returnedTaskId, $returnedCacheKey, $cost, $jsonData, $endpoint, $method] = $mockClient->processPostbackResponse('postback', 'postback_response_error', $gzippedJsonData);
+
+        // Verify the returned values
+        $this->assertEquals($taskId, $returnedTaskId);
+        $this->assertEquals($cacheKey, $returnedCacheKey);
+        $this->assertEquals(0.0025, $cost);
+        $this->assertEquals('serp/google/organic/live/regular', $endpoint);
+        $this->assertEquals('POST', $method);
+        $this->assertIsArray($responseArray);
+        $this->assertIsArray($task);
+        $this->assertIsString($jsonData);
+        $this->assertEquals(gzdecode($gzippedJsonData), $jsonData);
+    }
+
+    public function test_processPostbackResponse_uses_generated_cache_key_when_tag_missing()
+    {
+        $taskId = '12345678-1234-1234-1234-123456789012';
+
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'cost'           => 0.0025,
+            'tasks'          => [
+                [
+                    'id'   => $taskId,
+                    'path' => ['serp', 'google', 'organic', 'live', 'regular'],
+                    'data' => [
+                        'keyword'       => 'test keyword',
+                        'language_code' => 'en',
+                        // Note: no 'tag' field here
+                    ],
+                ],
+            ],
+        ];
+
+        $gzippedJsonData = gzencode(json_encode($successResponse));
+
+        // Set up cache manager mock
+        $cacheManagerMock = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $cacheManagerMock->method('generateCacheKey')->willReturn('generated-cache-key-456');
+
+        // Create a mock client
+        $mockClient = $this->getMockBuilder(DataForSeoApiClient::class)
+            ->setConstructorArgs([$cacheManagerMock])
+            ->onlyMethods(['extractParams', 'resolveEndpoint'])
+            ->getMock();
+
+        $mockClient->method('extractParams')->willReturn([
+            'keyword'       => 'test keyword',
+            'language_code' => 'en',
+        ]);
+        $mockClient->method('resolveEndpoint')->willReturn('serp/google/organic/live/regular');
+
+        [$responseArray, $task, $returnedTaskId, $returnedCacheKey, $cost, $jsonData, $endpoint, $method] = $mockClient->processPostbackResponse(null, null, $gzippedJsonData);
+
+        // Verify that generated cache key was used
+        $this->assertEquals('generated-cache-key-456', $returnedCacheKey);
+        $this->assertEquals('POST', $method);
+    }
+
+    public function test_processPingbackResponse_throws_on_missing_task_id()
+    {
+        // Clear $_GET
+        $originalGet = $_GET;
+        $_GET        = ['tag' => 'test-tag', 'endpoint' => 'serp/google/organic/task_get/regular'];
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('API error (400): Missing task ID in pingback');
+
+            $this->client->processPingbackResponse('pingback', 'pingback_response_error');
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
+    public function test_processPingbackResponse_throws_on_missing_endpoint()
+    {
+        // Clear $_GET
+        $originalGet = $_GET;
+        $_GET        = ['id' => 'test-task-id', 'tag' => 'test-tag'];
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('API error (400): Missing endpoint in pingback');
+
+            $this->client->processPingbackResponse('pingback', 'pingback_response_error');
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
+    public function test_processPingbackResponse_successful_processing()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $cacheKey        = 'test-cache-key';
+        $taskGetEndpoint = 'serp/google/organic/task_get/regular';
+
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'task_get',
+                        'regular',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'task_get',
+                        'se'            => 'google',
+                        'se_type'       => 'organic',
+                        'keyword'       => 'laravel framework',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                        'device'        => 'desktop',
+                        'os'            => 'windows',
+                        'tag'           => $cacheKey,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'          => 'laravel framework',
+                            'type'             => 'organic',
+                            'se_domain'        => 'google.com',
+                            'location_code'    => 2840,
+                            'language_code'    => 'en',
+                            'check_url'        => 'https://www.google.com/search?q=laravel+framework',
+                            'datetime'         => '2023-08-07 12:00:00 +00:00',
+                            'spell'            => null,
+                            'item_types'       => ['organic'],
+                            'se_results_count' => 1000000,
+                            'items_count'      => 10,
+                            'items'            => [
+                                [
+                                    'type'                => 'organic',
+                                    'rank_group'          => 1,
+                                    'rank_absolute'       => 1,
+                                    'position'            => 'left',
+                                    'xpath'               => '/html[1]/body[1]/div[6]/div[1]/div[9]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/a[1]',
+                                    'domain'              => 'laravel.com',
+                                    'title'               => 'Laravel - The PHP Framework For Web Artisans',
+                                    'url'                 => 'https://laravel.com/',
+                                    'cache_url'           => 'https://webcache.googleusercontent.com/search?q=cache:laravel.com',
+                                    'related_search_url'  => 'https://www.google.com/search?q=related:laravel.com+laravel+framework',
+                                    'breadcrumb'          => 'https://laravel.com',
+                                    'is_image'            => false,
+                                    'is_video'            => false,
+                                    'is_featured_snippet' => false,
+                                    'is_malicious'        => false,
+                                    'description'         => 'Laravel is a web application framework with expressive, elegant syntax.',
+                                    'pre_snippet'         => null,
+                                    'extended_snippet'    => null,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // Mock the taskGet HTTP request
+        Http::fake([
+            "{$this->apiBaseUrl}/{$taskGetEndpoint}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Set up $_GET parameters
+        $originalGet = $_GET;
+        $_GET        = [
+            'id'       => $taskId,
+            'tag'      => $cacheKey,
+            'endpoint' => $taskGetEndpoint,
+        ];
+
+        try {
+            // Reinitialize client so that its HTTP pending request picks up the fake
+            $this->client = new DataForSeoApiClient();
+            $this->client->clearRateLimit();
+
+            [$responseArray, $task, $returnedTaskId, $returnedCacheKey, $cost, $jsonData, $storageEndpoint, $method] = $this->client->processPingbackResponse('pingback', 'pingback_response_error');
+
+            // Verify the returned values
+            $this->assertEquals($taskId, $returnedTaskId);
+            $this->assertEquals($cacheKey, $returnedCacheKey);
+            $this->assertEquals(0.0025, $cost);
+            $this->assertEquals('serp/google/organic/task_get/regular', $storageEndpoint);
+            $this->assertEquals('GET', $method);
+            $this->assertIsArray($responseArray);
+            $this->assertIsArray($task);
+            $this->assertIsString($jsonData);
+
+            // Verify the HTTP request was made
+            Http::assertSent(function ($request) use ($taskGetEndpoint, $taskId) {
+                return $request->url() === "{$this->apiBaseUrl}/{$taskGetEndpoint}/{$taskId}" &&
+                       $request->method() === 'GET';
+            });
+
+            // Verify log file was created (clean up after)
+            $logFile = __DIR__ . '/../../storage/logs/pingback.log';
+            if (file_exists($logFile)) {
+                $this->assertFileExists($logFile);
+                unlink($logFile);
+            }
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
+    public function test_processPingbackResponse_without_logging()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $cacheKey        = 'test-cache-key';
+        $taskGetEndpoint = 'serp/google/organic/task_get/regular';
+
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'cost'           => 0.0025,
+            'tasks'          => [
+                [
+                    'id'   => $taskId,
+                    'path' => ['serp', 'google', 'organic', 'task_get', 'regular'],
+                    'data' => ['keyword' => 'test', 'tag' => $cacheKey],
+                ],
+            ],
+        ];
+
+        // Mock the taskGet HTTP request
+        Http::fake([
+            "{$this->apiBaseUrl}/{$taskGetEndpoint}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Set up $_GET parameters
+        $originalGet = $_GET;
+        $_GET        = [
+            'id'       => $taskId,
+            'tag'      => $cacheKey,
+            'endpoint' => $taskGetEndpoint,
+        ];
+
+        try {
+            // Reinitialize client so that its HTTP pending request picks up the fake
+            $this->client = new DataForSeoApiClient();
+            $this->client->clearRateLimit();
+
+            // Call without logging
+            [$responseArray, $task, $returnedTaskId, $returnedCacheKey, $cost, $jsonData, $storageEndpoint, $method] = $this->client->processPingbackResponse();
+
+            // Verify the returned values
+            $this->assertEquals($taskId, $returnedTaskId);
+            $this->assertEquals($cacheKey, $returnedCacheKey);
+            $this->assertEquals(0.0025, $cost);
+            $this->assertEquals('serp/google/organic/task_get/regular', $storageEndpoint);
+            $this->assertEquals('GET', $method);
+            $this->assertIsArray($responseArray);
+            $this->assertIsArray($task);
+            $this->assertIsString($jsonData);
+
+            // Verify no log file was created
+            $logFile = __DIR__ . '/../../storage/logs/pingback.log';
+            $this->assertFileDoesNotExist($logFile);
+        } finally {
+            $_GET = $originalGet;
+        }
+    }
+
     public function test_storeInCache_stores_response_data()
     {
         $responseArray = [
@@ -739,6 +1158,27 @@ class DataForSeoApiClientTest extends TestCase
 
         // This method primarily delegates to ApiCacheManager, so we just verify it doesn't throw
         $this->client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $rawResponseData);
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_storeInCache_stores_response_data_with_get_method()
+    {
+        $responseArray = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'data' => ['keyword' => 'test', 'location_code' => 2840],
+                ],
+            ],
+        ];
+        $cacheKey        = 'test-cache-key';
+        $endpoint        = 'serp/google/organic/live/regular';
+        $cost            = 0.01;
+        $taskId          = 'test-task-id';
+        $rawResponseData = json_encode($responseArray);
+
+        // This method primarily delegates to ApiCacheManager, so we just verify it doesn't throw
+        $this->client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $rawResponseData, 'GET');
         $this->addToAssertionCount(1);
     }
 

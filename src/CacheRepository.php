@@ -81,15 +81,16 @@ class CacheRepository
     /**
      * Prepare headers for storage (headers are always an array)
      *
-     * @param string      $clientName Client name
-     * @param array|null  $headers    HTTP headers array
-     * @param string|null $context    Context of the headers
+     * @param string      $clientName  Client name
+     * @param array|null  $headers     HTTP headers array
+     * @param string|null $context     Context of the headers
+     * @param bool        $prettyPrint Whether to pretty print JSON (default: true)
      *
      * @throws \JsonException When JSON encoding fails
      *
      * @return string|null JSON encoded and optionally compressed headers
      */
-    public function prepareHeaders(string $clientName, ?array $headers, ?string $context = null): ?string
+    public function prepareHeaders(string $clientName, ?array $headers, ?string $context = null, bool $prettyPrint = true): ?string
     {
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
@@ -102,6 +103,7 @@ class CacheRepository
         Log::debug('Preparing headers' . $appendString, [
             'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
+            'pretty_print'        => $prettyPrint,
         ]);
 
         if ($headers === null) {
@@ -109,7 +111,12 @@ class CacheRepository
         }
 
         try {
-            $encoded = json_encode($headers, flags: JSON_THROW_ON_ERROR);
+            $flags = JSON_THROW_ON_ERROR;
+            if ($prettyPrint) {
+                $flags |= JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
+            }
+
+            $encoded = json_encode($headers, flags: $flags);
         } catch (\JsonException $e) {
             Log::error('Failed to encode headers', [
                 'client'  => $clientName,
@@ -195,13 +202,14 @@ class CacheRepository
     /**
      * Prepare body for storage (body is always a string)
      *
-     * @param string      $clientName Client name
-     * @param string|null $body       Raw body content
-     * @param string|null $context    Context of the body
+     * @param string      $clientName  Client name
+     * @param string|null $body        Raw body content
+     * @param string|null $context     Context of the body
+     * @param bool        $prettyPrint Whether to pretty print JSON (default: true)
      *
-     * @return string|null Optionally compressed body
+     * @return string|null Optionally compressed and formatted body
      */
-    public function prepareBody(string $clientName, ?string $body, ?string $context = null): ?string
+    public function prepareBody(string $clientName, ?string $body, ?string $context = null, bool $prettyPrint = true): ?string
     {
         $compressionEnabled = $this->compression->isEnabled($clientName);
 
@@ -215,10 +223,31 @@ class CacheRepository
             'client'              => $clientName,
             'compression_enabled' => $compressionEnabled,
             'body_length'         => strlen($body ?? ''),
+            'pretty_print'        => $prettyPrint,
         ]);
 
         if ($body === null) {
             return null;
+        }
+
+        // Pretty print JSON if enabled and content is valid JSON
+        if ($prettyPrint && json_validate($body)) {
+            try {
+                $decoded = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+                $body    = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+                Log::debug('JSON pretty printed' . $appendString, [
+                    'client'           => $clientName,
+                    'original_length'  => strlen($body),
+                    'formatted_length' => strlen($body),
+                ]);
+            } catch (\JsonException $e) {
+                // If pretty printing fails, log but continue with original body
+                Log::warning('Failed to pretty print JSON body' . $appendString, [
+                    'client' => $clientName,
+                    'error'  => $e->getMessage(),
+                ]);
+            }
         }
 
         if ($compressionEnabled) {

@@ -55,7 +55,7 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
     }
 
     // Test chat completions endpoint with string input
-    $model = 'google/gemini-2.0-pro-exp-02-05:free';
+    $model = 'google/gemini-2.0-flash-exp:free';
     echo "\nTesting chat completions endpoint with model: {$model}...\n";
 
     try {

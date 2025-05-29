@@ -112,7 +112,7 @@ class OpenRouterApiClientTest extends TestCase
                 'id'       => 'gen-test',
                 'object'   => 'chat.completion',
                 'created'  => time(),
-                'model'    => 'google/gemini-2.0-pro-exp-02-05',
+                'model'    => 'google/gemini-2.0-flash-exp:free',
                 'provider' => 'Google AI Studio',
                 'choices'  => [
                     [
@@ -141,7 +141,7 @@ class OpenRouterApiClientTest extends TestCase
 
         $response = $this->client->chatCompletions(
             'What is the meaning of life?',
-            'google/gemini-2.0-pro-exp-02-05:free',
+            'google/gemini-2.0-flash-exp:free',
             100,
             1,
             0.7,
@@ -153,7 +153,7 @@ class OpenRouterApiClientTest extends TestCase
                    $request->method() === 'POST' &&
                    $request['messages'][0]['role'] === 'user' &&
                    $request['messages'][0]['content'] === 'What is the meaning of life?' &&
-                   $request['model'] === 'google/gemini-2.0-pro-exp-02-05:free';
+                   $request['model'] === 'google/gemini-2.0-flash-exp:free';
         });
 
         // Make sure we used the Http::fake() response
@@ -169,7 +169,7 @@ class OpenRouterApiClientTest extends TestCase
                 'id'       => 'gen-test',
                 'object'   => 'chat.completion',
                 'created'  => time(),
-                'model'    => 'google/gemini-2.0-pro-exp-02-05',
+                'model'    => 'google/gemini-2.0-flash-exp:free',
                 'provider' => 'Google AI Studio',
                 'choices'  => [
                     [

@@ -610,15 +610,14 @@ function format_api_response(array $result, bool $requestInfo = false, bool $res
 
             $output[] = "\nRequest body:";
             if (!empty($result['request']['body'])) {
-                $decodedRequestBody = json_decode($result['request']['body']);
-                $encodedRequestBody = json_encode($decodedRequestBody, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $body = $result['request']['body'];
 
-                // json_encode() returns 'null', as a string, if decodedRequestBody is null.
-                // If encodedRequestBody is not 'null', add it. Else add the original request body.
-                if ($encodedRequestBody !== 'null') {
-                    $output[] = $encodedRequestBody;
+                if (json_validate($body)) {
+                    $decodedRequestBody = json_decode($body);
+                    $encodedRequestBody = json_encode($decodedRequestBody, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $output[]           = $encodedRequestBody;
                 } else {
-                    $output[] = $result['request']['body'];
+                    $output[] = $body;
                 }
             } else {
                 $output[] = 'N/A';
@@ -635,19 +634,18 @@ function format_api_response(array $result, bool $requestInfo = false, bool $res
         }
 
         // Response body
-        $output[]            = "\nResponse body:";
-        $decodedResponseBody = json_decode($result['response']->body());
-        $encodedResponseBody = json_encode(
-            $decodedResponseBody,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-        );
+        $output[] = "\nResponse body:";
+        $body     = $result['response']->body();
 
-        // json_encode() returns 'null', as a string, if decodedResponseBody is null.
-        // If encodedResponseBody is not 'null', add it. Else add the original response body.
-        if ($encodedResponseBody !== 'null') {
+        if (json_validate($body)) {
+            $decodedResponseBody = json_decode($body);
+            $encodedResponseBody = json_encode(
+                $decodedResponseBody,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
             $output[] = $encodedResponseBody;
         } else {
-            $output[] = $result['response']->body();
+            $output[] = $body;
         }
     }
 

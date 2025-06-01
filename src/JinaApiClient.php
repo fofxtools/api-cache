@@ -94,19 +94,30 @@ class JinaApiClient extends BaseApiClient
 
         $result = $this->sendRequest('r', [], 'GET');
         $body   = $result['response']->body();
-        $data   = json_decode($body, true);
 
-        if (isset($data['data']['balanceLeft'])) {
-            return (int) $data['data']['balanceLeft'];
+        if (!json_validate($body)) {
+            $error = 'Invalid JSON in token balance response';
+            Log::error($error, [
+                'client' => $this->clientName,
+                'body'   => $body,
+            ]);
+
+            throw new \RuntimeException($error);
         }
 
-        $error = 'Could not parse token balance from response';
-        Log::error($error, [
-            'client' => $this->clientName,
-            'body'   => $body,
-        ]);
+        $data = json_decode($body, true);
 
-        throw new \RuntimeException($error);
+        if (!isset($data['data']['balanceLeft'])) {
+            $error = 'Missing "balanceLeft" in response JSON';
+            Log::error($error, [
+                'client' => $this->clientName,
+                'body'   => $body,
+            ]);
+
+            throw new \RuntimeException($error);
+        }
+
+        return (int) $data['data']['balanceLeft'];
     }
 
     /**

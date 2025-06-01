@@ -297,10 +297,14 @@ class PixabayApiClient extends BaseApiClient
             $responseBody   = $cachedResponse['response']->body();
 
             try {
-                $data = json_decode($responseBody, true);
-                if (json_last_error() !== JSON_ERROR_NONE) {
+                if (!json_validate($responseBody)) {
+                    // Try to decode to get the specific error message
+                    json_decode($responseBody, true);
+
                     throw new \Exception('Failed to decode response body: ' . json_last_error_msg());
                 }
+
+                $data = json_decode($responseBody, true);
 
                 $hasValidHits = isset($data['hits']) && is_array($data['hits']) && !empty($data['hits']);
 

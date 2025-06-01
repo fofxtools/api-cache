@@ -374,7 +374,7 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @param string|null $logFilename Optional filename for response logging
      * @param string|null $errorType   Optional error type for logging
-     * @param string|null $rawData     Optional raw POST data (injected for testing)
+     * @param string|null $rawData     Optional raw data for testing
      *
      * @throws \RuntimeException If response is invalid
      *
@@ -392,12 +392,12 @@ class DataForSeoApiClient extends BaseApiClient
         $decompressed = gzdecode($rawData);
         $jsonData     = $decompressed !== false ? $decompressed : $rawData;
 
+        if (!json_validate($jsonData)) {
+            $this->throwErrorWithLogging(400, 'Invalid JSON', $errorType ?? 'postback_invalid_json', $jsonData);
+        }
+
         $responseArray = json_decode($jsonData, true);
         $statusCode    = $responseArray['status_code'] ?? 0;
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->throwErrorWithLogging(400, 'Invalid JSON: ' . json_last_error_msg(), $errorType ?? 'postback_invalid_json', $jsonData);
-        }
 
         if ($statusCode !== 20000) {
             $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'postback_api_error', $jsonData);
@@ -472,7 +472,12 @@ class DataForSeoApiClient extends BaseApiClient
         $taskGetResult = $this->taskGet($taskGetEndpoint, $taskId, $attributes);
 
         // Extract the response array from the response body
-        $jsonData      = $taskGetResult['response']->body();
+        $jsonData = $taskGetResult['response']->body();
+
+        if (!json_validate($jsonData)) {
+            $this->throwErrorWithLogging(400, 'Invalid JSON', $errorType ?? 'pingback_invalid_json', $jsonData);
+        }
+
         $responseArray = json_decode($jsonData, true);
         $statusCode    = $responseArray['status_code'] ?? 0;
         $task          = $responseArray['tasks'][0] ?? null;
@@ -481,10 +486,6 @@ class DataForSeoApiClient extends BaseApiClient
         $tag           = $task['data']['tag'] ?? null;
         $params        = $this->extractParams($responseArray);
         $method        = 'GET';
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->throwErrorWithLogging(400, 'Invalid JSON: ' . json_last_error_msg(), $errorType ?? 'pingback_invalid_json', $jsonData);
-        }
 
         if ($statusCode !== 20000) {
             $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'pingback_api_error', $jsonData);

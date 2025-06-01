@@ -10,18 +10,6 @@ A Laravel-based PHP library for caching API responses. Currently in early develo
 - **Laravel 11.38+**
 - **Redis** (for distributed rate limiting)
 
-## Documentation
-
-Please see the [docs](docs) folder for:
-- [Technical Specification](docs/technical-specification.md)
-- [Usage](docs/usage.md)
-- [Code Skeleton](docs/code-skeleton.md)
-
-### Diagrams
-- [Class Diagram](docs/diagrams/class-diagram.mmd)
-- [Sequence Diagram](docs/diagrams/sequence-diagram.mmd)
-- [Workflow Diagram](docs/diagrams/workflow-diagram.mmd)
-
 ## Development Setup
 
 1. Clone the repository
@@ -34,6 +22,18 @@ composer install
 ```bash
 php -S 0.0.0.0:8000 -t public
 ```
+
+## Documentation
+
+Please see the [docs](docs) folder for:
+- [Technical Specification](docs/technical-specification.md)
+- [Usage](docs/usage.md)
+- [Code Skeleton](docs/code-skeleton.md)
+
+### Diagrams
+- [Class Diagram](docs/diagrams/class-diagram.mmd)
+- [Sequence Diagram](docs/diagrams/sequence-diagram.mmd)
+- [Workflow Diagram](docs/diagrams/workflow-diagram.mmd)
 
 ## Features
 

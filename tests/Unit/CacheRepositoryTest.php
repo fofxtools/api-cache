@@ -67,34 +67,219 @@ class CacheRepositoryTest extends TestCase
         $this->assertEquals('api_cache_' . $this->compressedClient . '_responses_compressed', $tableName);
     }
 
-    public static function clientNamesProvider(): array
+    public function test_prepareHeaders_pretty_prints_json_by_default(): void
     {
-        return [
-            'uncompressed client' => [self::UNCOMPRESSED_CLIENT],
-            'compressed client'   => [self::COMPRESSED_CLIENT],
-        ];
+        $clientName     = $this->uncompressedClient;
+        $headers        = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer token123'];
+        $expectedPretty = "{\n    \"Content-Type\": \"application/json\",\n    \"Authorization\": \"Bearer token123\"\n}";
+
+        $result = $this->repository->prepareHeaders($clientName, $headers);
+
+        $this->assertEquals($expectedPretty, $result);
+    }
+
+    public function test_prepareHeaders_can_disable_pretty_printing(): void
+    {
+        $clientName = $this->uncompressedClient;
+        $headers    = ['Content-Type' => 'application/json'];
+
+        $result = $this->repository->prepareHeaders($clientName, $headers, null, false);
+
+        // Parse the result as JSON to verify it's valid and contains expected data
+        $decodedResult = json_decode($result, true);
+        $this->assertEquals($headers, $decodedResult);
+
+        // Verify it's compact (no pretty printing) by checking it doesn't contain newlines
+        $this->assertStringNotContainsString("\n", $result);
+    }
+
+    public function test_retrieveHeaders_returns_null_for_null_input(): void
+    {
+        $result = $this->repository->retrieveHeaders($this->uncompressedClient, null);
+
+        $this->assertNull($result);
     }
 
     #[DataProvider('clientNamesProvider')]
-    public function test_store_and_get(string $clientName): void
+    public function test_retrieveHeaders_decodes_json_headers_correctly(string $clientName): void
     {
-        $this->repository->store($clientName, $this->key, $this->testData);
-        $retrieved = $this->repository->get($clientName, $this->key);
+        $headers = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer token123'];
 
-        $this->assertNotNull($retrieved);
-        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
-        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
-        $this->assertEquals($this->testData['method'], $retrieved['method']);
+        // Prepare headers using the repository method
+        $prepared = $this->repository->prepareHeaders($clientName, $headers);
+
+        // Retrieve them back
+        $retrieved = $this->repository->retrieveHeaders($clientName, $prepared);
+
+        $this->assertEquals($headers, $retrieved);
+    }
+
+    public function test_retrieveHeaders_throws_JsonException_for_invalid_json(): void
+    {
+        $this->expectException(\JsonException::class);
+
+        $invalidJson = '{invalid json content';
+        $this->repository->retrieveHeaders($this->uncompressedClient, $invalidJson);
+    }
+
+    public function test_retrieveHeaders_throws_RuntimeException_for_non_array_result(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Decoded headers must be an array');
+
+        $nonArrayJson = '"just a string"';
+        $this->repository->retrieveHeaders($this->uncompressedClient, $nonArrayJson);
+    }
+
+    public function test_retrieveHeaders_throws_RuntimeException_for_null_json_result(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Decoded headers must be an array');
+
+        $nullJson = 'null';
+        $this->repository->retrieveHeaders($this->uncompressedClient, $nullJson);
+    }
+
+    public function test_retrieveHeaders_handles_context_parameter(): void
+    {
+        $headers  = ['X-Test' => 'value'];
+        $prepared = $this->repository->prepareHeaders($this->uncompressedClient, $headers);
+
+        // This should not throw an exception and should work with context
+        $retrieved = $this->repository->retrieveHeaders($this->uncompressedClient, $prepared, 'test-context');
+
+        $this->assertEquals($headers, $retrieved);
+    }
+
+    public function test_retrieveHeaders_handles_compressed_data(): void
+    {
+        $headers = ['Content-Type' => 'application/json', 'X-Large-Header' => str_repeat('data', 100)];
+
+        // Prepare with compressed client
+        $prepared = $this->repository->prepareHeaders($this->compressedClient, $headers);
+
+        // Retrieve with compressed client
+        $retrieved = $this->repository->retrieveHeaders($this->compressedClient, $prepared);
+
+        $this->assertEquals($headers, $retrieved);
+    }
+
+    public function test_prepareBody_pretty_prints_json_by_default(): void
+    {
+        $clientName     = $this->uncompressedClient;
+        $jsonData       = '{"name":"test","data":{"value":123,"array":[1,2,3]}}';
+        $expectedPretty = "{\n    \"name\": \"test\",\n    \"data\": {\n        \"value\": 123,\n        \"array\": [\n            1,\n            2,\n            3\n        ]\n    }\n}";
+
+        $result = $this->repository->prepareBody($clientName, $jsonData);
+
+        $this->assertEquals($expectedPretty, $result);
+    }
+
+    public function test_prepareBody_preserves_non_json_content(): void
+    {
+        $clientName = $this->uncompressedClient;
+        $htmlData   = '<html><body>Hello World</body></html>';
+
+        $result = $this->repository->prepareBody($clientName, $htmlData);
+
+        $this->assertEquals($htmlData, $result);
+    }
+
+    public function test_prepareBody_can_disable_pretty_printing(): void
+    {
+        $clientName = $this->uncompressedClient;
+        $jsonData   = '{"name":"test","value":123}';
+
+        $result = $this->repository->prepareBody($clientName, $jsonData, null, false);
+
+        $this->assertEquals($jsonData, $result);
+    }
+
+    public function test_retrieveBody_returns_null_for_null_input(): void
+    {
+        $result = $this->repository->retrieveBody($this->uncompressedClient, null);
+
+        $this->assertNull($result);
     }
 
     #[DataProvider('clientNamesProvider')]
-    public function test_get_respects_ttl(string $clientName): void
+    public function test_retrieveBody_returns_body_unchanged_for_uncompressed(string $clientName): void
     {
-        $this->repository->store($clientName, $this->key, $this->testData, 1);
+        $body = '{"message": "Hello World", "data": [1, 2, 3]}';
 
-        usleep(1100000);
+        // Prepare body using the repository method
+        $prepared = $this->repository->prepareBody($clientName, $body, null, false); // disable pretty print for exact match
 
-        $this->assertNull($this->repository->get($clientName, $this->key));
+        // Retrieve it back
+        $retrieved = $this->repository->retrieveBody($clientName, $prepared);
+
+        $this->assertEquals($body, $retrieved);
+    }
+
+    public function test_retrieveBody_handles_compressed_data(): void
+    {
+        $body = str_repeat('This is a long body content that should compress well. ', 50);
+
+        // Prepare with compressed client
+        $prepared = $this->repository->prepareBody($this->compressedClient, $body, null, false);
+
+        // Retrieve with compressed client
+        $retrieved = $this->repository->retrieveBody($this->compressedClient, $prepared);
+
+        $this->assertEquals($body, $retrieved);
+    }
+
+    public function test_retrieveBody_handles_context_parameter(): void
+    {
+        $body     = 'Simple text content';
+        $prepared = $this->repository->prepareBody($this->uncompressedClient, $body, null, false);
+
+        // This should not throw an exception and should work with context
+        $retrieved = $this->repository->retrieveBody($this->uncompressedClient, $prepared, 'test-context');
+
+        $this->assertEquals($body, $retrieved);
+    }
+
+    public function test_retrieveBody_preserves_binary_data(): void
+    {
+        // Create some binary-like data
+        $binaryData = chr(0) . chr(255) . chr(128) . 'mixed' . chr(1) . chr(254);
+
+        $prepared  = $this->repository->prepareBody($this->uncompressedClient, $binaryData, null, false);
+        $retrieved = $this->repository->retrieveBody($this->uncompressedClient, $prepared);
+
+        $this->assertEquals($binaryData, $retrieved);
+    }
+
+    public function test_retrieveBody_handles_large_content(): void
+    {
+        // Create a large body (1MB)
+        $largeBody = str_repeat('Large content data with various characters: áéíóú çñü 中文 🚀 ', 10000);
+
+        $prepared  = $this->repository->prepareBody($this->compressedClient, $largeBody, null, false);
+        $retrieved = $this->repository->retrieveBody($this->compressedClient, $prepared);
+
+        $this->assertEquals($largeBody, $retrieved);
+    }
+
+    public function test_retrieveBody_handles_empty_string(): void
+    {
+        $emptyBody = '';
+
+        $prepared  = $this->repository->prepareBody($this->uncompressedClient, $emptyBody, null, false);
+        $retrieved = $this->repository->retrieveBody($this->uncompressedClient, $prepared);
+
+        $this->assertEquals($emptyBody, $retrieved);
+    }
+
+    public function test_retrieveBody_handles_json_content(): void
+    {
+        $jsonBody = '{"status":"success","data":{"items":[{"id":1,"name":"test"}],"total":1}}';
+
+        $prepared  = $this->repository->prepareBody($this->uncompressedClient, $jsonBody, null, false);
+        $retrieved = $this->repository->retrieveBody($this->uncompressedClient, $prepared);
+
+        $this->assertEquals($jsonBody, $retrieved);
     }
 
     public function test_store_validates_required_fields_without_compression(): void
@@ -119,6 +304,24 @@ class CacheRepositoryTest extends TestCase
         ];
 
         $this->repository->store($this->compressedClient, $this->key, $invalidData);
+    }
+
+    public static function clientNamesProvider(): array
+    {
+        return [
+            'uncompressed client' => [self::UNCOMPRESSED_CLIENT],
+            'compressed client'   => [self::COMPRESSED_CLIENT],
+        ];
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_get_respects_ttl(string $clientName): void
+    {
+        $this->repository->store($clientName, $this->key, $this->testData, 1);
+
+        usleep(1100000);
+
+        $this->assertNull($this->repository->get($clientName, $this->key));
     }
 
     public static function tableNameVariationsProvider(): array
@@ -209,6 +412,18 @@ class CacheRepositoryTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->repository->getTableName($clientName);
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_store_and_get_roundtrip(string $clientName): void
+    {
+        $this->repository->store($clientName, $this->key, $this->testData);
+        $retrieved = $this->repository->get($clientName, $this->key);
+
+        $this->assertNotNull($retrieved);
+        $this->assertEquals($this->testData['endpoint'], $retrieved['endpoint']);
+        $this->assertEquals($this->testData['response_body'], $retrieved['response_body']);
+        $this->assertEquals($this->testData['method'], $retrieved['method']);
     }
 
     /**
@@ -404,62 +619,5 @@ class CacheRepositoryTest extends TestCase
             $this->repository->countExpiredResponses($clientName),
             'Should have no expired responses after deleteExpired'
         );
-    }
-
-    public function test_prepareBody_pretty_prints_json_by_default(): void
-    {
-        $clientName     = $this->uncompressedClient;
-        $jsonData       = '{"name":"test","data":{"value":123,"array":[1,2,3]}}';
-        $expectedPretty = "{\n    \"name\": \"test\",\n    \"data\": {\n        \"value\": 123,\n        \"array\": [\n            1,\n            2,\n            3\n        ]\n    }\n}";
-
-        $result = $this->repository->prepareBody($clientName, $jsonData);
-
-        $this->assertEquals($expectedPretty, $result);
-    }
-
-    public function test_prepareBody_preserves_non_json_content(): void
-    {
-        $clientName = $this->uncompressedClient;
-        $htmlData   = '<html><body>Hello World</body></html>';
-
-        $result = $this->repository->prepareBody($clientName, $htmlData);
-
-        $this->assertEquals($htmlData, $result);
-    }
-
-    public function test_prepareBody_can_disable_pretty_printing(): void
-    {
-        $clientName = $this->uncompressedClient;
-        $jsonData   = '{"name":"test","value":123}';
-
-        $result = $this->repository->prepareBody($clientName, $jsonData, null, false);
-
-        $this->assertEquals($jsonData, $result);
-    }
-
-    public function test_prepareHeaders_pretty_prints_json_by_default(): void
-    {
-        $clientName     = $this->uncompressedClient;
-        $headers        = ['Content-Type' => 'application/json', 'Authorization' => 'Bearer token123'];
-        $expectedPretty = "{\n    \"Content-Type\": \"application/json\",\n    \"Authorization\": \"Bearer token123\"\n}";
-
-        $result = $this->repository->prepareHeaders($clientName, $headers);
-
-        $this->assertEquals($expectedPretty, $result);
-    }
-
-    public function test_prepareHeaders_can_disable_pretty_printing(): void
-    {
-        $clientName = $this->uncompressedClient;
-        $headers    = ['Content-Type' => 'application/json'];
-
-        $result = $this->repository->prepareHeaders($clientName, $headers, null, false);
-
-        // Parse the result as JSON to verify it's valid and contains expected data
-        $decodedResult = json_decode($result, true);
-        $this->assertEquals($headers, $decodedResult);
-
-        // Verify it's compact (no pretty printing) by checking it doesn't contain newlines
-        $this->assertStringNotContainsString("\n", $result);
     }
 }

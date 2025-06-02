@@ -438,39 +438,48 @@ class FunctionsTest extends TestCase
             ],
             'simple string truncation' => [
                 'input' => [
-                    'query' => str_repeat('a', 100),
+                    'query' => str_repeat('a', 200),
                 ],
-                'expected' => '["query: ' . str_repeat('a', 50) . '"]',
+                'expected' => '{"query":"' . str_repeat('a', 100) . '..."}',
             ],
             'nested array' => [
                 'input' => [
                     'filters' => [
-                        'type'   => str_repeat('b', 100),
+                        'type'   => str_repeat('b', 200),
                         'status' => 'active',
                     ],
                 ],
-                'expected' => '["filters: {\"status\":\"active\",\"type\":\"' . str_repeat('b', 23) . '"]',
+                'expected' => json_encode([
+                    'filters' => mb_substr(
+                        json_encode(normalize_params([
+                            'type'   => str_repeat('b', 200),
+                            'status' => 'active',
+                        ]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                        0,
+                        100
+                    ) . '..."}',
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             ],
             'string values only' => [
                 'input' => [
-                    'string1' => str_repeat('c', 100),
+                    'string1' => str_repeat('c', 200),
                     'string2' => 'short',
                 ],
-                'expected' => '["string1: ' . str_repeat('c', 50) . '","string2: short"]',
+                'expected' => '{"string1":"' . str_repeat('c', 100) . '...","string2":"short"}',
             ],
             'utf-8 characters' => [
                 'input' => [
-                    'text' => str_repeat('测试', 50),
+                    'text' => str_repeat('测试', 60),
                 ],
-                'expected' => '["text: ' . str_repeat('测试', 25) . '"]',
+                'expected' => '{"text":"' . str_repeat('测试', 50) . '..."}',
             ],
             'special characters' => [
                 'input' => [
-                    'url' => 'https://example.com/path?param=' . str_repeat('x', 100),
+                    'url' => 'https://example.com/path?param=' . str_repeat('x', 200),
                 ],
-                'expected' => '["url: https://example.com/path?param=' . str_repeat('x', 19) . '"]',
+                'expected' => '{"url":"' . mb_substr('https://example.com/path?param=' . str_repeat('x', 200), 0, 100) . '..."}',
             ],
-            'mixed types' => [
+            'mixed types with type preservation' => [
                 'input' => [
                     'string' => 'test',
                     'int'    => 123,
@@ -479,13 +488,35 @@ class FunctionsTest extends TestCase
                     'null'   => null,
                     'array'  => ['key' => 'value'],
                 ],
-                'expected' => '["array: {\"key\":\"value\"}","bool: 1","float: 45.67","int: 123","string: test"]',
+                'expected' => '{"array":"{\"key\":\"value\"}","bool":true,"float":45.67,"int":123,"string":"test"}',
+            ],
+            'boolean values preserved' => [
+                'input' => [
+                    'enabled'  => true,
+                    'disabled' => false,
+                ],
+                'expected' => '{"disabled":false,"enabled":true}',
+            ],
+            'numeric values preserved' => [
+                'input' => [
+                    'count'      => 42,
+                    'percentage' => 85.5,
+                    'zero'       => 0,
+                ],
+                'expected' => '{"count":42,"percentage":85.5,"zero":0}',
+            ],
+            'null values preserved' => [
+                'input' => [
+                    'optional_field' => null,
+                    'required_field' => 'value',
+                ],
+                'expected' => '{"required_field":"value"}',
             ],
             'pretty print' => [
                 'input' => [
                     'key' => 'value',
                 ],
-                'expected'    => "[\n    \"key: value\"\n]",
+                'expected'    => "{\n    \"key\": \"value\"\n}",
                 'prettyPrint' => true,
             ],
         ];
@@ -496,6 +527,39 @@ class FunctionsTest extends TestCase
     {
         $result = summarize_params($input, true, $prettyPrint);
         $this->assertEquals($expected, $result);
+    }
+
+    public function test_summarize_params_respects_custom_character_limit(): void
+    {
+        $input = [
+            'long_string'  => str_repeat('x', 200),
+            'short_string' => 'short',
+            'number'       => 42,
+            'boolean'      => true,
+            'array'        => ['key' => str_repeat('y', 100)],
+        ];
+
+        // Test with character limit of 50
+        $characterLimit = 50;
+        $result         = summarize_params($input, true, false, $characterLimit);
+        $decoded        = json_decode($result, true);
+
+        $this->assertLessThanOrEqual($characterLimit + 3, mb_strlen($decoded['long_string'])); // Add 3 for the ellipsis
+        $this->assertEquals('short', $decoded['short_string']); // Short strings unchanged
+        $this->assertEquals(42, $decoded['number']); // Numbers preserved as-is
+        $this->assertEquals(true, $decoded['boolean']); // Booleans preserved as-is
+        $this->assertLessThanOrEqual($characterLimit + 5, mb_strlen($decoded['array'])); // Add 5 for the ellipsis, quote, and closing brace
+
+        // Test with character limit of 20
+        $characterLimit = 20;
+        $result         = summarize_params($input, true, false, $characterLimit);
+        $decoded        = json_decode($result, true);
+
+        $this->assertLessThanOrEqual($characterLimit + 3, mb_strlen($decoded['long_string'])); // Add 3 for the ellipsis
+        $this->assertEquals('short', $decoded['short_string']); // Short strings unchanged
+        $this->assertEquals(42, $decoded['number']); // Numbers preserved as-is
+        $this->assertEquals(true, $decoded['boolean']); // Booleans preserved as-is
+        $this->assertLessThanOrEqual($characterLimit + 5, mb_strlen($decoded['array'])); // Add 5 for the ellipsis, quote, and closing brace
     }
 
     /**

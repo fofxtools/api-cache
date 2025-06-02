@@ -262,6 +262,8 @@ class DataForSeoApiClient extends BaseApiClient
         // Try the GET parameter first
         $endpoint = $_GET['endpoint'] ?? null;
         if ($endpoint) {
+            Log::debug('Resolved endpoint from GET parameter', ['endpoint' => $endpoint]);
+
             return $endpoint;
         }
 
@@ -269,6 +271,8 @@ class DataForSeoApiClient extends BaseApiClient
         if ($responseArray !== null) {
             $endpoint = $this->extractEndpoint($responseArray);
             if ($endpoint) {
+                Log::debug('Resolved endpoint from response array', ['endpoint' => $endpoint]);
+
                 return $endpoint;
             }
         }
@@ -279,6 +283,8 @@ class DataForSeoApiClient extends BaseApiClient
                       ->value('endpoint');
 
         if ($endpoint) {
+            Log::debug('Resolved endpoint from database', ['endpoint' => $endpoint]);
+
             return $endpoint;
         }
 
@@ -367,6 +373,65 @@ class DataForSeoApiClient extends BaseApiClient
         if (!in_array($clientIp, $allowedIps, true)) {
             $this->throwErrorWithLogging(403, "IP not whitelisted: $clientIp", $errorType ?? 'webhook_ip_not_whitelisted');
         }
+    }
+
+    /**
+     * Get the results of a previously submitted task using DataForSEO's Task GET endpoints
+     *
+     * This generic method works with any DataForSEO Task GET endpoint, including:
+     * - serp/google/organic/task_get/regular
+     * - serp/google/organic/task_get/advanced
+     * - serp/youtube/organic/task_get/advanced
+     * - merchant/amazon/products/task_get/advanced
+     * - Any other endpoint that follows the format endpoint/task_get/type/{id}
+     *
+     * @param string      $endpointPath The endpoint path (e.g., 'serp/google/organic/task_get/regular')
+     * @param string      $id           The task ID to retrieve
+     * @param string|null $attributes   Optional attributes to store with cache entry
+     * @param int         $amount       Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If the endpoint path is invalid or task ID is empty
+     *
+     * @return array The API response data
+     */
+    public function taskGet(
+        string $endpointPath,
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate endpointPath format
+        if (!preg_match('#^[a-z0-9_/]+/task_get/[a-z]+$#i', $endpointPath)) {
+            throw new \InvalidArgumentException('Invalid endpoint path format. Expected format: path/to/task_get/type');
+        }
+
+        // Validate task ID
+        if (empty($id)) {
+            throw new \InvalidArgumentException('Task ID cannot be empty');
+        }
+
+        // Add the caller method, if any, to the extracted arguments
+        $callerMethod = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'] ?? null;
+        $args         = ['caller_method' => $callerMethod] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
+
+        Log::debug('Making DataForSEO task_get request', $args);
+
+        // Pass the task ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Build the full endpoint URL with ID
+        $fullEndpoint = "{$endpointPath}/{$id}";
+
+        // Make the API request to the task_get endpoint
+        return $this->sendCachedRequest(
+            $fullEndpoint,
+            [],
+            'GET',
+            $attributes,
+            $amount
+        );
     }
 
     /**
@@ -580,65 +645,6 @@ class DataForSeoApiClient extends BaseApiClient
             $apiResult,
             $endpoint,
             attributes: $taskId
-        );
-    }
-
-    /**
-     * Get the results of a previously submitted task using DataForSEO's Task GET endpoints
-     *
-     * This generic method works with any DataForSEO Task GET endpoint, including:
-     * - serp/google/organic/task_get/regular
-     * - serp/google/organic/task_get/advanced
-     * - serp/youtube/organic/task_get/advanced
-     * - merchant/amazon/products/task_get/advanced
-     * - Any other endpoint that follows the format endpoint/task_get/type/{id}
-     *
-     * @param string      $endpointPath The endpoint path (e.g., 'serp/google/organic/task_get/regular')
-     * @param string      $id           The task ID to retrieve
-     * @param string|null $attributes   Optional attributes to store with cache entry
-     * @param int         $amount       Amount to pass to incrementAttempts
-     *
-     * @throws \InvalidArgumentException If the endpoint path is invalid or task ID is empty
-     *
-     * @return array The API response data
-     */
-    public function taskGet(
-        string $endpointPath,
-        string $id,
-        ?string $attributes = null,
-        int $amount = 1
-    ): array {
-        // Validate endpointPath format
-        if (!preg_match('#^[a-z0-9_/]+/task_get/[a-z]+$#i', $endpointPath)) {
-            throw new \InvalidArgumentException('Invalid endpoint path format. Expected format: path/to/task_get/type');
-        }
-
-        // Validate task ID
-        if (empty($id)) {
-            throw new \InvalidArgumentException('Task ID cannot be empty');
-        }
-
-        // Add the caller method, if any, to the extracted arguments
-        $callerMethod = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'] ?? null;
-        $args         = ['caller_method' => $callerMethod] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
-
-        Log::debug('Making DataForSEO task_get request', $args);
-
-        // Pass the task ID as attributes if attributes is not provided
-        if ($attributes === null) {
-            $attributes = $id;
-        }
-
-        // Build the full endpoint URL with ID
-        $fullEndpoint = "{$endpointPath}/{$id}";
-
-        // Make the API request to the task_get endpoint
-        return $this->sendCachedRequest(
-            $fullEndpoint,
-            [],
-            'GET',
-            $attributes,
-            $amount
         );
     }
 

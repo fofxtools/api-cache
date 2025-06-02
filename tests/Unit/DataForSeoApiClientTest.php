@@ -743,6 +743,315 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->validateIpWhitelist('test_error_type');
     }
 
+    public function test_task_get_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $endpointPath    = 'serp/google/organic/task_get/regular';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'organic',
+                        'task_get',
+                        'regular',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'task_get',
+                        'se'            => 'google',
+                        'se_type'       => 'organic',
+                        'keyword'       => 'laravel framework',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                        'device'        => 'desktop',
+                        'os'            => 'windows',
+                    ],
+                    'result' => [
+                        [
+                            'id'             => $taskId,
+                            'status_code'    => 20000,
+                            'status_message' => 'Ok.',
+                            'time'           => '0.0281 sec.',
+                            'cost'           => 0.0025,
+                            'result_count'   => 1,
+                            'path'           => [
+                                'serp',
+                                'google',
+                                'organic',
+                                'task_get',
+                                'regular',
+                            ],
+                            'data' => [
+                                'api'           => 'serp',
+                                'function'      => 'task_get',
+                                'se'            => 'google',
+                                'se_type'       => 'organic',
+                                'keyword'       => 'laravel framework',
+                                'language_code' => 'en',
+                                'location_code' => 2840,
+                                'device'        => 'desktop',
+                                'os'            => 'windows',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->taskGet($endpointPath, $taskId);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_task_get_validates_endpoint_path_format()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->client->taskGet('invalid/endpoint/path', '12345678-1234-1234-1234-123456789012');
+    }
+
+    public function test_task_get_validates_task_id()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Task ID cannot be empty');
+
+        $this->client->taskGet('serp/google/organic/task_get/regular', '');
+    }
+
+    public static function taskGetEndpointPathProvider(): array
+    {
+        return [
+            'Google Organic Regular'   => ['serp/google/organic/task_get/regular'],
+            'Google Organic Advanced'  => ['serp/google/organic/task_get/advanced'],
+            'YouTube Organic Advanced' => ['serp/youtube/organic/task_get/advanced'],
+            'Amazon Products Advanced' => ['merchant/amazon/products/task_get/advanced'],
+        ];
+    }
+
+    #[DataProvider('taskGetEndpointPathProvider')]
+    public function test_task_get_supports_multiple_endpoint_formats(string $endpointPath)
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => explode('/', $endpointPath),
+                    'data'           => [],
+                    'result'         => [],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->taskGet($endpointPath, $taskId);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+    }
+
+    /**
+     * Data provider for task get wrapper methods
+     *
+     * @return array
+     */
+    public static function taskGetWrapperMethodsProvider(): array
+    {
+        return [
+            'serpGoogleOrganicTaskGetRegular' => [
+                'method'       => 'serpGoogleOrganicTaskGetRegular',
+                'endpointPath' => 'serp/google/organic/task_get/regular',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'regular'],
+                'keyword'      => 'laravel framework',
+            ],
+            'serpGoogleOrganicTaskGetAdvanced' => [
+                'method'       => 'serpGoogleOrganicTaskGetAdvanced',
+                'endpointPath' => 'serp/google/organic/task_get/advanced',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'advanced'],
+                'keyword'      => 'php composer',
+            ],
+            'serpGoogleOrganicTaskGetHtml' => [
+                'method'       => 'serpGoogleOrganicTaskGetHtml',
+                'endpointPath' => 'serp/google/organic/task_get/html',
+                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'html'],
+                'keyword'      => 'laravel eloquent',
+            ],
+        ];
+    }
+
+    #[DataProvider('taskGetWrapperMethodsProvider')]
+    public function test_task_get_wrapper_methods_make_request_with_correct_parameters(
+        string $method,
+        string $endpointPath,
+        array $pathResult,
+        string $keyword
+    ) {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => $pathResult,
+                    'data'           => [
+                        'api'      => 'serp',
+                        'function' => 'task_get',
+                        'se'       => 'google',
+                        'se_type'  => 'organic',
+                        'keyword'  => $keyword,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'     => $keyword,
+                            'items_count' => 5,
+                            'items'       => [
+                                [
+                                    'type'       => 'organic',
+                                    'rank_group' => 1,
+                                    'title'      => 'Test Result',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->$method($taskId);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($responseData['tasks'][0]['data']['keyword'], $keyword);
+    }
+
+    #[DataProvider('taskGetWrapperMethodsProvider')]
+    public function test_task_get_wrapper_methods_pass_custom_parameters(
+        string $method,
+        string $endpointPath,
+        array $pathResult = null,
+        string $keyword = null
+    ) {
+        $taskId     = '12345678-1234-1234-1234-123456789012';
+        $attributes = 'custom-attributes-test';
+        $amount     = 3;
+
+        $successResponse = [
+            'version'     => '0.1.20230807',
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id' => $taskId,
+                ],
+            ],
+        ];
+
+        // Mock the specific endpoint for this method
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Create a real client instance and clear rate limits
+        $client = new DataForSeoApiClient();
+        $client->clearRateLimit();
+
+        // Call the method with custom parameters
+        $response = $client->$method($taskId, $attributes, $amount);
+
+        // Verify the request was sent
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Verify we received a response (endpoint handlers should be passing these values to taskGet)
+        $this->assertEquals(200, $response['response_status_code']);
+    }
+
     public function test_processPostbackResponse_throws_on_invalid_status_code()
     {
         $this->expectException(\RuntimeException::class);
@@ -1180,315 +1489,6 @@ class DataForSeoApiClientTest extends TestCase
         // This method primarily delegates to ApiCacheManager, so we just verify it doesn't throw
         $this->client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $rawResponseData, 'GET');
         $this->addToAssertionCount(1);
-    }
-
-    public function test_task_get_successful_request()
-    {
-        $taskId          = '12345678-1234-1234-1234-123456789012';
-        $endpointPath    = 'serp/google/organic/task_get/regular';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'time'           => '0.0482 sec.',
-            'cost'           => 0.0025,
-            'tasks_count'    => 1,
-            'tasks_error'    => 0,
-            'tasks'          => [
-                [
-                    'id'             => $taskId,
-                    'status_code'    => 20000,
-                    'status_message' => 'Ok.',
-                    'time'           => '0.0382 sec.',
-                    'cost'           => 0.0025,
-                    'result_count'   => 1,
-                    'path'           => [
-                        'serp',
-                        'google',
-                        'organic',
-                        'task_get',
-                        'regular',
-                    ],
-                    'data' => [
-                        'api'           => 'serp',
-                        'function'      => 'task_get',
-                        'se'            => 'google',
-                        'se_type'       => 'organic',
-                        'keyword'       => 'laravel framework',
-                        'language_code' => 'en',
-                        'location_code' => 2840,
-                        'device'        => 'desktop',
-                        'os'            => 'windows',
-                    ],
-                    'result' => [
-                        [
-                            'id'             => $taskId,
-                            'status_code'    => 20000,
-                            'status_message' => 'Ok.',
-                            'time'           => '0.0281 sec.',
-                            'cost'           => 0.0025,
-                            'result_count'   => 1,
-                            'path'           => [
-                                'serp',
-                                'google',
-                                'organic',
-                                'task_get',
-                                'regular',
-                            ],
-                            'data' => [
-                                'api'           => 'serp',
-                                'function'      => 'task_get',
-                                'se'            => 'google',
-                                'se_type'       => 'organic',
-                                'keyword'       => 'laravel framework',
-                                'language_code' => 'en',
-                                'location_code' => 2840,
-                                'device'        => 'desktop',
-                                'os'            => 'windows',
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        $response = $this->client->taskGet($endpointPath, $taskId);
-
-        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
-            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
-                   $request->method() === 'GET';
-        });
-
-        // Make sure we used the Http::fake() response
-        $this->assertEquals(200, $response['response_status_code']);
-        $responseData = $response['response']->json();
-        $this->assertArrayHasKey('tasks', $responseData);
-        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
-    }
-
-    public function test_task_get_validates_endpoint_path_format()
-    {
-        $this->expectException(\InvalidArgumentException::class);
-
-        $this->client->taskGet('invalid/endpoint/path', '12345678-1234-1234-1234-123456789012');
-    }
-
-    public function test_task_get_validates_task_id()
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Task ID cannot be empty');
-
-        $this->client->taskGet('serp/google/organic/task_get/regular', '');
-    }
-
-    public static function taskGetEndpointPathProvider(): array
-    {
-        return [
-            'Google Organic Regular'   => ['serp/google/organic/task_get/regular'],
-            'Google Organic Advanced'  => ['serp/google/organic/task_get/advanced'],
-            'YouTube Organic Advanced' => ['serp/youtube/organic/task_get/advanced'],
-            'Amazon Products Advanced' => ['merchant/amazon/products/task_get/advanced'],
-        ];
-    }
-
-    #[DataProvider('taskGetEndpointPathProvider')]
-    public function test_task_get_supports_multiple_endpoint_formats(string $endpointPath)
-    {
-        $taskId          = '12345678-1234-1234-1234-123456789012';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'time'           => '0.0482 sec.',
-            'cost'           => 0.0025,
-            'tasks_count'    => 1,
-            'tasks_error'    => 0,
-            'tasks'          => [
-                [
-                    'id'             => $taskId,
-                    'status_code'    => 20000,
-                    'status_message' => 'Ok.',
-                    'time'           => '0.0382 sec.',
-                    'cost'           => 0.0025,
-                    'result_count'   => 1,
-                    'path'           => explode('/', $endpointPath),
-                    'data'           => [],
-                    'result'         => [],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        $response = $this->client->taskGet($endpointPath, $taskId);
-
-        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
-            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
-                   $request->method() === 'GET';
-        });
-
-        // Make sure we used the Http::fake() response
-        $this->assertEquals(200, $response['response_status_code']);
-        $responseData = $response['response']->json();
-        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
-    }
-
-    /**
-     * Data provider for task get wrapper methods
-     *
-     * @return array
-     */
-    public static function taskGetWrapperMethodsProvider(): array
-    {
-        return [
-            'serpGoogleOrganicTaskGetRegular' => [
-                'method'       => 'serpGoogleOrganicTaskGetRegular',
-                'endpointPath' => 'serp/google/organic/task_get/regular',
-                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'regular'],
-                'keyword'      => 'laravel framework',
-            ],
-            'serpGoogleOrganicTaskGetAdvanced' => [
-                'method'       => 'serpGoogleOrganicTaskGetAdvanced',
-                'endpointPath' => 'serp/google/organic/task_get/advanced',
-                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'advanced'],
-                'keyword'      => 'php composer',
-            ],
-            'serpGoogleOrganicTaskGetHtml' => [
-                'method'       => 'serpGoogleOrganicTaskGetHtml',
-                'endpointPath' => 'serp/google/organic/task_get/html',
-                'pathResult'   => ['serp', 'google', 'organic', 'task_get', 'html'],
-                'keyword'      => 'laravel eloquent',
-            ],
-        ];
-    }
-
-    #[DataProvider('taskGetWrapperMethodsProvider')]
-    public function test_task_get_wrapper_methods_make_request_with_correct_parameters(
-        string $method,
-        string $endpointPath,
-        array $pathResult,
-        string $keyword
-    ) {
-        $taskId          = '12345678-1234-1234-1234-123456789012';
-        $successResponse = [
-            'version'        => '0.1.20230807',
-            'status_code'    => 20000,
-            'status_message' => 'Ok.',
-            'time'           => '0.0482 sec.',
-            'cost'           => 0.0025,
-            'tasks_count'    => 1,
-            'tasks_error'    => 0,
-            'tasks'          => [
-                [
-                    'id'             => $taskId,
-                    'status_code'    => 20000,
-                    'status_message' => 'Ok.',
-                    'time'           => '0.0382 sec.',
-                    'cost'           => 0.0025,
-                    'result_count'   => 1,
-                    'path'           => $pathResult,
-                    'data'           => [
-                        'api'      => 'serp',
-                        'function' => 'task_get',
-                        'se'       => 'google',
-                        'se_type'  => 'organic',
-                        'keyword'  => $keyword,
-                    ],
-                    'result' => [
-                        [
-                            'keyword'     => $keyword,
-                            'items_count' => 5,
-                            'items'       => [
-                                [
-                                    'type'       => 'organic',
-                                    'rank_group' => 1,
-                                    'title'      => 'Test Result',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-
-        Http::fake([
-            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new DataForSeoApiClient();
-        $this->client->clearRateLimit();
-
-        $response = $this->client->$method($taskId);
-
-        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
-            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
-                   $request->method() === 'GET';
-        });
-
-        // Make sure we used the Http::fake() response
-        $this->assertEquals(200, $response['response_status_code']);
-        $responseData = $response['response']->json();
-        $this->assertArrayHasKey('tasks', $responseData);
-        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
-        $this->assertEquals($responseData['tasks'][0]['data']['keyword'], $keyword);
-    }
-
-    #[DataProvider('taskGetWrapperMethodsProvider')]
-    public function test_task_get_wrapper_methods_pass_custom_parameters(
-        string $method,
-        string $endpointPath,
-        array $pathResult = null,
-        string $keyword = null
-    ) {
-        $taskId     = '12345678-1234-1234-1234-123456789012';
-        $attributes = 'custom-attributes-test';
-        $amount     = 3;
-
-        $successResponse = [
-            'version'     => '0.1.20230807',
-            'status_code' => 20000,
-            'tasks'       => [
-                [
-                    'id' => $taskId,
-                ],
-            ],
-        ];
-
-        // Mock the specific endpoint for this method
-        Http::fake([
-            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
-        ]);
-
-        // Create a real client instance and clear rate limits
-        $client = new DataForSeoApiClient();
-        $client->clearRateLimit();
-
-        // Call the method with custom parameters
-        $response = $client->$method($taskId, $attributes, $amount);
-
-        // Verify the request was sent
-        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
-            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
-                   $request->method() === 'GET';
-        });
-
-        // Verify we received a response (endpoint handlers should be passing these values to taskGet)
-        $this->assertEquals(200, $response['response_status_code']);
     }
 
     public function test_serp_google_organic_live_regular_successful_request()

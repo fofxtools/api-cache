@@ -509,18 +509,19 @@ function normalize_params(array $params, int $depth = 0): array
 }
 
 /**
- * Summarize parameters by truncating each parameter to 50 characters. Return as JSON string.
- * Arrays will be single-line JSON, truncated at 50 characters.
+ * Summarize parameters by truncating each parameter to a configurable character limit. Return as JSON key-value pairs.
+ * Arrays will be single-line JSON, truncated at the specified character limit.
  *
- * @param array $params      Parameters to summarize
- * @param bool  $normalize   Whether to normalize the parameters first (optional)
- * @param bool  $prettyPrint Whether to pretty print the JSON (optional)
+ * @param array $params         Parameters to summarize
+ * @param bool  $normalize      Whether to normalize the parameters first (optional)
+ * @param bool  $prettyPrint    Whether to pretty print the JSON (optional)
+ * @param int   $characterLimit The character limit for truncating values (default: 100)
  *
  * @throws \InvalidArgumentException If JSON encoding fails
  *
- * @return string Summarized parameters as JSON string
+ * @return string Summarized parameters as JSON string with proper key-value structure
  */
-function summarize_params(array $params, bool $normalize = true, bool $prettyPrint = false): string
+function summarize_params(array $params, bool $normalize = true, bool $prettyPrint = true, int $characterLimit = 100): string
 {
     // Optionally normalize (remove nulls, sort keys, etc.)
     if ($normalize) {
@@ -530,8 +531,8 @@ function summarize_params(array $params, bool $normalize = true, bool $prettyPri
     $summary = [];
 
     foreach ($params as $key => $value) {
-        // For arrays, convert to single-line JSON then truncate
         if (is_array($value)) {
+            // For arrays, convert to single-line JSON then truncate
             $json = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             // Throw an exception if the array cannot be encoded to JSON
@@ -539,23 +540,34 @@ function summarize_params(array $params, bool $normalize = true, bool $prettyPri
                 throw new \InvalidArgumentException('Failed to encode array to JSON.');
             }
 
-            // Truncate the JSON string to 50 characters
-            $truncated = mb_substr($json, 0, 50);
-            $summary[] = $key . ': ' . $truncated;
+            // Truncate the JSON string to specified character limit
+            $summary[$key] = mb_substr($json, 0, $characterLimit);
+
+            // If the JSON string is longer than the character limit, add an ellipsis, closing quote, and a closing brace
+            if (mb_strlen($json) > $characterLimit) {
+                $summary[$key] .= '..."}';
+            }
+        } elseif (is_string($value)) {
+            // Truncate strings only
+            $summary[$key] = mb_substr($value, 0, $characterLimit);
+
+            // If the string is longer than the character limit, add an ellipsis
+            if (mb_strlen($value) > $characterLimit) {
+                $summary[$key] .= '...';
+            }
         } else {
-            // Cast scalars to string, then truncate
-            $stringVal = (string) $value;
-            $truncated = mb_substr($stringVal, 0, 50);
-            $summary[] = $key . ': ' . $truncated;
+            // Leave numeric, boolean, or null values untouched to preserve types
+            $summary[$key] = $value;
         }
     }
 
-    // Convert the final summary array
+    // Convert the final summary array to JSON with proper key-value structure
+    $options = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
     if ($prettyPrint) {
-        $encoded = json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    } else {
-        $encoded = json_encode($summary, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $options |= JSON_PRETTY_PRINT;
     }
+
+    $encoded = json_encode($summary, $options);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
         throw new \InvalidArgumentException('Failed to encode summary as JSON: ' . json_last_error_msg());

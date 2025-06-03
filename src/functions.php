@@ -103,7 +103,7 @@ function create_responses_table(
             $table->string('attributes')->nullable();
             $table->integer('credits')->nullable();
             $table->float('cost')->nullable();
-            $table->json('request_params_summary')->nullable();
+            $table->text('request_params_summary')->nullable();
 
             // Use binary/blob for compressed tables
             if ($compressed) {

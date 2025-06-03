@@ -163,17 +163,21 @@ class DataForSeoApiClient extends BaseApiClient
     /**
      * Build API parameters from method arguments
      *
-     * @param array $additionalParams Additional parameters to merge
+     * @param array $additionalParams       Additional parameters to merge
+     * @param array $additionalExcludedArgs Additional argument names to exclude beyond the default ones
      *
      * @return array Parameters ready for API request
      */
-    public function buildApiParams(array $additionalParams = []): array
+    public function buildApiParams(array $additionalParams = [], array $additionalExcludedArgs = []): array
     {
         // Get caller's arguments
         $args = ReflectionUtils::extractBoundArgsFromBacktrace(2);
 
+        // Merge default excluded args with any additional ones passed
+        $allExcludedArgs = array_merge($this->excludedArgs, $additionalExcludedArgs);
+
         // Remove excluded arguments
-        foreach ($this->excludedArgs as $skip) {
+        foreach ($allExcludedArgs as $skip) {
             unset($args[$skip]);
         }
 
@@ -1445,5 +1449,456 @@ class DataForSeoApiClient extends BaseApiClient
         int $amount = 1
     ): array {
         return $this->taskGet('serp/google/organic/task_get/html', $id, $attributes, $amount);
+    }
+
+    /**
+     * Google Organic SERP Standard method with caching and optional task creation
+     *
+     * The 'tag' is used as the bridge to the cache key.
+     *
+     * This method implements the DataForSEO Standard method workflow:
+     * - Check cache for existing SERP data based on search parameters
+     * - If cached, return cached SERP data immediately
+     * - If not cached and task creation enabled, create task with webhooks
+     * - Webhook will cache actual SERP data when received
+     *
+     * @param string      $keyword                      The search query
+     * @param string|null $url                          Direct URL of the search query
+     * @param int|null    $priority                     Task priority (1 - normal, 2 - high)
+     * @param int|null    $depth                        Number of results in SERP (max 700)
+     * @param int|null    $maxCrawlPages                Page crawl limit
+     * @param string|null $locationName                 Location name (e.g., "United States")
+     * @param int|null    $locationCode                 Location code (e.g., 2840)
+     * @param string|null $locationCoordinate           Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName                 Language name (e.g., "English")
+     * @param string|null $languageCode                 Language code (e.g., "en")
+     * @param string|null $seDomain                     Search engine domain
+     * @param string|null $device                       Device type: "desktop" or "mobile"
+     * @param string|null $os                           Operating system (windows, macos, android, ios)
+     * @param bool|null   $groupOrganicResults          Group related results
+     * @param bool|null   $calculateRectangles          Calculate pixel rankings for SERP elements
+     * @param int|null    $browserScreenWidth           Browser screen width for pixel rankings
+     * @param int|null    $browserScreenHeight          Browser screen height for pixel rankings
+     * @param int|null    $browserScreenResolutionRatio Browser screen resolution ratio
+     * @param int|null    $peopleAlsoAskClickDepth      Clicks on the people_also_ask element
+     * @param bool|null   $loadAsyncAiOverview          Load asynchronous AI overview
+     * @param bool|null   $expandAiOverview             Expand AI overview
+     * @param string|null $searchParam                  Additional parameters for search query
+     * @param array|null  $removeFromUrl                Parameters to remove from URLs
+     * @param string      $type                         Result type: 'regular', 'advanced', 'html'
+     * @param bool        $usePostback                  Enable postback webhook
+     * @param bool        $usePingback                  Enable pingback webhook
+     * @param bool        $postTaskIfNotCached          Create task if not cached (default: false)
+     * @param array       $additionalParams             Additional parameters
+     * @param string|null $attributes                   Optional attributes to store with cache entry
+     * @param int         $amount                       Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached SERP data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function serpGoogleOrganicStandard(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?int $depth = null,
+        ?int $maxCrawlPages = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $seDomain = null,
+        ?string $device = null,
+        ?string $os = null,
+        ?bool $groupOrganicResults = null,
+        ?bool $calculateRectangles = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?int $browserScreenResolutionRatio = null,
+        ?int $peopleAlsoAskClickDepth = null,
+        ?bool $loadAsyncAiOverview = null,
+        ?bool $expandAiOverview = null,
+        ?string $searchParam = null,
+        ?array $removeFromUrl = null,
+        string $type = 'regular',
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Normalize and validate type parameter
+        $type = strtolower($type);
+        if (!in_array($type, ['regular', 'advanced', 'html'])) {
+            throw new \InvalidArgumentException('type must be one of: regular, advanced, html');
+        }
+
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'type',
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ]);
+
+        // Type is always part of the endpoint
+        $endpoint = "serp/google/organic/task_get/{$type}";
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached SERP data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->serpGoogleOrganicTaskPost(
+            $keyword,
+            $url,
+            $priority,
+            $depth,
+            $maxCrawlPages,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $device,
+            $os,
+            $groupOrganicResults,
+            $calculateRectangles,
+            $browserScreenWidth,
+            $browserScreenHeight,
+            $browserScreenResolutionRatio,
+            $peopleAlsoAskClickDepth,
+            $loadAsyncAiOverview,
+            $expandAiOverview,
+            $searchParam,
+            $removeFromUrl,
+            $cacheKey,
+            $postbackUrl,
+            $type,
+            $pingbackUrl,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Google Organic SERP Standard Regular method wrapper
+     *
+     * @param string      $keyword                      The search query
+     * @param string|null $url                          Direct URL of the search query
+     * @param int|null    $priority                     Task priority (1 - normal, 2 - high)
+     * @param int|null    $depth                        Number of results in SERP (max 700)
+     * @param int|null    $maxCrawlPages                Page crawl limit
+     * @param string|null $locationName                 Location name (e.g., "United States")
+     * @param int|null    $locationCode                 Location code (e.g., 2840)
+     * @param string|null $locationCoordinate           Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName                 Language name (e.g., "English")
+     * @param string|null $languageCode                 Language code (e.g., "en")
+     * @param string|null $seDomain                     Search engine domain
+     * @param string|null $device                       Device type: "desktop" or "mobile"
+     * @param string|null $os                           Operating system (windows, macos, android, ios)
+     * @param bool|null   $groupOrganicResults          Group related results
+     * @param bool|null   $calculateRectangles          Calculate pixel rankings for SERP elements
+     * @param int|null    $browserScreenWidth           Browser screen width for pixel rankings
+     * @param int|null    $browserScreenHeight          Browser screen height for pixel rankings
+     * @param int|null    $browserScreenResolutionRatio Browser screen resolution ratio
+     * @param int|null    $peopleAlsoAskClickDepth      Clicks on the people_also_ask element
+     * @param bool|null   $loadAsyncAiOverview          Load asynchronous AI overview
+     * @param bool|null   $expandAiOverview             Expand AI overview
+     * @param string|null $searchParam                  Additional parameters for search query
+     * @param array|null  $removeFromUrl                Parameters to remove from URLs
+     * @param bool        $usePostback                  Enable postback webhook (default: false)
+     * @param bool        $usePingback                  Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached          Create task if not cached (default: false)
+     * @param array       $additionalParams             Additional parameters
+     * @param string|null $attributes                   Optional attributes to store with cache entry
+     * @param int         $amount                       Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached SERP data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function serpGoogleOrganicStandardRegular(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?int $depth = null,
+        ?int $maxCrawlPages = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $seDomain = null,
+        ?string $device = null,
+        ?string $os = null,
+        ?bool $groupOrganicResults = null,
+        ?bool $calculateRectangles = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?int $browserScreenResolutionRatio = null,
+        ?int $peopleAlsoAskClickDepth = null,
+        ?bool $loadAsyncAiOverview = null,
+        ?bool $expandAiOverview = null,
+        ?string $searchParam = null,
+        ?array $removeFromUrl = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->serpGoogleOrganicStandard(
+            $keyword,
+            $url,
+            $priority,
+            $depth,
+            $maxCrawlPages,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $device,
+            $os,
+            $groupOrganicResults,
+            $calculateRectangles,
+            $browserScreenWidth,
+            $browserScreenHeight,
+            $browserScreenResolutionRatio,
+            $peopleAlsoAskClickDepth,
+            $loadAsyncAiOverview,
+            $expandAiOverview,
+            $searchParam,
+            $removeFromUrl,
+            'regular',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Google Organic SERP Standard Advanced method wrapper
+     *
+     * @param string      $keyword                      The search query
+     * @param string|null $url                          Direct URL of the search query
+     * @param int|null    $priority                     Task priority (1 - normal, 2 - high)
+     * @param int|null    $depth                        Number of results in SERP (max 700)
+     * @param int|null    $maxCrawlPages                Page crawl limit
+     * @param string|null $locationName                 Location name (e.g., "United States")
+     * @param int|null    $locationCode                 Location code (e.g., 2840)
+     * @param string|null $locationCoordinate           Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName                 Language name (e.g., "English")
+     * @param string|null $languageCode                 Language code (e.g., "en")
+     * @param string|null $seDomain                     Search engine domain
+     * @param string|null $device                       Device type: "desktop" or "mobile"
+     * @param string|null $os                           Operating system (windows, macos, android, ios)
+     * @param bool|null   $groupOrganicResults          Group related results
+     * @param bool|null   $calculateRectangles          Calculate pixel rankings for SERP elements
+     * @param int|null    $browserScreenWidth           Browser screen width for pixel rankings
+     * @param int|null    $browserScreenHeight          Browser screen height for pixel rankings
+     * @param int|null    $browserScreenResolutionRatio Browser screen resolution ratio
+     * @param int|null    $peopleAlsoAskClickDepth      Clicks on the people_also_ask element
+     * @param bool|null   $loadAsyncAiOverview          Load asynchronous AI overview
+     * @param bool|null   $expandAiOverview             Expand AI overview
+     * @param string|null $searchParam                  Additional parameters for search query
+     * @param array|null  $removeFromUrl                Parameters to remove from URLs
+     * @param bool        $usePostback                  Enable postback webhook (default: false)
+     * @param bool        $usePingback                  Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached          Create task if not cached (default: false)
+     * @param array       $additionalParams             Additional parameters
+     * @param string|null $attributes                   Optional attributes to store with cache entry
+     * @param int         $amount                       Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached SERP data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function serpGoogleOrganicStandardAdvanced(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?int $depth = null,
+        ?int $maxCrawlPages = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $seDomain = null,
+        ?string $device = null,
+        ?string $os = null,
+        ?bool $groupOrganicResults = null,
+        ?bool $calculateRectangles = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?int $browserScreenResolutionRatio = null,
+        ?int $peopleAlsoAskClickDepth = null,
+        ?bool $loadAsyncAiOverview = null,
+        ?bool $expandAiOverview = null,
+        ?string $searchParam = null,
+        ?array $removeFromUrl = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->serpGoogleOrganicStandard(
+            $keyword,
+            $url,
+            $priority,
+            $depth,
+            $maxCrawlPages,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $device,
+            $os,
+            $groupOrganicResults,
+            $calculateRectangles,
+            $browserScreenWidth,
+            $browserScreenHeight,
+            $browserScreenResolutionRatio,
+            $peopleAlsoAskClickDepth,
+            $loadAsyncAiOverview,
+            $expandAiOverview,
+            $searchParam,
+            $removeFromUrl,
+            'advanced',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Google Organic SERP Standard HTML method wrapper
+     *
+     * @param string      $keyword                      The search query
+     * @param string|null $url                          Direct URL of the search query
+     * @param int|null    $priority                     Task priority (1 - normal, 2 - high)
+     * @param int|null    $depth                        Number of results in SERP (max 700)
+     * @param int|null    $maxCrawlPages                Page crawl limit
+     * @param string|null $locationName                 Location name (e.g., "United States")
+     * @param int|null    $locationCode                 Location code (e.g., 2840)
+     * @param string|null $locationCoordinate           Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName                 Language name (e.g., "English")
+     * @param string|null $languageCode                 Language code (e.g., "en")
+     * @param string|null $seDomain                     Search engine domain
+     * @param string|null $device                       Device type: "desktop" or "mobile"
+     * @param string|null $os                           Operating system (windows, macos, android, ios)
+     * @param bool|null   $groupOrganicResults          Group related results
+     * @param bool|null   $calculateRectangles          Calculate pixel rankings for SERP elements
+     * @param int|null    $browserScreenWidth           Browser screen width for pixel rankings
+     * @param int|null    $browserScreenHeight          Browser screen height for pixel rankings
+     * @param int|null    $browserScreenResolutionRatio Browser screen resolution ratio
+     * @param int|null    $peopleAlsoAskClickDepth      Clicks on the people_also_ask element
+     * @param bool|null   $loadAsyncAiOverview          Load asynchronous AI overview
+     * @param bool|null   $expandAiOverview             Expand AI overview
+     * @param string|null $searchParam                  Additional parameters for search query
+     * @param array|null  $removeFromUrl                Parameters to remove from URLs
+     * @param bool        $usePostback                  Enable postback webhook (default: false)
+     * @param bool        $usePingback                  Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached          Create task if not cached (default: false)
+     * @param array       $additionalParams             Additional parameters
+     * @param string|null $attributes                   Optional attributes to store with cache entry
+     * @param int         $amount                       Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached SERP data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function serpGoogleOrganicStandardHtml(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?int $depth = null,
+        ?int $maxCrawlPages = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $seDomain = null,
+        ?string $device = null,
+        ?string $os = null,
+        ?bool $groupOrganicResults = null,
+        ?bool $calculateRectangles = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?int $browserScreenResolutionRatio = null,
+        ?int $peopleAlsoAskClickDepth = null,
+        ?bool $loadAsyncAiOverview = null,
+        ?bool $expandAiOverview = null,
+        ?string $searchParam = null,
+        ?array $removeFromUrl = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->serpGoogleOrganicStandard(
+            $keyword,
+            $url,
+            $priority,
+            $depth,
+            $maxCrawlPages,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $device,
+            $os,
+            $groupOrganicResults,
+            $calculateRectangles,
+            $browserScreenWidth,
+            $browserScreenHeight,
+            $browserScreenResolutionRatio,
+            $peopleAlsoAskClickDepth,
+            $loadAsyncAiOverview,
+            $expandAiOverview,
+            $searchParam,
+            $removeFromUrl,
+            'html',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
     }
 }

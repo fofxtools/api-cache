@@ -393,6 +393,77 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertEquals('extra value', $result['extra_param']);
     }
 
+    public function test_buildApiParams_respects_additional_excluded_args()
+    {
+        $clientMock = new class () extends DataForSeoApiClient {
+            public function testMethod(
+                string $normalParam,
+                string $shouldBeExcluded,
+                array $additionalParams = []
+            ): array {
+                // Exclude 'shouldBeExcluded' parameter
+                return $this->buildApiParams($additionalParams, ['shouldBeExcluded']);
+            }
+        };
+
+        $result = $clientMock->testMethod('include me', 'exclude me', []);
+
+        $this->assertArrayHasKey('normal_param', $result);
+        $this->assertArrayNotHasKey('should_be_excluded', $result);
+        $this->assertEquals('include me', $result['normal_param']);
+    }
+
+    public function test_buildApiParams_merges_default_and_additional_excluded_args()
+    {
+        $clientMock = new class () extends DataForSeoApiClient {
+            public function testMethod(
+                string $normalParam,
+                string $customExcluded,       // Will be excluded via parameter
+                array $customExcludedArgs,    // Should be included (not excluded)
+                array $additionalParams = [], // Default excluded
+                ?string $attributes = null    // Default excluded
+            ): array {
+                return $this->buildApiParams($additionalParams, ['customExcluded']);
+            }
+        };
+
+        $result = $clientMock->testMethod(
+            'include me',
+            'exclude me',
+            ['should' => 'be included'],
+            ['extra'  => 'value'],
+            'test'
+        );
+
+        $this->assertArrayHasKey('normal_param', $result);
+        $this->assertArrayHasKey('extra', $result);
+        $this->assertArrayHasKey('custom_excluded_args', $result); // Should be included
+        $this->assertArrayNotHasKey('additional_params', $result); // Default excluded
+        $this->assertArrayNotHasKey('attributes', $result);        // Default excluded
+        $this->assertArrayNotHasKey('custom_excluded', $result);   // Additional excluded
+    }
+
+    public function test_buildApiParams_works_with_empty_additional_excluded_args()
+    {
+        $clientMock = new class () extends DataForSeoApiClient {
+            public function testMethod(
+                string $normalParam,
+                array $additionalParams = [],
+                ?string $attributes = null
+            ): array {
+                // Pass empty array for additional excluded args
+                return $this->buildApiParams($additionalParams, []);
+            }
+        };
+
+        $result = $clientMock->testMethod('include me', [], 'test');
+
+        $this->assertArrayHasKey('normal_param', $result);
+        $this->assertArrayNotHasKey('additional_params', $result); // Default excluded
+        $this->assertArrayNotHasKey('attributes', $result);        // Default excluded
+        $this->assertEquals('include me', $result['normal_param']);
+    }
+
     public function test_extractEndpoint_extracts_valid_endpoint()
     {
         $responseArray = [
@@ -4270,5 +4341,601 @@ class DataForSeoApiClientTest extends TestCase
         $this->assertArrayHasKey('tasks', $responseData);
         $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
         $this->assertEquals(40400, $responseData['tasks'][0]['status_code']);
+    }
+
+    // Standard Methods Tests
+
+    public function test_serp_google_organic_standard_returns_cached_response_when_available()
+    {
+        $id             = 'cached-task-id';
+        $cachedResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'   => $id,
+                    'data' => ['keyword' => 'cached test query'],
+                ],
+            ],
+        ];
+
+        // Mock the cache manager to return cached data
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('test-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->with('dataforseo', 'test-cache-key')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleOrganicStandard(
+            'cached test query',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            'regular', // type
+            false, // usePostback
+            false, // usePingback
+            false // postTaskIfNotCached
+        );
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_serp_google_organic_standard_returns_null_when_not_cached_and_posting_disabled()
+    {
+        // Mock the cache manager to return null (no cached data)
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('test-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->with('dataforseo', 'test-cache-key')
+            ->willReturn(null);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleOrganicStandard(
+            'uncached test query',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            'regular', // type
+            false, // usePostback
+            false, // usePingback
+            false // postTaskIfNotCached
+        );
+
+        $this->assertNull($result);
+    }
+
+    public function test_serp_google_organic_standard_creates_task_when_not_cached_and_posting_enabled()
+    {
+        $id           = 'new-task-id';
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        // Mock the cache manager to return null (no cached data)
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // First call: Standard method checking for cached data
+        // Second call: TaskPost method generating its own cache key
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('test-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->with('dataforseo', 'test-cache-key')
+            ->willReturn(null);
+
+        // Allow both requests (Standard method + TaskPost method)
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->with('dataforseo')
+            ->willReturn(true);
+
+        // Expect incrementAttempts to be called for the TaskPost request
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts')
+            ->with('dataforseo', 1);
+
+        // Expect storeResponse to be called for successful TaskPost
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse')
+            ->with(
+                'dataforseo',
+                'test-cache-key',
+                $this->anything(),
+                $this->anything(),
+                'serp/google/organic/task_post',
+                'v3',
+                $this->anything(),
+                $this->anything(),
+                1
+            );
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->serpGoogleOrganicStandard(
+            'new task query',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            'regular', // type
+            false, // usePostback
+            false, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that a task creation request was made
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'new task query' &&
+                   isset($requestData[0]['tag']) &&
+                   $requestData[0]['tag'] === 'test-cache-key';
+        });
+
+        // Verify we got the task creation response
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_serp_google_organic_standard_validates_type_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('type must be one of: regular, advanced, html');
+
+        $this->client->serpGoogleOrganicStandard(
+            'test query',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            'invalid-type' // invalid type
+        );
+    }
+
+    public function test_serp_google_organic_standard_normalizes_type_parameter()
+    {
+        // Mock the cache manager to return cached data for the test
+        $cachedResponse   = ['test' => 'data'];
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->with(
+                'dataforseo',
+                'serp/google/organic/task_get/advanced', // Should be normalized to lowercase
+                $this->anything(),
+                'POST',
+                'v3'
+            )
+            ->willReturn('test-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleOrganicStandard(
+            'test query',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            'ADVANCED' // uppercase type should be normalized
+        );
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_serp_google_organic_standard_excludes_webhook_params_from_cache_key()
+    {
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // The cache key should be generated with search parameters only,
+        // excluding webhook and control parameters
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->with(
+                'dataforseo',
+                'serp/google/organic/task_get/regular',
+                $this->callback(function ($params) {
+                    // Verify that webhook parameters are excluded from cache key generation
+                    return !isset($params['type']) &&
+                           !isset($params['use_postback']) &&
+                           !isset($params['use_pingback']) &&
+                           !isset($params['post_task_if_not_cached']) &&
+                           isset($params['keyword']) &&
+                           $params['keyword'] === 'test query';
+                }),
+                'POST',
+                'v3'
+            )
+            ->willReturn('test-cache-key');
+
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn(['cached' => 'data']);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $this->client->serpGoogleOrganicStandard(
+            'test query',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            'regular', // type (should be excluded)
+            true, // usePostback (should be excluded)
+            true, // usePingback (should be excluded)
+            true // postTaskIfNotCached (should be excluded)
+        );
+    }
+
+    public static function standardMethodWrappersProvider(): array
+    {
+        return [
+            'regular wrapper' => [
+                'method'       => 'serpGoogleOrganicStandardRegular',
+                'expectedType' => 'regular',
+            ],
+            'advanced wrapper' => [
+                'method'       => 'serpGoogleOrganicStandardAdvanced',
+                'expectedType' => 'advanced',
+            ],
+            'html wrapper' => [
+                'method'       => 'serpGoogleOrganicStandardHtml',
+                'expectedType' => 'html',
+            ],
+        ];
+    }
+
+    #[DataProvider('standardMethodWrappersProvider')]
+    public function test_standard_wrapper_methods_call_main_method_with_correct_type(string $method, string $expectedType)
+    {
+        $cachedResponse = ['test' => 'wrapper data'];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->with(
+                'dataforseo',
+                "serp/google/organic/task_get/{$expectedType}",
+                $this->anything(),
+                'POST',
+                'v3'
+            )
+            ->willReturn('wrapper-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->$method(
+            'wrapper test query',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            false, // usePostback
+            false, // usePingback
+            false // postTaskIfNotCached
+        );
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    #[DataProvider('standardMethodWrappersProvider')]
+    public function test_standard_wrapper_methods_pass_through_webhook_parameters(string $method, string $expectedType)
+    {
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => 'wrapper-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // First call: Standard method checking for cached data
+        // Second call: TaskPost method generating its own cache key
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('wrapper-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        // Allow both requests (Standard method + TaskPost method)
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->with('dataforseo')
+            ->willReturn(true);
+
+        // Expect incrementAttempts to be called for the TaskPost request
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts')
+            ->with('dataforseo', 1);
+
+        // Expect storeResponse to be called for successful TaskPost
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse')
+            ->with(
+                'dataforseo',
+                'wrapper-cache-key',
+                $this->anything(),
+                $this->anything(),
+                'serp/google/organic/task_post',
+                'v3',
+                $this->anything(),
+                $this->anything(),
+                1
+            );
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/organic/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->$method(
+            'wrapper webhook test',
+            null, // url
+            null, // priority
+            null, // depth
+            null, // maxCrawlPages
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            null, // device
+            null, // os
+            null, // groupOrganicResults
+            null, // calculateRectangles
+            null, // browserScreenWidth
+            null, // browserScreenHeight
+            null, // browserScreenResolutionRatio
+            null, // peopleAlsoAskClickDepth
+            null, // loadAsyncAiOverview
+            null, // expandAiOverview
+            null, // searchParam
+            null, // removeFromUrl
+            true, // usePostback
+            true, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that task creation was called
+        Http::assertSent(function ($request) use ($expectedType) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'wrapper webhook test' &&
+                   isset($requestData[0]['postback_data']) &&
+                   $requestData[0]['postback_data'] === $expectedType;
+        });
+
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+    }
+
+    public function test_serp_google_organic_standard_regular_wrapper_basic_functionality()
+    {
+        $cachedResponse = ['test' => 'regular wrapper data'];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('regular-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleOrganicStandardRegular('regular test query');
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_serp_google_organic_standard_advanced_wrapper_basic_functionality()
+    {
+        $cachedResponse = ['test' => 'advanced wrapper data'];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('advanced-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleOrganicStandardAdvanced('advanced test query');
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_serp_google_organic_standard_html_wrapper_basic_functionality()
+    {
+        $cachedResponse = ['test' => 'html wrapper data'];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('html-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleOrganicStandardHtml('html test query');
+
+        $this->assertEquals($cachedResponse, $result);
     }
 }

@@ -163,34 +163,70 @@ class DataForSeoApiClient extends BaseApiClient
     /**
      * Build API parameters from method arguments
      *
-     * @param array $additionalParams       Additional parameters to merge
-     * @param array $additionalExcludedArgs Additional argument names to exclude beyond the default ones
+     * @param array       $additionalParams       Additional parameters to merge from the result
+     * @param array       $additionalExcludedArgs Additional argument names to exclude from the result
+     * @param string|null $callable               The method name to use for argument extraction (optional)
+     * @param array       $vars                   Named/positional args to the method (optional)
+     * @param bool|null   $boundOnly              Whether to only extract bound arguments (optional)
+     *
+     * @throws \InvalidArgumentException If callable and vars are not provided together
      *
      * @return array Parameters ready for API request
      */
-    public function buildApiParams(array $additionalParams = [], array $additionalExcludedArgs = []): array
-    {
-        // Get caller's arguments
-        $args = ReflectionUtils::extractBoundArgsFromBacktrace(2);
+    public function buildApiParams(
+        array $additionalParams = [],
+        array $additionalExcludedArgs = [],
+        ?string $callable = null,
+        array $vars = [],
+        ?bool $boundOnly = null
+    ): array {
+        // Validate that both callable and vars are provided together
+        $hasCallable = $callable !== null;
+        $hasVars     = !empty($vars);
 
-        // Merge default excluded args with any additional ones passed
-        $allExcludedArgs = array_merge($this->excludedArgs, $additionalExcludedArgs);
+        if (!$hasCallable && $hasVars) {
+            throw new \InvalidArgumentException('If vars are provided, callable must also be provided.');
+        }
 
-        // Remove excluded arguments
-        foreach ($allExcludedArgs as $skip) {
-            unset($args[$skip]);
+        if ($hasCallable) {
+            // Mode 1: Callable + vars provided
+            $args = ReflectionUtils::extractArgs(
+                $callable,
+                $vars,
+                $additionalExcludedArgs,
+                $boundOnly ?? true
+            );
+        } elseif ($boundOnly === null) {
+            // Mode 2: Default mode (extra arguments not passed)
+            // Get calling method's arguments from backtrace
+            $args = ReflectionUtils::extractBoundArgsFromBacktrace(2);
+
+            // Merge default excluded args with any additional ones passed
+            $allExcludedArgs = array_merge($this->excludedArgs, $additionalExcludedArgs);
+
+            // Remove excluded arguments
+            foreach ($allExcludedArgs as $skip) {
+                unset($args[$skip]);
+            }
+        } else {
+            // Mode 3: Fallback to backtrace (boundOnly explicitly set)
+            $args = ReflectionUtils::extractArgsFromBacktrace(
+                depth: 1,
+                excludeParams: $additionalExcludedArgs,
+                boundOnly: $boundOnly
+            );
         }
 
         // Convert to snake_case and drop nulls
-        $params = [];
-        foreach ($args as $name => $value) {
+        $finalParams = [];
+        foreach ($args as $key => $value) {
             if ($value !== null) {
-                $params[Str::snake($name)] = $value;
+                $finalParams[Str::snake($key)] = $value;
             }
         }
 
         // Merge with additional params (original params take precedence)
-        return array_merge($additionalParams, $params);
+        return array_merge($additionalParams, $finalParams);
     }
 
     /**
@@ -1892,6 +1928,690 @@ class DataForSeoApiClient extends BaseApiClient
             $expandAiOverview,
             $searchParam,
             $removeFromUrl,
+            'html',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Create a Google Autocomplete SERP task using DataForSEO's Task POST endpoint
+     *
+     * @param string      $keyword          The search query (max 700 characters)
+     * @param int|null    $priority         Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName     Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param int|null    $cursorPointer    Search bar cursor pointer position (default: keyword length)
+     * @param string|null $client           Search client for autocomplete (chrome, chrome-omni, gws-wiz, etc.)
+     * @param string|null $tag              User-defined task identifier
+     * @param string|null $postbackUrl      Return URL for sending task results
+     * @param string|null $postbackData     Postback URL datatype (required if postbackUrl is set)
+     * @param string|null $pingbackUrl      Notification URL of a completed task
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function serpGoogleAutocompleteTaskPost(
+        string $keyword,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $cursorPointer = null,
+        ?string $client = null,
+        ?string $tag = null,
+        ?string $postbackUrl = null,
+        ?string $postbackData = null,
+        ?string $pingbackUrl = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that keyword is not empty and not too long
+        if (empty($keyword)) {
+            throw new \InvalidArgumentException('Keyword cannot be empty');
+        }
+
+        if (strlen($keyword) > 700) {
+            throw new \InvalidArgumentException('Keyword must be 700 characters or less');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate that priority is either 1 or 2 if provided
+        if ($priority !== null && !in_array($priority, [1, 2])) {
+            throw new \InvalidArgumentException('Priority must be either 1 (normal) or 2 (high)');
+        }
+
+        // Validate that cursorPointer is within valid range if provided
+        if ($cursorPointer !== null && ($cursorPointer < 0 || $cursorPointer > strlen($keyword))) {
+            throw new \InvalidArgumentException('cursorPointer must be between 0 and keyword length');
+        }
+
+        // Validate that postbackData is provided if postbackUrl is specified
+        if ($postbackUrl !== null && $postbackData === null) {
+            throw new \InvalidArgumentException('postbackData is required when postbackUrl is specified');
+        }
+
+        Log::debug(
+            'Creating DataForSEO Google Autocomplete SERP task',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the task post endpoint
+        return $this->sendCachedRequest(
+            'serp/google/autocomplete/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Autocomplete SERP Advanced results for a specific task
+     *
+     * @param string      $id         The task ID
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function serpGoogleAutocompleteTaskGetAdvanced(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet('serp/google/autocomplete/task_get/advanced', $id, $attributes, $amount);
+    }
+
+    /**
+     * Google Autocomplete SERP Standard Advanced method with caching and optional task creation
+     *
+     * The 'tag' is used as the bridge to the cache key.
+     *
+     * This method implements the DataForSEO Standard method workflow:
+     * - Check cache for existing autocomplete data based on search parameters
+     * - If cached, return cached autocomplete data immediately
+     * - If not cached and task creation enabled, create task with webhooks
+     * - Webhook will cache actual autocomplete data when received
+     *
+     * @param string      $keyword             The search query (max 700 characters)
+     * @param int|null    $priority            Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName        Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 2840)
+     * @param string|null $languageName        Language name (e.g., "English")
+     * @param string|null $languageCode        Language code (e.g., "en")
+     * @param int|null    $cursorPointer       Search bar cursor pointer position (default: keyword length)
+     * @param string|null $client              Search client for autocomplete (chrome, chrome-omni, gws-wiz, etc.)
+     * @param bool        $usePostback         Enable postback webhook (default: false)
+     * @param bool        $usePingback         Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached Create task if not cached (default: false)
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached autocomplete data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function serpGoogleAutocompleteStandardAdvanced(
+        string $keyword,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $cursorPointer = null,
+        ?string $client = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ]);
+
+        $endpoint = 'serp/google/autocomplete/task_get/advanced';
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached autocomplete data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->serpGoogleAutocompleteTaskPost(
+            $keyword,
+            $priority,
+            $locationName,
+            $locationCode,
+            $languageName,
+            $languageCode,
+            $cursorPointer,
+            $client,
+            $cacheKey,
+            $postbackUrl,
+            'advanced',
+            $pingbackUrl,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Create a Merchant Amazon Products task using DataForSEO's Task POST endpoint
+     *
+     * @param string      $keyword            The search query (max 700 characters)
+     * @param string|null $url                Direct URL of the search query
+     * @param int|null    $priority           Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName       Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode       Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName       Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode       Language code (e.g., "en_GB")
+     * @param string|null $seDomain           Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param int|null    $depth              Number of results to retrieve (default: 100, max: 700)
+     * @param int|null    $maxCrawlPages      Page crawl limit (max: 7)
+     * @param string|null $department         Amazon product department
+     * @param string|null $searchParam        Additional parameters of the search query
+     * @param int|null    $priceMin           Minimum product price
+     * @param int|null    $priceMax           Maximum product price
+     * @param string|null $sortBy             Results sorting rules (relevance, price_low_to_high, etc.)
+     * @param string|null $tag                User-defined task identifier
+     * @param string|null $postbackUrl        Return URL for sending task results
+     * @param string|null $postbackData       Postback URL datatype (required if postbackUrl is set)
+     * @param string|null $pingbackUrl        Notification URL of a completed task
+     * @param array       $additionalParams   Additional parameters
+     * @param string|null $attributes         Optional attributes to store with cache entry
+     * @param int         $amount             Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function merchantAmazonProductsTaskPost(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?int $depth = 100,
+        ?int $maxCrawlPages = null,
+        ?string $department = null,
+        ?string $searchParam = null,
+        ?int $priceMin = null,
+        ?int $priceMax = null,
+        ?string $sortBy = null,
+        ?string $tag = null,
+        ?string $postbackUrl = null,
+        ?string $postbackData = null,
+        ?string $pingbackUrl = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that keyword is not empty
+        if (empty($keyword)) {
+            throw new \InvalidArgumentException('Keyword cannot be empty');
+        }
+
+        // Validate that keyword is not longer than 700 characters
+        if (strlen($keyword) > 700) {
+            throw new \InvalidArgumentException('Keyword must be 700 characters or less');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null && $locationCoordinate === null) {
+            throw new \InvalidArgumentException('Either locationName, locationCode, or locationCoordinate must be provided');
+        }
+
+        // Validate that depth is less than or equal to 700
+        if ($depth !== null && $depth > 700) {
+            throw new \InvalidArgumentException('Depth must be less than or equal to 700');
+        }
+
+        // Validate that maxCrawlPages is less than or equal to 7
+        if ($maxCrawlPages !== null && $maxCrawlPages > 7) {
+            throw new \InvalidArgumentException('max_crawl_pages must be less than or equal to 7');
+        }
+
+        // Validate that priority is either 1 or 2 if provided
+        if ($priority !== null && !in_array($priority, [1, 2])) {
+            throw new \InvalidArgumentException('Priority must be either 1 (normal) or 2 (high)');
+        }
+
+        // Validate that department is a valid Amazon department if provided
+        $validDepartments = [
+            'Arts & Crafts', 'Automotive', 'Baby', 'Beauty & Personal Care', 'Books', 'Computers',
+            'Digital Music', 'Electronics', 'Kindle Store', 'Prime Video', "Women's Fashion",
+            "Men's Fashion", "Girls' Fashion", "Boys' Fashion", 'Deals', 'Health & Household',
+            'Home & Kitchen', 'Industrial & Scientific', 'Luggage', 'Movies & TV',
+            'Music, CDs & Vinyl', 'Pet Supplies', 'Software', 'Sports & Outdoors',
+            'Tools & Home Improvement', 'Toys & Games', 'Video Games',
+        ];
+        if ($department !== null && !in_array($department, $validDepartments)) {
+            throw new \InvalidArgumentException('department must be a valid Amazon department');
+        }
+
+        // Validate that sortBy is a valid sorting rule if provided
+        $validSortBy = ['relevance', 'price_low_to_high', 'price_high_to_low', 'featured', 'avg_customer_review', 'newest_arrival'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortBy)) {
+            throw new \InvalidArgumentException('sort_by must be one of: ' . implode(', ', $validSortBy));
+        }
+
+        // Validate that postbackData is provided if postbackUrl is specified
+        if ($postbackUrl !== null && $postbackData === null) {
+            throw new \InvalidArgumentException('postbackData is required when postbackUrl is specified');
+        }
+
+        // Validate that postbackData is valid if provided
+        $validPostbackData = ['advanced', 'html'];
+        if ($postbackData !== null && !in_array($postbackData, $validPostbackData)) {
+            throw new \InvalidArgumentException('postback_data must be one of: ' . implode(', ', $validPostbackData));
+        }
+
+        Log::debug(
+            'Creating DataForSEO Merchant Amazon Products task',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Use the method name and its defined variables to build the API parameters
+        // Extra arguments needed for testing when passing parameters with the splat operator
+        // e.g. $this->client->merchantAmazonProductsTaskPost(...$parameters);
+        $params = $this->buildApiParams(
+            $additionalParams,
+            [],
+            __METHOD__,
+            get_defined_vars()
+        );
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the task post endpoint
+        return $this->sendCachedRequest(
+            'merchant/amazon/products/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get merchant Amazon products task result (advanced format)
+     *
+     * @param string      $id         Task ID to retrieve
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array Task result data
+     */
+    public function merchantAmazonProductsTaskGetAdvanced(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet('merchant/amazon/products/task_get/advanced', $id, $attributes, $amount);
+    }
+
+    /**
+     * Get merchant Amazon products task result (HTML format)
+     *
+     * @param string      $id         Task ID to retrieve
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array Task result data
+     */
+    public function merchantAmazonProductsTaskGetHtml(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet('merchant/amazon/products/task_get/html', $id, $attributes, $amount);
+    }
+
+    /**
+     * Merchant Amazon Products Standard method with caching and optional task creation
+     *
+     * The 'tag' is used as the bridge to the cache key.
+     *
+     * This method implements the DataForSEO Standard method workflow:
+     * - Check cache for existing product data based on search parameters
+     * - If cached, return cached product data immediately
+     * - If not cached and task creation enabled, create task with webhooks
+     * - Webhook will cache actual product data when received
+     *
+     * @param string      $keyword             The search query (max 700 characters)
+     * @param string|null $url                 Direct URL of the search query
+     * @param int|null    $priority            Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName        Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName        Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode        Language code (e.g., "en_GB")
+     * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param int|null    $depth               Number of results to retrieve (default: 100, max: 700)
+     * @param int|null    $maxCrawlPages       Page crawl limit (max: 7)
+     * @param string|null $department          Amazon product department
+     * @param string|null $searchParam         Additional parameters of the search query
+     * @param int|null    $priceMin            Minimum product price
+     * @param int|null    $priceMax            Maximum product price
+     * @param string|null $sortBy              Results sorting rules (relevance, price_low_to_high, etc.)
+     * @param string      $type                Task get type (advanced or html)
+     * @param bool        $usePostback         Enable postback webhook (default: false)
+     * @param bool        $usePingback         Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached Create task if not cached (default: false)
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached product data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonProductsStandard(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?int $depth = 100,
+        ?int $maxCrawlPages = null,
+        ?string $department = null,
+        ?string $searchParam = null,
+        ?int $priceMin = null,
+        ?int $priceMax = null,
+        ?string $sortBy = null,
+        string $type = 'advanced',
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Normalize and validate type parameter
+        $type = strtolower($type);
+        if (!in_array($type, ['advanced', 'html'])) {
+            throw new \InvalidArgumentException('type must be one of: advanced, html');
+        }
+
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'type',
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ]);
+
+        // Type is always part of the endpoint
+        $endpoint = "merchant/amazon/products/task_get/{$type}";
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached product data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->merchantAmazonProductsTaskPost(
+            $keyword,
+            $url,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $depth,
+            $maxCrawlPages,
+            $department,
+            $searchParam,
+            $priceMin,
+            $priceMax,
+            $sortBy,
+            $cacheKey,
+            $postbackUrl,
+            $type,
+            $pingbackUrl,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Merchant Amazon Products Standard Advanced method wrapper
+     *
+     * @param string      $keyword             The search query (max 700 characters)
+     * @param string|null $url                 Direct URL of the search query
+     * @param int|null    $priority            Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName        Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName        Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode        Language code (e.g., "en_GB")
+     * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param int|null    $depth               Number of results to retrieve (default: 100, max: 700)
+     * @param int|null    $maxCrawlPages       Page crawl limit (max: 7)
+     * @param string|null $department          Amazon product department
+     * @param string|null $searchParam         Additional parameters of the search query
+     * @param int|null    $priceMin            Minimum product price
+     * @param int|null    $priceMax            Maximum product price
+     * @param string|null $sortBy              Results sorting rules (relevance, price_low_to_high, etc.)
+     * @param bool        $usePostback         Enable postback webhook (default: false)
+     * @param bool        $usePingback         Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached Create task if not cached (default: false)
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached product data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonProductsStandardAdvanced(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?int $depth = 100,
+        ?int $maxCrawlPages = null,
+        ?string $department = null,
+        ?string $searchParam = null,
+        ?int $priceMin = null,
+        ?int $priceMax = null,
+        ?string $sortBy = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->merchantAmazonProductsStandard(
+            $keyword,
+            $url,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $depth,
+            $maxCrawlPages,
+            $department,
+            $searchParam,
+            $priceMin,
+            $priceMax,
+            $sortBy,
+            'advanced',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Merchant Amazon Products Standard HTML method wrapper
+     *
+     * @param string      $keyword             The search query (max 700 characters)
+     * @param string|null $url                 Direct URL of the search query
+     * @param int|null    $priority            Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName        Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName        Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode        Language code (e.g., "en_GB")
+     * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param int|null    $depth               Number of results to retrieve (default: 100, max: 700)
+     * @param int|null    $maxCrawlPages       Page crawl limit (max: 7)
+     * @param string|null $department          Amazon product department
+     * @param string|null $searchParam         Additional parameters of the search query
+     * @param int|null    $priceMin            Minimum product price
+     * @param int|null    $priceMax            Maximum product price
+     * @param string|null $sortBy              Results sorting rules (relevance, price_low_to_high, etc.)
+     * @param bool        $usePostback         Enable postback webhook (default: false)
+     * @param bool        $usePingback         Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached Create task if not cached (default: false)
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached product data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonProductsStandardHtml(
+        string $keyword,
+        ?string $url = null,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?int $depth = 100,
+        ?int $maxCrawlPages = null,
+        ?string $department = null,
+        ?string $searchParam = null,
+        ?int $priceMin = null,
+        ?int $priceMax = null,
+        ?string $sortBy = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->merchantAmazonProductsStandard(
+            $keyword,
+            $url,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $depth,
+            $maxCrawlPages,
+            $department,
+            $searchParam,
+            $priceMin,
+            $priceMax,
+            $sortBy,
             'html',
             $usePostback,
             $usePingback,

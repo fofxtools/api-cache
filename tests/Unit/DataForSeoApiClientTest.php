@@ -4938,4 +4938,1720 @@ class DataForSeoApiClientTest extends TestCase
 
         $this->assertEquals($cachedResponse, $result);
     }
+
+    public function test_serp_google_autocomplete_task_post_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2397 sec.',
+                    'cost'           => 0.015,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'serp',
+                        'google',
+                        'autocomplete',
+                        'task_post',
+                    ],
+                    'data' => [
+                        'api'           => 'serp',
+                        'function'      => 'task_post',
+                        'se'            => 'google',
+                        'se_type'       => 'autocomplete',
+                        'keyword'       => 'laravel',
+                        'language_code' => 'en',
+                        'location_code' => 2840,
+                    ],
+                    'result' => [
+                        'task_id'        => $taskId,
+                        'status_message' => 'Ok.',
+                        'status_code'    => 20000,
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleAutocompleteTaskPost('laravel');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['keyword']) &&
+                   $request[0]['keyword'] === 'laravel';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_serp_google_autocomplete_task_post_validates_empty_keyword()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Keyword cannot be empty');
+
+        $this->client->serpGoogleAutocompleteTaskPost('');
+    }
+
+    public function test_serp_google_autocomplete_task_post_validates_keyword_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Keyword must be 700 characters or less');
+
+        $longKeyword = str_repeat('a', 701);
+        $this->client->serpGoogleAutocompleteTaskPost($longKeyword);
+    }
+
+    public function test_serp_google_autocomplete_task_post_validates_required_language_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either languageName or languageCode must be provided');
+
+        $this->client->serpGoogleAutocompleteTaskPost(
+            'laravel',
+            null, // priority
+            null, // locationName
+            2840, // locationCode
+            null, // languageName
+            null  // languageCode set to null
+        );
+    }
+
+    public function test_serp_google_autocomplete_task_post_validates_required_location_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either locationName or locationCode must be provided');
+
+        $this->client->serpGoogleAutocompleteTaskPost(
+            'laravel',
+            null, // priority
+            null, // locationName set to null
+            null, // locationCode set to null
+            null, // languageName
+            'en'  // languageCode
+        );
+    }
+
+    public function test_serp_google_autocomplete_task_post_validates_priority_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Priority must be either 1 (normal) or 2 (high)');
+
+        $this->client->serpGoogleAutocompleteTaskPost(
+            'laravel',
+            3 // Invalid priority
+        );
+    }
+
+    public function test_serp_google_autocomplete_task_post_validates_cursor_pointer_bounds()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('cursorPointer must be between 0 and keyword length');
+
+        $this->client->serpGoogleAutocompleteTaskPost(
+            'laravel',
+            null, // priority
+            null, // locationName
+            2840, // locationCode
+            null, // languageName
+            'en', // languageCode
+            10    // cursorPointer greater than keyword length (7)
+        );
+    }
+
+    public function test_serp_google_autocomplete_task_post_validates_postback_data_requirement()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('postbackData is required when postbackUrl is specified');
+
+        $this->client->serpGoogleAutocompleteTaskPost(
+            'laravel',
+            null, // priority
+            null, // locationName
+            2840, // locationCode
+            null, // languageName
+            'en', // languageCode
+            null, // cursorPointer
+            null, // client
+            null, // tag
+            'https://example.com/callback', // postbackUrl
+            null  // postbackData is null
+        );
+    }
+
+    public static function serpGoogleAutocompleteTaskPostParametersProvider(): array
+    {
+        return [
+            'all parameters set' => [
+                'parameters' => [
+                    'keyword'       => 'laravel framework',
+                    'priority'      => 2,
+                    'locationName'  => 'London,England,United Kingdom',
+                    'languageName'  => 'English',
+                    'cursorPointer' => 7,
+                    'client'        => 'chrome',
+                    'tag'           => 'test-tag',
+                    'postbackUrl'   => 'https://example.com/callback',
+                    'postbackData'  => 'advanced',
+                    'pingbackUrl'   => 'https://example.com/pingback',
+                ],
+                'expectedParams' => [
+                    'keyword'        => 'laravel framework',
+                    'priority'       => 2,
+                    'location_name'  => 'London,England,United Kingdom',
+                    'language_name'  => 'English',
+                    'cursor_pointer' => 7,
+                    'client'         => 'chrome',
+                    'tag'            => 'test-tag',
+                    'postback_url'   => 'https://example.com/callback',
+                    'postback_data'  => 'advanced',
+                    'pingback_url'   => 'https://example.com/pingback',
+                ],
+            ],
+            'minimal parameters with codes' => [
+                'parameters' => [
+                    'keyword'      => 'vue.js',
+                    'locationCode' => 2840,
+                    'languageCode' => 'en',
+                ],
+                'expectedParams' => [
+                    'keyword'       => 'vue.js',
+                    'location_code' => 2840,
+                    'language_code' => 'en',
+                ],
+            ],
+        ];
+    }
+
+    #[DataProvider('serpGoogleAutocompleteTaskPostParametersProvider')]
+    public function test_serp_google_autocomplete_task_post_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.015,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => '12345678-1234-1234-1234-123456789012',
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2397 sec.',
+                    'cost'           => 0.015,
+                    'result_count'   => 1,
+                    'path'           => ['serp', 'google', 'autocomplete', 'task_post'],
+                    'data'           => $expectedParams,
+                    'result'         => [
+                        'task_id'        => '12345678-1234-1234-1234-123456789012',
+                        'status_message' => 'Ok.',
+                        'status_code'    => 20000,
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $this->client->serpGoogleAutocompleteTaskPost(
+            keyword: $parameters['keyword'],
+            priority: $parameters['priority'] ?? null,
+            locationName: $parameters['locationName'] ?? null,
+            locationCode: $parameters['locationCode'] ?? null,
+            languageName: $parameters['languageName'] ?? null,
+            languageCode: $parameters['languageCode'] ?? null,
+            cursorPointer: $parameters['cursorPointer'] ?? null,
+            client: $parameters['client'] ?? null,
+            tag: $parameters['tag'] ?? null,
+            postbackUrl: $parameters['postbackUrl'] ?? null,
+            postbackData: $parameters['postbackData'] ?? null,
+            pingbackUrl: $parameters['pingbackUrl'] ?? null
+        );
+
+        Http::assertSent(function ($request) use ($expectedParams) {
+            $requestData = $request[0] ?? [];
+
+            foreach ($expectedParams as $key => $value) {
+                if (!array_key_exists($key, $requestData) || $requestData[$key] !== $value) {
+                    return false;
+                }
+            }
+
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" &&
+                   $request->method() === 'POST';
+        });
+    }
+
+    public function test_serp_google_autocomplete_task_post_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40000,
+            'status_message' => 'Bad Request.',
+            'time'           => '0.0097 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'             => null,
+                    'status_code'    => 40000,
+                    'status_message' => 'Bad Request.',
+                    'time'           => '0.0097 sec.',
+                    'cost'           => 0,
+                    'result_count'   => 0,
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" => Http::response($errorResponse, 400),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleAutocompleteTaskPost('laravel');
+
+        $this->assertEquals(400, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertEquals(40000, $responseData['status_code']);
+        $this->assertEquals('Bad Request.', $responseData['status_message']);
+    }
+
+    public function test_serp_google_autocomplete_task_get_advanced_successful_request()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $keyword         = 'laravel autocomplete';
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0482 sec.',
+            'cost'           => 0.0025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0382 sec.',
+                    'cost'           => 0.0025,
+                    'result_count'   => 1,
+                    'path'           => ['serp', 'google', 'autocomplete', 'task_get', 'advanced'],
+                    'data'           => [
+                        'api'      => 'serp',
+                        'function' => 'task_get',
+                        'se'       => 'google',
+                        'se_type'  => 'autocomplete',
+                        'keyword'  => $keyword,
+                    ],
+                    'result' => [
+                        [
+                            'keyword'     => $keyword,
+                            'items_count' => 3,
+                            'items'       => [
+                                [
+                                    'type'  => 'autocomplete_item',
+                                    'title' => 'laravel autocomplete example',
+                                ],
+                                [
+                                    'type'  => 'autocomplete_item',
+                                    'title' => 'laravel autocomplete vue',
+                                ],
+                                [
+                                    'type'  => 'autocomplete_item',
+                                    'title' => 'laravel autocomplete livewire',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_get/advanced/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleAutocompleteTaskGetAdvanced($taskId);
+
+        Http::assertSent(function ($request) use ($taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/task_get/advanced/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(200, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($taskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($keyword, $responseData['tasks'][0]['data']['keyword']);
+        $this->assertEquals(3, $responseData['tasks'][0]['result'][0]['items_count']);
+    }
+
+    public function test_serp_google_autocomplete_task_get_advanced_passes_attributes_and_amount()
+    {
+        $taskId          = '12345678-1234-1234-1234-123456789012';
+        $attributes      = 'custom-attributes-autocomplete';
+        $amount          = 2;
+        $successResponse = [
+            'version'     => '0.1.20230807',
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id' => $taskId,
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_get/advanced/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        $client = new DataForSeoApiClient();
+        $client->clearRateLimit();
+
+        // Mock the taskGet method to verify it's called with the correct parameters
+        $mockClient = $this->getMockBuilder(DataForSeoApiClient::class)
+            ->onlyMethods(['taskGet'])
+            ->getMock();
+
+        $mockClient->expects($this->once())
+            ->method('taskGet')
+            ->with(
+                'serp/google/autocomplete/task_get/advanced',
+                $taskId,
+                $attributes,
+                $amount
+            )
+            ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
+
+        $mockClient->serpGoogleAutocompleteTaskGetAdvanced($taskId, $attributes, $amount);
+    }
+
+    public function test_serp_google_autocomplete_task_get_advanced_handles_error_response()
+    {
+        $taskId        = '12345678-1234-1234-1234-123456789012';
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40000,
+            'status_message' => 'Bad Request.',
+            'time'           => '0.0097 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 40000,
+                    'status_message' => 'Bad Request.',
+                    'time'           => '0.0097 sec.',
+                    'cost'           => 0,
+                    'result_count'   => 0,
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_get/advanced/{$taskId}" => Http::response($errorResponse, 400),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->serpGoogleAutocompleteTaskGetAdvanced($taskId);
+
+        $this->assertEquals(400, $response['response_status_code']);
+        $responseData = $response['response']->json();
+        $this->assertEquals(40000, $responseData['status_code']);
+        $this->assertEquals('Bad Request.', $responseData['status_message']);
+    }
+
+    public function test_serp_google_autocomplete_standard_advanced_returns_cached_response_when_available()
+    {
+        $cachedResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'   => 'cached-autocomplete-id',
+                    'data' => ['keyword' => 'cached test query'],
+                ],
+            ],
+        ];
+
+        // Mock the cache manager to return cached data
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('test-autocomplete-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->with('dataforseo', 'test-autocomplete-cache-key')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleAutocompleteStandardAdvanced(
+            'cached test query',
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            'English', // languageName
+            null, // languageCode
+            null, // cursorPointer
+            null, // client
+            false, // usePostback
+            false, // usePingback
+            false // postTaskIfNotCached
+        );
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_serp_google_autocomplete_standard_advanced_returns_null_when_not_cached_and_posting_disabled()
+    {
+        // Mock the cache manager to return null (no cached data)
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('test-autocomplete-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->with('dataforseo', 'test-autocomplete-cache-key')
+            ->willReturn(null);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleAutocompleteStandardAdvanced(
+            'uncached test query',
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            'English', // languageName
+            null, // languageCode
+            null, // cursorPointer
+            null, // client
+            false, // usePostback
+            false, // usePingback
+            false // postTaskIfNotCached
+        );
+
+        $this->assertNull($result);
+    }
+
+    public function test_serp_google_autocomplete_standard_advanced_creates_task_when_not_cached_and_posting_enabled()
+    {
+        $id           = '12345678-1234-1234-1234-123456789012';
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // First call: Standard method checking for cached data
+        // Second call: TaskPost method generating its own cache key
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('test-autocomplete-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        // Allow the task post request
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->with('dataforseo')
+            ->willReturn(true);
+
+        // Expect incrementAttempts to be called for the TaskPost request
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts')
+            ->with('dataforseo', 1);
+
+        // Expect storeResponse to be called for successful TaskPost
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse')
+            ->with(
+                'dataforseo',
+                'test-autocomplete-cache-key',
+                $this->anything(),
+                $this->anything(),
+                'serp/google/autocomplete/task_post',
+                'v3',
+                $this->anything(),
+                $this->anything(),
+                1
+            );
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->serpGoogleAutocompleteStandardAdvanced(
+            'new autocomplete task query',
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            'English', // languageName
+            null, // languageCode
+            null, // cursorPointer
+            null, // client
+            false, // usePostback
+            false, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that a task creation request was made
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'new autocomplete task query' &&
+                   isset($requestData[0]['tag']) &&
+                   $requestData[0]['tag'] === 'test-autocomplete-cache-key';
+        });
+
+        // Verify we got the task creation response
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_serp_google_autocomplete_standard_advanced_excludes_webhook_params_from_cache_key()
+    {
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // Verify buildApiParams is called with the correct excluded parameters
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('test-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn(['cached' => 'autocomplete data']);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $this->client->serpGoogleAutocompleteStandardAdvanced(
+            'test query',
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            'English', // languageName
+            null, // languageCode
+            null, // cursorPointer
+            null, // client
+            true, // usePostback (should be excluded)
+            true, // usePingback (should be excluded)
+            true // postTaskIfNotCached (should be excluded)
+        );
+    }
+
+    public function test_serp_google_autocomplete_standard_advanced_passes_webhook_parameters_to_task_post()
+    {
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => 'webhook-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // Standard method and TaskPost method both generate cache keys
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('webhook-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->willReturn(true);
+
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts');
+
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse');
+
+        Http::fake([
+            "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->serpGoogleAutocompleteStandardAdvanced(
+            'webhook autocomplete test',
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            'English', // languageName
+            null, // languageCode
+            null, // cursorPointer
+            null, // client
+            true, // usePostback
+            true, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that task creation was called with webhook parameters
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'webhook autocomplete test' &&
+                   isset($requestData[0]['postback_data']) &&
+                   $requestData[0]['postback_data'] === 'advanced';
+        });
+
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+    }
+
+    public function test_serp_google_autocomplete_standard_advanced_basic_functionality()
+    {
+        $cachedResponse = ['test' => 'autocomplete standard advanced data'];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('autocomplete-advanced-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->serpGoogleAutocompleteStandardAdvanced('autocomplete advanced test query');
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_merchant_amazon_products_task_post_successful_request()
+    {
+        $responseData = [
+            'version'        => '0.1.20250425',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.01 sec.',
+            'cost'           => 0.003,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => 'merchant-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                    'time'           => '0.01 sec.',
+                    'cost'           => 0.003,
+                    'result_count'   => 0,
+                    'path'           => ['v3', 'merchant', 'amazon', 'products', 'task_post'],
+                    'data'           => [
+                        'api'           => 'merchant',
+                        'function'      => 'amazon_products',
+                        'se'            => 'amazon',
+                        'keyword'       => 'wireless headphones',
+                        'location_name' => 'United States',
+                        'language_code' => 'en_US',
+                        'location_code' => 2840,
+                        'depth'         => 100,
+                        'priority'      => 2,
+                        'tag'           => 'test-cache-key',
+                    ],
+                    'result' => null,
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/merchant/amazon/products/task_post" => Http::response($responseData, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->merchantAmazonProductsTaskPost(
+            'wireless headphones',
+            null, // url
+            2, // priority
+            'United States' // locationName
+        );
+
+        Http::assertSent(function ($request) {
+            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/products/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($request[0]['keyword']) &&
+                   $request[0]['keyword'] === 'wireless headphones' &&
+                   isset($request[0]['location_name']) &&
+                   $request[0]['location_name'] === 'United States' &&
+                   isset($request[0]['priority']) &&
+                   $request[0]['priority'] === 2;
+        });
+
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals('merchant-task-id', $responseData['tasks'][0]['id']);
+    }
+
+    public function test_merchant_amazon_products_task_post_validates_empty_keyword()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Keyword cannot be empty');
+
+        $this->client->merchantAmazonProductsTaskPost('');
+    }
+
+    public function test_merchant_amazon_products_task_post_validates_required_language_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either languageName or languageCode must be provided');
+
+        $this->client->merchantAmazonProductsTaskPost(
+            'test product',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            null, // languageName
+            null // languageCode
+        );
+    }
+
+    public function test_merchant_amazon_products_task_post_validates_required_location_parameters()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either locationName, locationCode, or locationCoordinate must be provided');
+
+        $this->client->merchantAmazonProductsTaskPost(
+            'test product',
+            null, // url
+            null, // priority
+            null, // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English' // languageName
+        );
+    }
+
+    public function test_merchant_amazon_products_task_post_validates_priority_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Priority must be either 1 (normal) or 2 (high)');
+
+        $this->client->merchantAmazonProductsTaskPost(
+            'test product',
+            null, // url
+            0, // priority
+            'United States' // locationName
+        );
+    }
+
+    public function test_merchant_amazon_products_task_post_validates_depth_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Depth must be less than or equal to 700');
+
+        $this->client->merchantAmazonProductsTaskPost(
+            'test product',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            701 // depth
+        );
+    }
+
+    public function test_merchant_amazon_products_task_post_validates_postback_data_requirement()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('postbackData is required when postbackUrl is specified');
+
+        $this->client->merchantAmazonProductsTaskPost(
+            'test product',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            null, // tag
+            'postback-url', // postbackUrl
+            null // postbackData (missing, should trigger error)
+        );
+    }
+
+    public static function merchantAmazonProductsTaskPostParametersProvider(): array
+    {
+        return [
+            'basic parameters' => [
+                [
+                    'keyword'      => 'bluetooth speaker',
+                    'locationName' => 'United States',
+                    'languageCode' => 'en_US',
+                ],
+                [
+                    'keyword'       => 'bluetooth speaker',
+                    'location_name' => 'United States',
+                    'language_code' => 'en_US',
+                    'location_code' => 2840,
+                    'depth'         => 100,
+                ],
+            ],
+            'with url and priority' => [
+                [
+                    'keyword'      => 'gaming mouse',
+                    'url'          => 'https://www.amazon.com/s?k=gaming+mouse',
+                    'priority'     => 1,
+                    'locationCode' => 2826,
+                    'languageName' => 'English',
+                ],
+                [
+                    'keyword'       => 'gaming mouse',
+                    'url'           => 'https://www.amazon.com/s?k=gaming+mouse',
+                    'priority'      => 1,
+                    'location_code' => 2826,
+                    'language_name' => 'English',
+                    'depth'         => 100,
+                ],
+            ],
+            'with se_domain and department' => [
+                [
+                    'keyword'      => 'laptop computer',
+                    'locationName' => 'United Kingdom',
+                    'languageCode' => 'en_GB',
+                    'seDomain'     => 'amazon.co.uk',
+                    'department'   => 'Electronics',
+                ],
+                [
+                    'keyword'       => 'laptop computer',
+                    'location_name' => 'United Kingdom',
+                    'language_code' => 'en_GB',
+                    'location_code' => 2840,
+                    'se_domain'     => 'amazon.co.uk',
+                    'department'    => 'Electronics',
+                    'depth'         => 100,
+                ],
+            ],
+            'with sorting and filters' => [
+                [
+                    'keyword'      => 'coffee maker',
+                    'locationName' => 'Canada',
+                    'languageCode' => 'en_CA',
+                    'sortBy'       => 'price_high_to_low',
+                    'priceMax'     => 200,
+                    'priceMin'     => 50,
+                ],
+                [
+                    'keyword'       => 'coffee maker',
+                    'location_name' => 'Canada',
+                    'language_code' => 'en_CA',
+                    'location_code' => 2840,
+                    'sort_by'       => 'price_high_to_low',
+                    'price_max'     => 200,
+                    'price_min'     => 50,
+                    'depth'         => 100,
+                ],
+            ],
+        ];
+    }
+
+    #[DataProvider('merchantAmazonProductsTaskPostParametersProvider')]
+    public function test_merchant_amazon_products_task_post_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => 'test-merchant-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/merchant/amazon/products/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $this->client->merchantAmazonProductsTaskPost(...$parameters);
+
+        Http::assertSent(function ($request) use ($expectedParams) {
+            $requestData = $request[0] ?? [];
+
+            foreach ($expectedParams as $key => $value) {
+                if (!isset($requestData[$key]) || $requestData[$key] !== $value) {
+                    return false;
+                }
+            }
+
+            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/products/task_post" &&
+                   $request->method() === 'POST';
+        });
+    }
+
+    public function test_merchant_amazon_products_task_post_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20250425',
+            'status_code'    => 40000,
+            'status_message' => 'Bad Request',
+            'tasks'          => [],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('error-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->willReturn(true);
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts');
+
+        Http::fake([
+            "{$this->apiBaseUrl}/merchant/amazon/products/task_post" => Http::response($errorResponse, 400),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->merchantAmazonProductsTaskPost(
+            'test product',
+            null, // url
+            null, // priority
+            'United States' // locationName
+        );
+
+        $this->assertEquals(400, $result['response_status_code']);
+    }
+
+    public function test_merchant_amazon_products_standard_returns_cached_response_when_available()
+    {
+        $cachedResponse = [
+            'tasks' => [
+                [
+                    'result' => [
+                        [
+                            'type'  => 'amazon_product',
+                            'title' => 'Cached Product',
+                            'price' => ['current' => 19.99],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('std-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->merchantAmazonProductsStandard(
+            'cached product query',
+            null, // url
+            null, // priority
+            'United States' // locationName
+        );
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_merchant_amazon_products_standard_advanced_returns_cached_response_when_available()
+    {
+        $cachedResponse = [
+            'tasks' => [
+                [
+                    'result' => [
+                        [
+                            'type'  => 'amazon_product',
+                            'title' => 'Cached Product',
+                            'price' => ['current' => 19.99],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('advanced-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->merchantAmazonProductsStandardAdvanced(
+            'cached product query',
+            null, // url
+            null, // priority
+            'United States' // locationName
+        );
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_merchant_amazon_products_standard_advanced_returns_null_when_not_cached_and_posting_disabled()
+    {
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('not-cached-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->merchantAmazonProductsStandardAdvanced(
+            'not cached query',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            2840, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            'en_US', // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            false, // usePostback
+            false, // usePingback
+            false // postTaskIfNotCached
+        );
+
+        $this->assertNull($result);
+    }
+
+    public function test_merchant_amazon_products_standard_advanced_creates_task_when_not_cached_and_posting_enabled()
+    {
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => 'new-advanced-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // First call: Standard method checking for cached data
+        // Second call: TaskPost method generating its own cache key
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('test-advanced-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        // Allow the task post request
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->with('dataforseo')
+            ->willReturn(true);
+
+        // Expect incrementAttempts to be called for the TaskPost request
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts')
+            ->with('dataforseo', 1);
+
+        // Expect storeResponse to be called for successful TaskPost
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse')
+            ->with(
+                'dataforseo',
+                'test-advanced-cache-key',
+                $this->anything(),
+                $this->anything(),
+                'merchant/amazon/products/task_post',
+                'v3',
+                $this->anything(),
+                $this->anything(),
+                1
+            );
+
+        Http::fake([
+            "{$this->apiBaseUrl}/merchant/amazon/products/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->merchantAmazonProductsStandardAdvanced(
+            'new advanced task query',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            false, // usePostback
+            false, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that a task creation request was made
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/products/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'new advanced task query' &&
+                   isset($requestData[0]['tag']) &&
+                   $requestData[0]['tag'] === 'test-advanced-cache-key';
+        });
+
+        // Verify we got the task creation response
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals('new-advanced-task-id', $responseData['tasks'][0]['id']);
+    }
+
+    public function test_merchant_amazon_products_standard_advanced_excludes_webhook_params_from_cache_key()
+    {
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // Verify buildApiParams is called with the correct excluded parameters
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('test-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn(['cached' => 'merchant advanced data']);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $this->client->merchantAmazonProductsStandardAdvanced(
+            'test merchant query',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            true, // usePostback (should be excluded)
+            true, // usePingback (should be excluded)
+            true // postTaskIfNotCached (should be excluded)
+        );
+    }
+
+    public function test_merchant_amazon_products_standard_advanced_passes_webhook_parameters_to_task_post()
+    {
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => 'webhook-merchant-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // Standard method and TaskPost method both generate cache keys
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('webhook-merchant-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->willReturn(true);
+
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts');
+
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse');
+
+        Http::fake([
+            "{$this->apiBaseUrl}/merchant/amazon/products/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->merchantAmazonProductsStandardAdvanced(
+            'webhook merchant test',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            true, // usePostback
+            true, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that task creation was called with webhook parameters
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/products/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'webhook merchant test' &&
+                   isset($requestData[0]['postback_data']) &&
+                   $requestData[0]['postback_data'] === 'advanced';
+        });
+
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+    }
+
+    public function test_merchant_amazon_products_standard_advanced_basic_functionality()
+    {
+        $cachedResponse = ['test' => 'merchant standard advanced data'];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('merchant-advanced-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->merchantAmazonProductsStandardAdvanced('merchant advanced test query');
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_merchant_amazon_products_standard_html_returns_cached_response_when_available()
+    {
+        $cachedResponse = [
+            'tasks' => [
+                [
+                    'result' => [
+                        [
+                            'type' => 'amazon_product_html',
+                            'html' => '<div>Amazon Product HTML</div>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('html-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->merchantAmazonProductsStandardHtml(
+            'cached html query',
+            null, // url
+            null, // priority
+            'United States' // locationName
+        );
+
+        $this->assertEquals($cachedResponse, $result);
+    }
+
+    public function test_merchant_amazon_products_standard_html_returns_null_when_not_cached_and_posting_disabled()
+    {
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('not-cached-html-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->merchantAmazonProductsStandardHtml(
+            'not cached html query',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            false, // usePostback
+            false, // usePingback
+            false // postTaskIfNotCached
+        );
+
+        $this->assertNull($result);
+    }
+
+    public function test_merchant_amazon_products_standard_html_creates_task_when_not_cached_and_posting_enabled()
+    {
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => 'new-html-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // First call: Standard method checking for cached data
+        // Second call: TaskPost method generating its own cache key
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('test-html-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        // Allow the task post request
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->with('dataforseo')
+            ->willReturn(true);
+
+        // Expect incrementAttempts to be called for the TaskPost request
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts')
+            ->with('dataforseo', 1);
+
+        // Expect storeResponse to be called for successful TaskPost
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse')
+            ->with(
+                'dataforseo',
+                'test-html-cache-key',
+                $this->anything(),
+                $this->anything(),
+                'merchant/amazon/products/task_post',
+                'v3',
+                $this->anything(),
+                $this->anything(),
+                1
+            );
+
+        Http::fake([
+            "{$this->apiBaseUrl}/merchant/amazon/products/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->merchantAmazonProductsStandardHtml(
+            'new html task query',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            false, // usePostback
+            false, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that a task creation request was made
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/products/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'new html task query' &&
+                   isset($requestData[0]['tag']) &&
+                   $requestData[0]['tag'] === 'test-html-cache-key' &&
+                   isset($requestData[0]['postback_data']) &&
+                   $requestData[0]['postback_data'] === 'html';
+        });
+
+        // Verify we got the task creation response
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals('new-html-task-id', $responseData['tasks'][0]['id']);
+    }
+
+    public function test_merchant_amazon_products_standard_html_excludes_webhook_params_from_cache_key()
+    {
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // Verify buildApiParams is called with the correct excluded parameters
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('test-html-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn(['cached' => 'merchant html data']);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $this->client->merchantAmazonProductsStandardHtml(
+            'test merchant html query',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            true, // usePostback (should be excluded)
+            true, // usePingback (should be excluded)
+            true // postTaskIfNotCached (should be excluded)
+        );
+    }
+
+    public function test_merchant_amazon_products_standard_html_passes_webhook_parameters_to_task_post()
+    {
+        $taskResponse = [
+            'status_code' => 20000,
+            'tasks'       => [
+                [
+                    'id'             => 'webhook-html-task-id',
+                    'status_code'    => 20101,
+                    'status_message' => 'Task Created',
+                ],
+            ],
+        ];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+
+        // Standard method and TaskPost method both generate cache keys
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('generateCacheKey')
+            ->willReturn('webhook-html-cache-key');
+
+        $mockCacheManager->expects($this->exactly(2))
+            ->method('getCachedResponse')
+            ->willReturn(null); // Not cached
+
+        $mockCacheManager->expects($this->once())
+            ->method('allowRequest')
+            ->willReturn(true);
+
+        $mockCacheManager->expects($this->once())
+            ->method('incrementAttempts');
+
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse');
+
+        Http::fake([
+            "{$this->apiBaseUrl}/merchant/amazon/products/task_post" => Http::response($taskResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+        $this->client->clearRateLimit();
+
+        $result = $this->client->merchantAmazonProductsStandardHtml(
+            'webhook html test',
+            null, // url
+            null, // priority
+            'United States', // locationName
+            null, // locationCode
+            null, // locationCoordinate
+            'English', // languageName
+            null, // languageCode
+            null, // seDomain
+            100, // depth
+            null, // maxCrawlPages
+            null, // department
+            null, // searchParam
+            null, // priceMin
+            null, // priceMax
+            null, // sortBy
+            true, // usePostback
+            true, // usePingback
+            true // postTaskIfNotCached
+        );
+
+        // Verify that task creation was called with webhook parameters
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/products/task_post" &&
+                   $request->method() === 'POST' &&
+                   isset($requestData[0]['keyword']) &&
+                   $requestData[0]['keyword'] === 'webhook html test' &&
+                   isset($requestData[0]['postback_data']) &&
+                   $requestData[0]['postback_data'] === 'html';
+        });
+
+        $this->assertIsArray($result);
+        $this->assertEquals(200, $result['response_status_code']);
+    }
+
+    public function test_merchant_amazon_products_standard_html_basic_functionality()
+    {
+        $cachedResponse = ['test' => 'merchant standard html data'];
+
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('generateCacheKey')
+            ->willReturn('merchant-html-cache-key');
+        $mockCacheManager->expects($this->once())
+            ->method('getCachedResponse')
+            ->willReturn($cachedResponse);
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
+
+        $result = $this->client->merchantAmazonProductsStandardHtml('merchant html test query');
+
+        $this->assertEquals($cachedResponse, $result);
+    }
 }

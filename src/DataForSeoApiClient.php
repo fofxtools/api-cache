@@ -7,6 +7,7 @@ namespace FOfX\ApiCache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use FOfX\Helper\ReflectionUtils;
+use FOfX\Helper;
 
 class DataForSeoApiClient extends BaseApiClient
 {
@@ -256,7 +257,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         // Filter out any UUID segments using Helper\is_valid_uuid
         $segments = array_filter($segments, function ($segment) {
-            return !\FOfX\Helper\is_valid_uuid($segment);
+            return !Helper\is_valid_uuid($segment);
         });
 
         return implode('/', array_values($segments));
@@ -342,7 +343,11 @@ class DataForSeoApiClient extends BaseApiClient
      */
     public function logResponse(string $filename, string $idMessage, mixed $data): void
     {
-        $logFile  = __DIR__ . "/../storage/logs/{$filename}.log";
+        // Use full path as-is if absolute, otherwise treat as relative to storage/logs
+        $logFile = Helper\is_absolute_path($filename)
+            ? $filename
+            : __DIR__ . "/../storage/logs/{$filename}.log";
+
         $logEntry = PHP_EOL . date('Y-m-d H:i:s') . ': ' . $idMessage . PHP_EOL . '---------' . PHP_EOL . print_r($data, true) . PHP_EOL . '---------';
 
         @file_put_contents($logFile, $logEntry, FILE_APPEND);
@@ -2158,7 +2163,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param int|null    $locationCode       Location code (e.g., 9045969)
      * @param string|null $locationCoordinate Location coordinates in format "latitude,longitude,radius"
      * @param string|null $languageName       Language name (e.g., "English (United Kingdom)")
-     * @param string|null $languageCode       Language code (e.g., "en_GB")
+     * @param string|null $languageCode       Language code (e.g., "en_US")
      * @param string|null $seDomain           Search engine domain (e.g., "amazon.com", "amazon.co.uk")
      * @param int|null    $depth              Number of results to retrieve (default: 100, max: 700)
      * @param int|null    $maxCrawlPages      Page crawl limit (max: 7)
@@ -2352,7 +2357,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param int|null    $locationCode        Location code (e.g., 9045969)
      * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
      * @param string|null $languageName        Language name (e.g., "English (United Kingdom)")
-     * @param string|null $languageCode        Language code (e.g., "en_GB")
+     * @param string|null $languageCode        Language code (e.g., "en_US")
      * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
      * @param int|null    $depth               Number of results to retrieve (default: 100, max: 700)
      * @param int|null    $maxCrawlPages       Page crawl limit (max: 7)
@@ -2474,7 +2479,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param int|null    $locationCode        Location code (e.g., 9045969)
      * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
      * @param string|null $languageName        Language name (e.g., "English (United Kingdom)")
-     * @param string|null $languageCode        Language code (e.g., "en_GB")
+     * @param string|null $languageCode        Language code (e.g., "en_US")
      * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
      * @param int|null    $depth               Number of results to retrieve (default: 100, max: 700)
      * @param int|null    $maxCrawlPages       Page crawl limit (max: 7)
@@ -2553,7 +2558,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param int|null    $locationCode        Location code (e.g., 9045969)
      * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
      * @param string|null $languageName        Language name (e.g., "English (United Kingdom)")
-     * @param string|null $languageCode        Language code (e.g., "en_GB")
+     * @param string|null $languageCode        Language code (e.g., "en_US")
      * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
      * @param int|null    $depth               Number of results to retrieve (default: 100, max: 700)
      * @param int|null    $maxCrawlPages       Page crawl limit (max: 7)
@@ -2612,6 +2617,728 @@ class DataForSeoApiClient extends BaseApiClient
             $priceMin,
             $priceMax,
             $sortBy,
+            'html',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Create a Merchant Amazon ASIN task using DataForSEO's Task POST endpoint
+     *
+     * @param string      $asin                 Amazon product ID (ASIN)
+     * @param int|null    $priority             Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName         Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate   Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName         Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode         Language code (e.g., "en_US")
+     * @param string|null $seDomain             Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param bool|null   $loadMoreLocalReviews Load more local reviews (double cost)
+     * @param string|null $localReviewsSort     Sort local reviews ("helpful" or "recent")
+     * @param string|null $tag                  User-defined task identifier
+     * @param string|null $postbackUrl          Return URL for sending task results
+     * @param string|null $postbackData         Postback URL datatype (required if postbackUrl is set)
+     * @param string|null $pingbackUrl          Notification URL of a completed task
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function merchantAmazonAsinTaskPost(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?bool $loadMoreLocalReviews = null,
+        ?string $localReviewsSort = null,
+        ?string $tag = null,
+        ?string $postbackUrl = null,
+        ?string $postbackData = null,
+        ?string $pingbackUrl = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that ASIN is not empty
+        if (empty($asin)) {
+            throw new \InvalidArgumentException('ASIN cannot be empty');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null && $locationCoordinate === null) {
+            throw new \InvalidArgumentException('Either locationName, locationCode, or locationCoordinate must be provided');
+        }
+
+        // Validate that priority is either 1 or 2 if provided
+        if ($priority !== null && !in_array($priority, [1, 2])) {
+            throw new \InvalidArgumentException('Priority must be either 1 (normal) or 2 (high)');
+        }
+
+        // Validate localReviewsSort if provided
+        if ($localReviewsSort !== null && !in_array($localReviewsSort, ['helpful', 'recent'])) {
+            throw new \InvalidArgumentException('localReviewsSort must be either "helpful" or "recent"');
+        }
+
+        // Validate that postbackData is provided if postbackUrl is specified
+        if ($postbackUrl !== null && $postbackData === null) {
+            throw new \InvalidArgumentException('postbackData is required when postbackUrl is specified');
+        }
+
+        // Validate that postbackData is valid if provided
+        $validPostbackData = ['advanced', 'html'];
+        if ($postbackData !== null && !in_array($postbackData, $validPostbackData)) {
+            throw new \InvalidArgumentException('postback_data must be one of: ' . implode(', ', $validPostbackData));
+        }
+
+        Log::debug(
+            'Creating DataForSEO Merchant Amazon ASIN task',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Extra arguments needed for testing when passing parameters with the splat operator
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the ASIN as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $asin;
+        }
+
+        // Make the API request to the task post endpoint
+        return $this->sendCachedRequest(
+            'merchant/amazon/asin/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get merchant Amazon ASIN task result (advanced format)
+     *
+     * @param string      $id         Task ID to retrieve
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array Task result data
+     */
+    public function merchantAmazonAsinTaskGetAdvanced(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet('merchant/amazon/asin/task_get/advanced', $id, $attributes, $amount);
+    }
+
+    /**
+     * Get merchant Amazon ASIN task result (HTML format)
+     *
+     * @param string      $id         Task ID to retrieve
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array Task result data
+     */
+    public function merchantAmazonAsinTaskGetHtml(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet('merchant/amazon/asin/task_get/html', $id, $attributes, $amount);
+    }
+
+    /**
+     * Merchant Amazon ASIN Standard method with caching and optional task creation
+     *
+     * The 'tag' is used as the bridge to the cache key.
+     *
+     * This method implements the DataForSEO Standard method workflow:
+     * - Check cache for existing ASIN data based on search parameters
+     * - If cached, return cached ASIN data immediately
+     * - If not cached and task creation enabled, create task with webhooks
+     * - Webhook will cache actual ASIN data when received
+     *
+     * @param string      $asin                 Amazon product ID (ASIN)
+     * @param int|null    $priority             Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName         Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate   Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName         Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode         Language code (e.g., "en_US")
+     * @param string|null $seDomain             Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param bool|null   $loadMoreLocalReviews Load more local reviews (double cost)
+     * @param string|null $localReviewsSort     Sort local reviews ("helpful" or "recent")
+     * @param string      $type                 Task get type (advanced or html)
+     * @param bool        $usePostback          Enable postback webhook (default: false)
+     * @param bool        $usePingback          Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached  Create task if not cached (default: false)
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached ASIN data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonAsinStandard(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?bool $loadMoreLocalReviews = null,
+        ?string $localReviewsSort = null,
+        string $type = 'advanced',
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Normalize and validate type parameter
+        $type = strtolower($type);
+        if (!in_array($type, ['advanced', 'html'])) {
+            throw new \InvalidArgumentException('type must be one of: advanced, html');
+        }
+
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'type',
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ]);
+
+        // Type is always part of the endpoint
+        $endpoint = "merchant/amazon/asin/task_get/{$type}";
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached ASIN data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->merchantAmazonAsinTaskPost(
+            $asin,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $loadMoreLocalReviews,
+            $localReviewsSort,
+            $cacheKey,
+            $postbackUrl,
+            $type,
+            $pingbackUrl,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Merchant Amazon ASIN Standard Advanced method wrapper
+     *
+     * @param string      $asin                 Amazon product ID (ASIN)
+     * @param int|null    $priority             Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName         Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate   Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName         Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode         Language code (e.g., "en_US")
+     * @param string|null $seDomain             Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param bool|null   $loadMoreLocalReviews Load more local reviews (double cost)
+     * @param string|null $localReviewsSort     Sort local reviews ("helpful" or "recent")
+     * @param bool        $usePostback          Enable postback webhook (default: false)
+     * @param bool        $usePingback          Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached  Create task if not cached (default: false)
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached ASIN data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonAsinStandardAdvanced(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?bool $loadMoreLocalReviews = null,
+        ?string $localReviewsSort = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->merchantAmazonAsinStandard(
+            $asin,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $loadMoreLocalReviews,
+            $localReviewsSort,
+            'advanced',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Merchant Amazon ASIN Standard HTML method wrapper
+     *
+     * @param string      $asin                 Amazon product ID (ASIN)
+     * @param int|null    $priority             Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName         Location name (e.g., "HA1,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 9045969)
+     * @param string|null $locationCoordinate   Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName         Language name (e.g., "English (United Kingdom)")
+     * @param string|null $languageCode         Language code (e.g., "en_US")
+     * @param string|null $seDomain             Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param bool|null   $loadMoreLocalReviews Load more local reviews (double cost)
+     * @param string|null $localReviewsSort     Sort local reviews ("helpful" or "recent")
+     * @param bool        $usePostback          Enable postback webhook (default: false)
+     * @param bool        $usePingback          Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached  Create task if not cached (default: false)
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached ASIN data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonAsinStandardHtml(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?bool $loadMoreLocalReviews = null,
+        ?string $localReviewsSort = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->merchantAmazonAsinStandard(
+            $asin,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $loadMoreLocalReviews,
+            $localReviewsSort,
+            'html',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Create a Merchant Amazon Sellers task using DataForSEO's Task POST endpoint
+     *
+     * @param string      $asin               Amazon product ID (ASIN)
+     * @param int|null    $priority           Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName       Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode       Location code (e.g., 2840)
+     * @param string|null $locationCoordinate Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName       Language name (e.g., "English")
+     * @param string|null $languageCode       Language code (e.g., "en_US")
+     * @param string|null $seDomain           Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param string|null $tag                User-defined task identifier (max 255 characters)
+     * @param string|null $postbackUrl        Return URL for sending task results
+     * @param string|null $postbackData       Postback URL datatype (required if postbackUrl is set)
+     * @param string|null $pingbackUrl        Notification URL of a completed task
+     * @param array       $additionalParams   Additional parameters
+     * @param string|null $attributes         Optional attributes to store with cache entry
+     * @param int         $amount             Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function merchantAmazonSellersTaskPost(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        ?string $tag = null,
+        ?string $postbackUrl = null,
+        ?string $postbackData = null,
+        ?string $pingbackUrl = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that ASIN is not empty
+        if (empty($asin)) {
+            throw new \InvalidArgumentException('ASIN cannot be empty');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null && $locationCoordinate === null) {
+            throw new \InvalidArgumentException('Either locationName, locationCode, or locationCoordinate must be provided');
+        }
+
+        // Validate that priority is either 1 or 2 if provided
+        if ($priority !== null && !in_array($priority, [1, 2])) {
+            throw new \InvalidArgumentException('Priority must be either 1 (normal) or 2 (high)');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        // Validate that postbackData is provided if postbackUrl is specified
+        if ($postbackUrl !== null && $postbackData === null) {
+            throw new \InvalidArgumentException('postbackData is required when postbackUrl is specified');
+        }
+
+        // Validate that postbackData is valid if provided
+        $validPostbackData = ['advanced', 'html'];
+        if ($postbackData !== null && !in_array($postbackData, $validPostbackData)) {
+            throw new \InvalidArgumentException('postback_data must be one of: ' . implode(', ', $validPostbackData));
+        }
+
+        Log::debug(
+            'Creating DataForSEO Merchant Amazon Sellers task',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Extra arguments needed for testing when passing parameters with the splat operator
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the ASIN as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $asin;
+        }
+
+        // Make the API request to the task post endpoint
+        return $this->sendCachedRequest(
+            'merchant/amazon/sellers/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get merchant Amazon sellers task result (advanced format)
+     *
+     * @param string      $id         Task ID to retrieve
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array Task result data
+     */
+    public function merchantAmazonSellersTaskGetAdvanced(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet('merchant/amazon/sellers/task_get/advanced', $id, $attributes, $amount);
+    }
+
+    /**
+     * Get merchant Amazon sellers task result (HTML format)
+     *
+     * @param string      $id         Task ID to retrieve
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array Task result data
+     */
+    public function merchantAmazonSellersTaskGetHtml(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet('merchant/amazon/sellers/task_get/html', $id, $attributes, $amount);
+    }
+
+    /**
+     * Merchant Amazon Sellers Standard method with caching and optional task creation
+     *
+     * The 'tag' is used as the bridge to the cache key.
+     *
+     * This method implements the DataForSEO Standard method workflow:
+     * - Check cache for existing sellers data based on search parameters
+     * - If cached, return cached sellers data immediately
+     * - If not cached and task creation enabled, create task with webhooks
+     * - Webhook will cache actual sellers data when received
+     *
+     * @param string      $asin                Amazon product ID (ASIN)
+     * @param int|null    $priority            Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName        Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 2840)
+     * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName        Language name (e.g., "English")
+     * @param string|null $languageCode        Language code (e.g., "en_US")
+     * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param string      $type                Task get type (advanced or html)
+     * @param bool        $usePostback         Enable postback webhook (default: false)
+     * @param bool        $usePingback         Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached Create task if not cached (default: false)
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached sellers data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonSellersStandard(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        string $type = 'advanced',
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Normalize and validate type parameter
+        $type = strtolower($type);
+        if (!in_array($type, ['advanced', 'html'])) {
+            throw new \InvalidArgumentException('type must be one of: advanced, html');
+        }
+
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'type',
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ]);
+
+        // Type is always part of the endpoint
+        $endpoint = "merchant/amazon/sellers/task_get/{$type}";
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached sellers data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->merchantAmazonSellersTaskPost(
+            $asin,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            $cacheKey,
+            $postbackUrl,
+            $type,
+            $pingbackUrl,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Merchant Amazon Sellers Standard Advanced method wrapper
+     *
+     * @param string      $asin                Amazon product ID (ASIN)
+     * @param int|null    $priority            Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName        Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 2840)
+     * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName        Language name (e.g., "English")
+     * @param string|null $languageCode        Language code (e.g., "en_US")
+     * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param bool        $usePostback         Enable postback webhook (default: false)
+     * @param bool        $usePingback         Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached Create task if not cached (default: false)
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached sellers data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonSellersStandardAdvanced(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->merchantAmazonSellersStandard(
+            $asin,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
+            'advanced',
+            $usePostback,
+            $usePingback,
+            $postTaskIfNotCached,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Merchant Amazon Sellers Standard HTML method wrapper
+     *
+     * @param string      $asin                Amazon product ID (ASIN)
+     * @param int|null    $priority            Task priority (1 - normal, 2 - high)
+     * @param string|null $locationName        Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 2840)
+     * @param string|null $locationCoordinate  Location coordinates in format "latitude,longitude,radius"
+     * @param string|null $languageName        Language name (e.g., "English")
+     * @param string|null $languageCode        Language code (e.g., "en_US")
+     * @param string|null $seDomain            Search engine domain (e.g., "amazon.com", "amazon.co.uk")
+     * @param bool        $usePostback         Enable postback webhook (default: false)
+     * @param bool        $usePingback         Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached Create task if not cached (default: false)
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached sellers data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function merchantAmazonSellersStandardHtml(
+        string $asin,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en_US',
+        ?string $seDomain = null,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        return $this->merchantAmazonSellersStandard(
+            $asin,
+            $priority,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $seDomain,
             'html',
             $usePostback,
             $usePingback,

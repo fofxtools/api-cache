@@ -82,7 +82,7 @@ class ScraperApiClientTest extends TestCase
         $this->assertEquals(200, $result['response_status_code']);
 
         // Make sure we used the Http::fake() response
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertEquals('Test response', $responseData['body']);
 
         $this->assertFalse($result['is_cached']);
@@ -117,7 +117,7 @@ class ScraperApiClientTest extends TestCase
         $this->assertEquals(200, $result['response_status_code']);
 
         // Make sure we used the Http::fake() response
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertEquals($largeResponse, $responseData['body']);
     }
 
@@ -156,7 +156,7 @@ class ScraperApiClientTest extends TestCase
         $this->assertEquals($remainingAfterFirst, $remainingAfterSecond);
 
         // Make sure we used the Http::fake() response
-        $responseData = json_decode($result1['response']->body(), true);
+        $responseData = $result1['response']->json();
         $this->assertEquals('Test response', $responseData['body']);
     }
 
@@ -186,7 +186,7 @@ class ScraperApiClientTest extends TestCase
         $this->assertEquals(500, $result['response_status_code']);
 
         // Make sure we used the Http::fake() response
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertEquals('API error', $responseData['message']);
     }
 
@@ -217,7 +217,7 @@ class ScraperApiClientTest extends TestCase
         $this->assertArrayHasKey('is_cached', $result1);
 
         // Make sure we used the Http::fake() response
-        $responseData = json_decode($result1['response']->body(), true);
+        $responseData = $result1['response']->json();
         $this->assertEquals('Test response', $responseData['body']);
 
         // Second request should fail due to rate limit

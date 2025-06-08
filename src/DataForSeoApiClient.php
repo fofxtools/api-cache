@@ -3348,4 +3348,270 @@ class DataForSeoApiClient extends BaseApiClient
             $amount
         );
     }
+
+    /**
+     * Create an OnPage task using DataForSEO's Task POST endpoint
+     *
+     * @param string      $target                   Target domain (required, without https:// and www.)
+     * @param int         $maxCrawlPages            Number of pages to crawl (required)
+     * @param string|null $startUrl                 First URL to crawl (absolute URL)
+     * @param bool|null   $forceSitewideChecks      Enable sitewide checks when crawling single page
+     * @param array|null  $priorityUrls             URLs to crawl bypassing queue (max 20, absolute URLs)
+     * @param int|null    $maxCrawlDepth            Crawl depth level
+     * @param int|null    $crawlDelay               Delay between hits in ms (default: 2000)
+     * @param bool|null   $storeRawHtml             Store HTML of crawled pages (default: false)
+     * @param bool|null   $enableContentParsing     Parse content on crawled pages (default: false)
+     * @param bool|null   $supportCookies           Support cookies when crawling (default: false)
+     * @param string|null $acceptLanguage           Language header for accessing website
+     * @param string|null $customRobotsTxt          Custom robots.txt settings
+     * @param string|null $robotsTxtMergeMode       Merge mode: 'merge' or 'override' (default: 'merge')
+     * @param string|null $customUserAgent          Custom user agent
+     * @param string|null $browserPreset            Browser preset: 'desktop', 'mobile', 'tablet'
+     * @param int|null    $browserScreenWidth       Browser screen width (240-9999 pixels)
+     * @param int|null    $browserScreenHeight      Browser screen height (240-9999 pixels)
+     * @param float|null  $browserScreenScaleFactor Browser screen scale factor (0.5-3)
+     * @param bool|null   $respectSitemap           Follow sitemap order when crawling (default: false)
+     * @param string|null $customSitemap            Custom sitemap URL
+     * @param bool|null   $crawlSitemapOnly         Crawl only pages in sitemap (default: false)
+     * @param bool|null   $loadResources            Load images, stylesheets, scripts (default: false)
+     * @param bool|null   $enableWwwRedirectCheck   Check www redirection (default: false)
+     * @param bool|null   $enableJavascript         Load JavaScript on pages (default: false)
+     * @param bool|null   $enableXhr                Enable XMLHttpRequest (default: false)
+     * @param bool|null   $enableBrowserRendering   Emulate browser for Core Web Vitals (default: false)
+     * @param bool|null   $disableCookiePopup       Disable cookie consent popup (default: false)
+     * @param string|null $customJs                 Custom JavaScript (max 2000 chars, 700ms execution)
+     * @param bool|null   $validateMicromarkup      Enable microdata validation (default: false)
+     * @param bool|null   $allowSubdomains          Include subdomains (default: false)
+     * @param array|null  $allowedSubdomains        Specific subdomains to crawl
+     * @param array|null  $disallowedSubdomains     Subdomains to exclude
+     * @param bool|null   $checkSpell               Check spelling using Hunspell (default: false)
+     * @param string|null $checkSpellLanguage       Spell check language code
+     * @param array|null  $checkSpellExceptions     Words to exclude from spell check (max 1000, 100 chars each)
+     * @param bool|null   $calculateKeywordDensity  Calculate keyword density (default: false)
+     * @param array|null  $checksThreshold          Custom threshold values for checks
+     * @param array|null  $disableSitewideChecks    Prevent certain sitewide checks
+     * @param array|null  $disablePageChecks        Prevent certain page checks
+     * @param bool|null   $switchPool               Use additional proxy pools (default: false)
+     * @param bool|null   $returnDespiteTimeout     Return data despite timeout (default: false)
+     * @param string|null $tag                      User-defined task identifier (max 255 chars)
+     * @param string|null $pingbackUrl              Notification URL for task completion
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If required fields are missing or invalid
+     *
+     * @return array The API response data
+     */
+    public function onPageTaskPost(
+        string $target,
+        int $maxCrawlPages,
+        ?string $startUrl = null,
+        ?bool $forceSitewideChecks = null,
+        ?array $priorityUrls = null,
+        ?int $maxCrawlDepth = null,
+        ?int $crawlDelay = null,
+        ?bool $storeRawHtml = null,
+        ?bool $enableContentParsing = null,
+        ?bool $supportCookies = null,
+        ?string $acceptLanguage = null,
+        ?string $customRobotsTxt = null,
+        ?string $robotsTxtMergeMode = null,
+        ?string $customUserAgent = null,
+        ?string $browserPreset = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?float $browserScreenScaleFactor = null,
+        ?bool $respectSitemap = null,
+        ?string $customSitemap = null,
+        ?bool $crawlSitemapOnly = null,
+        ?bool $loadResources = null,
+        ?bool $enableWwwRedirectCheck = null,
+        ?bool $enableJavascript = null,
+        ?bool $enableXhr = null,
+        ?bool $enableBrowserRendering = null,
+        ?bool $disableCookiePopup = null,
+        ?string $customJs = null,
+        ?bool $validateMicromarkup = null,
+        ?bool $allowSubdomains = null,
+        ?array $allowedSubdomains = null,
+        ?array $disallowedSubdomains = null,
+        ?bool $checkSpell = null,
+        ?string $checkSpellLanguage = null,
+        ?array $checkSpellExceptions = null,
+        ?bool $calculateKeywordDensity = null,
+        ?array $checksThreshold = null,
+        ?array $disableSitewideChecks = null,
+        ?array $disablePageChecks = null,
+        ?bool $switchPool = null,
+        ?bool $returnDespiteTimeout = null,
+        ?string $tag = null,
+        ?string $pingbackUrl = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required fields
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target domain cannot be empty');
+        }
+
+        if ($maxCrawlPages <= 0) {
+            throw new \InvalidArgumentException('max_crawl_pages must be a positive integer');
+        }
+
+        // Validate robots.txt merge mode
+        if ($robotsTxtMergeMode !== null && !in_array($robotsTxtMergeMode, ['merge', 'override'])) {
+            throw new \InvalidArgumentException('robots_txt_merge_mode must be either "merge" or "override"');
+        }
+
+        // Validate browser preset
+        if ($browserPreset !== null && !in_array($browserPreset, ['desktop', 'mobile', 'tablet'])) {
+            throw new \InvalidArgumentException('browser_preset must be one of: desktop, mobile, tablet');
+        }
+
+        // Validate browser screen dimensions
+        if ($browserScreenWidth !== null && ($browserScreenWidth < 240 || $browserScreenWidth > 9999)) {
+            throw new \InvalidArgumentException('browser_screen_width must be between 240 and 9999 pixels');
+        }
+
+        if ($browserScreenHeight !== null && ($browserScreenHeight < 240 || $browserScreenHeight > 9999)) {
+            throw new \InvalidArgumentException('browser_screen_height must be between 240 and 9999 pixels');
+        }
+
+        if ($browserScreenScaleFactor !== null && ($browserScreenScaleFactor < 0.5 || $browserScreenScaleFactor > 3)) {
+            throw new \InvalidArgumentException('browser_screen_scale_factor must be between 0.5 and 3');
+        }
+
+        // Validate priority URLs
+        if ($priorityUrls !== null && count($priorityUrls) > 20) {
+            throw new \InvalidArgumentException('priority_urls can contain maximum 20 URLs');
+        }
+
+        // Validate XHR dependency
+        if ($enableXhr === true && $enableJavascript !== true) {
+            throw new \InvalidArgumentException('enable_javascript must be set to true when enable_xhr is true');
+        }
+
+        // Validate browser rendering dependencies
+        if ($enableBrowserRendering === true && ($enableJavascript !== true || $loadResources !== true)) {
+            throw new \InvalidArgumentException('enable_javascript and load_resources must be set to true when enable_browser_rendering is true');
+        }
+
+        // Validate custom JS length
+        if ($customJs !== null && strlen($customJs) > 2000) {
+            throw new \InvalidArgumentException('custom_js must be 2000 characters or less');
+        }
+
+        // Validate spell check exceptions
+        if ($checkSpellExceptions !== null) {
+            if (count($checkSpellExceptions) > 1000) {
+                throw new \InvalidArgumentException('check_spell_exceptions can contain maximum 1000 words');
+            }
+            foreach ($checkSpellExceptions as $word) {
+                if (strlen($word) > 100) {
+                    throw new \InvalidArgumentException('Each word in check_spell_exceptions must be 100 characters or less');
+                }
+            }
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        // Validate allowed/disallowed subdomains logic
+        if ($allowedSubdomains !== null && $allowSubdomains !== false) {
+            throw new \InvalidArgumentException('allow_subdomains must be set to false when using allowed_subdomains');
+        }
+
+        if ($disallowedSubdomains !== null && $allowSubdomains !== true) {
+            throw new \InvalidArgumentException('allow_subdomains must be set to true when using disallowed_subdomains');
+        }
+
+        // Validate sitemap dependencies
+        if ($customSitemap !== null && $respectSitemap !== true) {
+            throw new \InvalidArgumentException('respect_sitemap must be set to true when using custom_sitemap');
+        }
+
+        if ($crawlSitemapOnly === true && $respectSitemap !== true) {
+            throw new \InvalidArgumentException('respect_sitemap must be set to true when crawl_sitemap_only is true');
+        }
+
+        // Validate supported spell check languages
+        $supportedSpellLanguages = [
+            'hy', 'eu', 'bg', 'ca', 'hr', 'cs', 'da', 'nl', 'en', 'eo', 'et', 'fo', 'fa', 'fr', 'fy', 'gl', 'ka',
+            'de', 'el', 'he', 'hu', 'is', 'ia', 'ga', 'it', 'rw', 'la', 'lv', 'lt', 'mk', 'mn', 'ne', 'nb', 'nn',
+            'pl', 'pt', 'ro', 'gd', 'sr', 'sk', 'sl', 'es', 'sv', 'tr', 'tk', 'uk', 'vi',
+        ];
+        if ($checkSpellLanguage !== null && !in_array($checkSpellLanguage, $supportedSpellLanguages)) {
+            throw new \InvalidArgumentException('check_spell_language must be a supported language code');
+        }
+
+        Log::debug(
+            'Creating DataForSEO OnPage task',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Extra arguments needed for testing when passing parameters with the splat operator
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target domain as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the task post endpoint
+        return $this->sendCachedRequest(
+            'on_page/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get OnPage task summary using DataForSEO's Summary endpoint
+     *
+     * @param string      $id         The task ID from the Task POST response
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If the task ID is empty
+     *
+     * @return array The API response data
+     */
+    public function onPageSummary(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate task ID
+        if (empty($id)) {
+            throw new \InvalidArgumentException('Task ID cannot be empty');
+        }
+
+        Log::debug(
+            'Making DataForSEO OnPage Summary request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Pass the task ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the summary endpoint with the task ID in the URL
+        return $this->sendCachedRequest(
+            "on_page/summary/{$id}",
+            [],
+            'GET',
+            $attributes,
+            $amount
+        );
+    }
 }

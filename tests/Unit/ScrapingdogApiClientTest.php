@@ -45,6 +45,24 @@ class ScrapingdogApiClientTest extends TestCase
         return [ApiCacheServiceProvider::class];
     }
 
+    /**
+     * Extract query parameters from request URL as strings (HTTP reality)
+     *
+     * This preserves the actual HTTP query string values without type conversion,
+     * ensuring tests accurately reflect what's sent over the wire.
+     *
+     * @param mixed $request
+     *
+     * @return array
+     */
+    private function getQueryParams($request): array
+    {
+        $query = [];
+        parse_str(parse_url($request->url(), PHP_URL_QUERY), $query);
+
+        return $query;
+    }
+
     public function test_initializes_with_correct_configuration()
     {
         $this->assertEquals('scrapingdog', $this->client->getClientName());
@@ -198,12 +216,15 @@ class ScrapingdogApiClientTest extends TestCase
         $response = $this->client->scrape($testUrl);
 
         Http::assertSent(function ($request) use ($testUrl) {
-            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape") &&
-                   $request->method() === 'GET' &&
-                   $request['api_key'] === $this->apiKey &&
-                   $request['url'] === $testUrl &&
-                   isset($request['dynamic']) &&
-                   $request['dynamic'] === false;
+            $query = $this->getQueryParams($request);
+
+            $this->assertTrue(Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape"));
+            $this->assertSame('GET', $request->method());
+            $this->assertSame($this->apiKey, $query['api_key']);
+            $this->assertSame($testUrl, $query['url']);
+            $this->assertSame('0', $query['dynamic']);
+
+            return true;
         });
 
         // Make sure we used the Http::fake() response
@@ -227,9 +248,13 @@ class ScrapingdogApiClientTest extends TestCase
         $response = $this->client->scrape($testUrl, true);
 
         Http::assertSent(function ($request) use ($testUrl) {
-            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape") &&
-                   $request['url'] === $testUrl &&
-                   $request['dynamic'] === true;
+            $query = $this->getQueryParams($request);
+
+            $this->assertTrue(Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape"));
+            $this->assertSame($testUrl, $query['url']);
+            $this->assertSame('1', $query['dynamic']);
+
+            return true;
         });
 
         // Make sure we used the Http::fake() response
@@ -263,16 +288,20 @@ class ScrapingdogApiClientTest extends TestCase
         );
 
         Http::assertSent(function ($request) use ($testUrl) {
-            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape") &&
-                   $request['url'] === $testUrl &&
-                   $request['dynamic'] === false &&
-                   $request['premium'] === true &&
-                   $request['custom_headers'] === true &&
-                   $request['wait'] === 5000 &&
-                   $request['country'] === 'us' &&
-                   $request['session_number'] === '12345' &&
-                   $request['image'] === true &&
-                   $request['markdown'] === true;
+            $query = $this->getQueryParams($request);
+
+            $this->assertTrue(Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape"));
+            $this->assertSame($testUrl, $query['url']);
+            $this->assertSame('0', $query['dynamic']);
+            $this->assertSame('1', $query['premium']);
+            $this->assertSame('1', $query['custom_headers']);
+            $this->assertSame('5000', $query['wait']);
+            $this->assertSame('us', $query['country']);
+            $this->assertSame('12345', $query['session_number']);
+            $this->assertSame('1', $query['image']);
+            $this->assertSame('1', $query['markdown']);
+
+            return true;
         });
 
         // Make sure we used the Http::fake() response
@@ -308,9 +337,13 @@ class ScrapingdogApiClientTest extends TestCase
         );
 
         Http::assertSent(function ($request) use ($testUrl, $aiQuery) {
-            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape") &&
-                   $request['url'] === $testUrl &&
-                   $request['ai_query'] === $aiQuery;
+            $query = $this->getQueryParams($request);
+
+            $this->assertTrue(Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape"));
+            $this->assertSame($testUrl, $query['url']);
+            $this->assertSame($aiQuery, $query['ai_query']);
+
+            return true;
         });
 
         // Make sure we used the Http::fake() response
@@ -354,9 +387,13 @@ class ScrapingdogApiClientTest extends TestCase
         );
 
         Http::assertSent(function ($request) use ($testUrl, $extractRules) {
-            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape") &&
-                   $request['url'] === $testUrl &&
-                   $request['ai_extract_rules'] === json_encode($extractRules);
+            $query = $this->getQueryParams($request);
+
+            $this->assertTrue(Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape"));
+            $this->assertSame($testUrl, $query['url']);
+            $this->assertSame(json_encode($extractRules), $query['ai_extract_rules']);
+
+            return true;
         });
 
         // Make sure we used the Http::fake() response
@@ -396,9 +433,13 @@ class ScrapingdogApiClientTest extends TestCase
         );
 
         Http::assertSent(function ($request) use ($testUrl) {
-            return Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape") &&
-                   $request['url'] === $testUrl &&
-                   $request['custom_param'] === 'value';
+            $query = $this->getQueryParams($request);
+
+            $this->assertTrue(Str::startsWith($request->url(), "{$this->apiBaseUrl}/scrape"));
+            $this->assertSame($testUrl, $query['url']);
+            $this->assertSame('value', $query['custom_param']);
+
+            return true;
         });
 
         // Make sure we used the Http::fake() response

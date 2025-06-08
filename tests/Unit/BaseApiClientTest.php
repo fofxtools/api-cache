@@ -491,7 +491,7 @@ class BaseApiClientTest extends TestCase
         $result = $this->client->sendRequest('predictions', ['query' => 'test']);
 
         $this->assertEquals(200, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertTrue($responseData['success']);
         $this->assertNotEmpty($responseData['data']);
     }
@@ -501,7 +501,7 @@ class BaseApiClientTest extends TestCase
         $result = $this->client->sendRequest('nonexistentendpoint');
 
         $this->assertEquals(404, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertEquals('error', $responseData['status']);
     }
 

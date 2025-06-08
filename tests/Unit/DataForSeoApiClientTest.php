@@ -1647,8 +1647,8 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/live/regular" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'laravel framework';
+                   isset($request->data()[0]['keyword']) &&
+                   $request->data()[0]['keyword'] === 'laravel framework';
         });
 
         // Make sure we used the Http::fake() response
@@ -1974,10 +1974,10 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/live/advanced" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'php composer' &&
-                   $request[0]['depth'] === 50 &&
-                   $request[0]['calculate_rectangles'] === true;
+                   isset($request->data()[0]['keyword']) &&
+                   $request->data()[0]['keyword'] === 'php composer' &&
+                   $request->data()[0]['depth'] === 50 &&
+                   $request->data()[0]['calculate_rectangles'] === true;
         });
 
         // Make sure we used the Http::fake() response
@@ -2138,12 +2138,12 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/live/advanced" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'laravel fram' &&
-                   isset($request[0]['cursor_pointer']) &&
-                   $request[0]['cursor_pointer'] === 8 &&
-                   isset($request[0]['client']) &&
-                   $request[0]['client'] === 'gws-wiz-serp';
+                   isset($request->data()[0]['keyword']) &&
+                   $request->data()[0]['keyword'] === 'laravel fram' &&
+                   isset($request->data()[0]['cursor_pointer']) &&
+                   $request->data()[0]['cursor_pointer'] === 8 &&
+                   isset($request->data()[0]['client']) &&
+                   $request->data()[0]['client'] === 'gws-wiz-serp';
         });
 
         // Make sure we used the Http::fake() response
@@ -2331,7 +2331,7 @@ class DataForSeoApiClientTest extends TestCase
         // Check that the request was sent with the expected parameters
         Http::assertSent(function ($request) use ($expectedParams) {
             foreach ($expectedParams as $key => $value) {
-                if (!isset($request[0][$key]) || $request[0][$key] !== $value) {
+                if (!isset($request->data()[0][$key]) || $request->data()[0][$key] !== $value) {
                     return false;
                 }
             }
@@ -2407,8 +2407,8 @@ class DataForSeoApiClientTest extends TestCase
 
         // Check that the request includes the additional params
         Http::assertSent(function ($request) {
-            return isset($request[0]['custom_param']) &&
-                   $request[0]['custom_param'] === 'custom_value';
+            return isset($request->data()[0]['custom_param']) &&
+                   $request->data()[0]['custom_param'] === 'custom_value';
         });
     }
 
@@ -2493,8 +2493,8 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) use ($keywords) {
             return $request->url() === "{$this->apiBaseUrl}/dataforseo_labs/amazon/bulk_search_volume/live" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keywords']) &&
-                   $request[0]['keywords'] === $keywords;
+                   isset($request->data()[0]['keywords']) &&
+                   $request->data()[0]['keywords'] === $keywords;
         });
 
         // Make sure we used the Http::fake() response
@@ -2615,8 +2615,8 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) use ($keyword) {
             return $request->url() === "{$this->apiBaseUrl}/dataforseo_labs/amazon/related_keywords/live" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === $keyword;
+                   isset($request->data()[0]['keyword']) &&
+                   $request->data()[0]['keyword'] === $keyword;
         });
 
         // Make sure we used the Http::fake() response
@@ -2742,7 +2742,7 @@ class DataForSeoApiClientTest extends TestCase
         );
 
         Http::assertSent(function ($request) use ($expectedParams) {
-            $sentParams = $request[0];
+            $sentParams = $request->data()[0];
             foreach ($expectedParams as $key => $value) {
                 if (!isset($sentParams[$key]) || $sentParams[$key] !== $value) {
                     return false;
@@ -2848,8 +2848,8 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) use ($asin) {
             return $request->url() === "{$this->apiBaseUrl}/dataforseo_labs/amazon/ranked_keywords/live" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['asin']) &&
-                   $request[0]['asin'] === $asin;
+                   isset($request->data()[0]['asin']) &&
+                   $request->data()[0]['asin'] === $asin;
         });
 
         // Make sure we used the Http::fake() response
@@ -3007,7 +3007,7 @@ class DataForSeoApiClientTest extends TestCase
         );
 
         Http::assertSent(function ($request) use ($expectedParams) {
-            $sentParams = $request[0];
+            $sentParams = $request->data()[0];
             foreach ($expectedParams as $key => $value) {
                 if (!isset($sentParams[$key]) || $sentParams[$key] !== $value) {
                     return false;
@@ -3075,10 +3075,10 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/instant_pages" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['url']) &&
-                   $request[0]['url'] === 'https://example.com' &&
-                   isset($request[0]['browser_preset']) &&
-                   $request[0]['browser_preset'] === 'desktop';
+                   isset($request->data()[0]['url']) &&
+                   $request->data()[0]['url'] === 'https://example.com' &&
+                   isset($request->data()[0]['browser_preset']) &&
+                   $request->data()[0]['browser_preset'] === 'desktop';
         });
 
         // Make sure we used the Http::fake() response
@@ -3330,8 +3330,8 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) use ($id) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['id']) &&
-                   $request[0]['id'] === $id;
+                   isset($request->data()[0]['id']) &&
+                   $request->data()[0]['id'] === $id;
         });
 
         // Make sure we used the Http::fake() response
@@ -3395,10 +3395,10 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) use ($id, $url) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['id']) &&
-                   $request[0]['id'] === $id &&
-                   isset($request[0]['url']) &&
-                   $request[0]['url'] === $url;
+                   isset($request->data()[0]['id']) &&
+                   $request->data()[0]['id'] === $id &&
+                   isset($request->data()[0]['url']) &&
+                   $request->data()[0]['url'] === $url;
         });
 
         // Make sure we used the Http::fake() response
@@ -3512,8 +3512,8 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/serp/google/organic/task_post" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'laravel framework';
+                   isset($request->data()[0]['keyword']) &&
+                   $request->data()[0]['keyword'] === 'laravel framework';
         });
 
         // Make sure we used the Http::fake() response
@@ -4999,8 +4999,8 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/serp/google/autocomplete/task_post" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'laravel';
+                   isset($request->data()[0]['keyword']) &&
+                   $request->data()[0]['keyword'] === 'laravel';
         });
 
         // Make sure we used the Http::fake() response
@@ -5745,12 +5745,12 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/products/task_post" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['keyword']) &&
-                   $request[0]['keyword'] === 'wireless headphones' &&
-                   isset($request[0]['location_name']) &&
-                   $request[0]['location_name'] === 'United States' &&
-                   isset($request[0]['priority']) &&
-                   $request[0]['priority'] === 2;
+                   isset($request->data()[0]['keyword']) &&
+                   $request->data()[0]['keyword'] === 'wireless headphones' &&
+                   isset($request->data()[0]['location_name']) &&
+                   $request->data()[0]['location_name'] === 'United States' &&
+                   isset($request->data()[0]['priority']) &&
+                   $request->data()[0]['priority'] === 2;
         });
 
         $this->assertEquals(200, $result['response_status_code']);
@@ -7515,12 +7515,12 @@ class DataForSeoApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/sellers/task_post" &&
                    $request->method() === 'POST' &&
-                   isset($request[0]['asin']) &&
-                   $request[0]['asin'] === 'B085RFFC9Q' &&
-                   isset($request[0]['location_name']) &&
-                   $request[0]['location_name'] === 'United States' &&
-                   isset($request[0]['priority']) &&
-                   $request[0]['priority'] === 2;
+                   isset($request->data()[0]['asin']) &&
+                   $request->data()[0]['asin'] === 'B085RFFC9Q' &&
+                   isset($request->data()[0]['location_name']) &&
+                   $request->data()[0]['location_name'] === 'United States' &&
+                   isset($request->data()[0]['priority']) &&
+                   $request->data()[0]['priority'] === 2;
         });
 
         $this->assertEquals(200, $result['response_status_code']);
@@ -8162,5 +8162,484 @@ class DataForSeoApiClientTest extends TestCase
 
         $result = $this->client->merchantAmazonSellersStandardHtml('B085RFFC9Q');
         $this->assertNotNull($result); // Method exists and returns mocked data
+    }
+
+    public function test_onpage_task_post_successful_request()
+    {
+        $responseJson = json_encode([
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => 'test-onpage-task-12345',
+                    'status_code'    => 20000,
+                    'status_message' => 'Task Created',
+                    'time'           => '0.0012 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 0,
+                    'path'           => ['v3', 'on_page', 'task_post'],
+                    'data'           => [
+                        'api'               => 'on_page',
+                        'function'          => 'task_post',
+                        'target'            => 'example.com',
+                        'max_crawl_pages'   => 100,
+                        'enable_javascript' => true,
+                        'browser_preset'    => 'desktop',
+                        'tag'               => 'test-audit-task',
+                    ],
+                    'result' => null,
+                ],
+            ],
+        ]);
+
+        Http::fake([
+            'api.dataforseo.com/v3/on_page/task_post' => Http::response($responseJson, 200, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            enableJavascript: true,
+            browserPreset: 'desktop',
+            tag: 'test-audit-task'
+        );
+
+        // Verify fake response was received by checking task ID
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertCount(1, $responseData['tasks']);
+        $this->assertEquals('test-onpage-task-12345', $responseData['tasks'][0]['id']);
+        $this->assertEquals('example.com', $responseData['tasks'][0]['data']['target']);
+        $this->assertEquals(100, $responseData['tasks'][0]['data']['max_crawl_pages']);
+        $this->assertEquals(true, $responseData['tasks'][0]['data']['enable_javascript']);
+        $this->assertEquals('desktop', $responseData['tasks'][0]['data']['browser_preset']);
+        $this->assertEquals('test-audit-task', $responseData['tasks'][0]['data']['tag']);
+    }
+
+    public function test_onpage_task_post_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target domain cannot be empty');
+
+        $this->client->onPageTaskPost(
+            target: '',
+            maxCrawlPages: 100
+        );
+    }
+
+    public function test_onpage_task_post_validates_max_crawl_pages()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('max_crawl_pages must be a positive integer');
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 0
+        );
+    }
+
+    public function test_onpage_task_post_validates_browser_preset()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('browser_preset must be one of: desktop, mobile, tablet');
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            browserPreset: 'invalid'
+        );
+    }
+
+    public function test_onpage_task_post_validates_browser_screen_dimensions()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('browser_screen_width must be between 240 and 9999 pixels');
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            browserScreenWidth: 200
+        );
+    }
+
+    public function test_onpage_task_post_validates_xhr_javascript_dependency()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('enable_javascript must be set to true when enable_xhr is true');
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            enableXhr: true,
+            enableJavascript: false
+        );
+    }
+
+    public function test_onpage_task_post_validates_browser_rendering_dependencies()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('enable_javascript and load_resources must be set to true when enable_browser_rendering is true');
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            enableBrowserRendering: true,
+            enableJavascript: true,
+            loadResources: false
+        );
+    }
+
+    public function test_onpage_task_post_validates_custom_js_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('custom_js must be 2000 characters or less');
+
+        $longJs = str_repeat('a', 2001);
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            customJs: $longJs
+        );
+    }
+
+    public function test_onpage_task_post_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+
+        $longTag = str_repeat('a', 256);
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            tag: $longTag
+        );
+    }
+
+    public function test_onpage_task_post_validates_spell_check_language()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('check_spell_language must be a supported language code');
+
+        $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100,
+            checkSpellLanguage: 'invalid'
+        );
+    }
+
+    public static function onPageTaskPostParametersProvider(): array
+    {
+        return [
+            'minimal_parameters' => [
+                ['target' => 'example.com', 'maxCrawlPages' => 50],
+                ['target' => 'example.com', 'max_crawl_pages' => 50],
+            ],
+            'with_start_url' => [
+                ['target' => 'example.com', 'maxCrawlPages' => 100, 'startUrl' => 'https://example.com/start'],
+                ['target' => 'example.com', 'max_crawl_pages' => 100, 'start_url' => 'https://example.com/start'],
+            ],
+            'with_browser_settings' => [
+                [
+                    'target'           => 'test.com',
+                    'maxCrawlPages'    => 75,
+                    'browserPreset'    => 'mobile',
+                    'enableJavascript' => true,
+                    'loadResources'    => true,
+                ],
+                [
+                    'target'            => 'test.com',
+                    'max_crawl_pages'   => 75,
+                    'browser_preset'    => 'mobile',
+                    'enable_javascript' => true,
+                    'load_resources'    => true,
+                ],
+            ],
+            'with_seo_settings' => [
+                [
+                    'target'                  => 'seo-test.com',
+                    'maxCrawlPages'           => 200,
+                    'checkSpell'              => true,
+                    'checkSpellLanguage'      => 'en',
+                    'calculateKeywordDensity' => true,
+                    'validateMicromarkup'     => true,
+                ],
+                [
+                    'target'                    => 'seo-test.com',
+                    'max_crawl_pages'           => 200,
+                    'check_spell'               => true,
+                    'check_spell_language'      => 'en',
+                    'calculate_keyword_density' => true,
+                    'validate_micromarkup'      => true,
+                ],
+            ],
+        ];
+    }
+
+    #[DataProvider('onPageTaskPostParametersProvider')]
+    public function test_onpage_task_post_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        $responseJson = json_encode([
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2497 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => 'test-onpage-task-67890',
+                    'status_code'    => 20000,
+                    'status_message' => 'Task Created',
+                    'time'           => '0.0012 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 0,
+                    'path'           => ['v3', 'on_page', 'task_post'],
+                    'data'           => $expectedParams,
+                    'result'         => null,
+                ],
+            ],
+        ]);
+
+        Http::fake([
+            'api.dataforseo.com/v3/on_page/task_post' => Http::response($responseJson, 200, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageTaskPost(...$parameters);
+
+        // Verify fake response was received by checking task ID
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals('test-onpage-task-67890', $responseData['tasks'][0]['id']);
+
+        // Verify expected parameters were properly converted and sent
+        foreach ($expectedParams as $key => $value) {
+            $this->assertEquals($value, $responseData['tasks'][0]['data'][$key], "Parameter $key does not match expected value");
+        }
+    }
+
+    public function test_onpage_task_post_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40501,
+            'status_message' => 'Requested functionality is not available.',
+            'time'           => '0.0012 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 0,
+            'tasks_error'    => 0,
+            'tasks'          => [],
+        ];
+
+        Http::fake([
+            'api.dataforseo.com/v3/on_page/task_post' => Http::response($errorResponse, 400, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageTaskPost(
+            target: 'example.com',
+            maxCrawlPages: 100
+        );
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(400, $result['response']->status());
+        $responseData = $result['response']->json();
+        $this->assertEquals(40501, $responseData['status_code']);
+        $this->assertEquals('Requested functionality is not available.', $responseData['status_message']);
+    }
+
+    public function test_onpage_summary_successful_request()
+    {
+        $responseJson = json_encode([
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.1845 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => 'test-onpage-summary-12345',
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.1845 sec.',
+                    'cost'           => 0,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'on_page', 'summary'],
+                    'data'           => [
+                        'api'      => 'on_page',
+                        'function' => 'summary',
+                        'se'       => 'dataforseo',
+                    ],
+                    'result' => [
+                        [
+                            'crawl_progress' => 'finished',
+                            'crawl_status'   => [
+                                'max_crawl_pages' => 100,
+                                'pages_in_queue'  => 0,
+                                'pages_crawled'   => 45,
+                            ],
+                            'total_pages'          => 45,
+                            'pages_by_status_code' => [
+                                '200' => 42,
+                                '404' => 3,
+                            ],
+                            'checks_summary' => [
+                                'page_checks'     => ['total' => 150, 'passed' => 125, 'failed' => 25],
+                                'sitewide_checks' => ['total' => 10, 'passed' => 8, 'failed' => 2],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        Http::fake([
+            'api.dataforseo.com/v3/on_page/summary/test-onpage-summary-12345' => Http::response($responseJson, 200, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageSummary('test-onpage-summary-12345');
+
+        // Verify fake response was received by checking task ID
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertCount(1, $responseData['tasks']);
+        $this->assertEquals('test-onpage-summary-12345', $responseData['tasks'][0]['id']);
+        $this->assertEquals('finished', $responseData['tasks'][0]['result'][0]['crawl_progress']);
+        $this->assertEquals(45, $responseData['tasks'][0]['result'][0]['total_pages']);
+        $this->assertArrayHasKey('pages_by_status_code', $responseData['tasks'][0]['result'][0]);
+        $this->assertArrayHasKey('checks_summary', $responseData['tasks'][0]['result'][0]);
+    }
+
+    public function test_onpage_summary_validates_empty_task_id()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Task ID cannot be empty');
+
+        $this->client->onPageSummary('');
+    }
+
+    public function test_onpage_summary_passes_attributes_and_amount()
+    {
+        $responseJson = json_encode([
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.1845 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => 'test-custom-attributes-12345',
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.1845 sec.',
+                    'cost'           => 0,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'on_page', 'summary'],
+                    'data'           => [
+                        'api'      => 'on_page',
+                        'function' => 'summary',
+                        'se'       => 'dataforseo',
+                    ],
+                    'result' => [
+                        [
+                            'crawl_progress' => 'in_progress',
+                            'total_pages'    => 25,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        Http::fake([
+            'api.dataforseo.com/v3/on_page/summary/test-custom-attributes-12345' => Http::response($responseJson, 200, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageSummary(
+            id: 'test-custom-attributes-12345',
+            attributes: 'custom-attributes',
+            amount: 5
+        );
+
+        // Verify fake response was received by checking task ID
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals('test-custom-attributes-12345', $responseData['tasks'][0]['id']);
+        $this->assertEquals('in_progress', $responseData['tasks'][0]['result'][0]['crawl_progress']);
+    }
+
+    public function test_onpage_summary_handles_api_errors()
+    {
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40401,
+            'status_message' => 'Task not found.',
+            'time'           => '0.0012 sec.',
+            'cost'           => 0,
+            'tasks_count'    => 0,
+            'tasks_error'    => 0,
+            'tasks'          => [],
+        ];
+
+        Http::fake([
+            'api.dataforseo.com/v3/on_page/summary/invalid-task-id' => Http::response($errorResponse, 404, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageSummary('invalid-task-id');
+
+        // Make sure we used the Http::fake() response
+        $this->assertEquals(404, $result['response']->status());
+        $responseData = $result['response']->json();
+        $this->assertEquals(40401, $responseData['status_code']);
+        $this->assertEquals('Task not found.', $responseData['status_message']);
     }
 }

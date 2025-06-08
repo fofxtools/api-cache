@@ -94,9 +94,9 @@ class OpenRouterApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/completions" &&
                    $request->method() === 'POST' &&
-                   $request['prompt'] === 'What is 2+2?' &&
-                   $request['model'] === 'meta-llama/llama-3.3-70b-instruct:free' &&
-                   $request['max_tokens'] === 50;
+                   $request->data()['prompt'] === 'What is 2+2?' &&
+                   $request->data()['model'] === 'meta-llama/llama-3.3-70b-instruct:free' &&
+                   $request->data()['max_tokens'] === 50;
         });
 
         // Make sure we used the Http::fake() response
@@ -151,9 +151,9 @@ class OpenRouterApiClientTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->url() === "{$this->apiBaseUrl}/chat/completions" &&
                    $request->method() === 'POST' &&
-                   $request['messages'][0]['role'] === 'user' &&
-                   $request['messages'][0]['content'] === 'What is the meaning of life?' &&
-                   $request['model'] === 'google/gemini-2.0-flash-exp:free';
+                   $request->data()['messages'][0]['role'] === 'user' &&
+                   $request->data()['messages'][0]['content'] === 'What is the meaning of life?' &&
+                   $request->data()['model'] === 'google/gemini-2.0-flash-exp:free';
         });
 
         // Make sure we used the Http::fake() response
@@ -208,7 +208,7 @@ class OpenRouterApiClientTest extends TestCase
         Http::assertSent(function ($request) use ($messages) {
             return $request->url() === "{$this->apiBaseUrl}/chat/completions" &&
                    $request->method() === 'POST' &&
-                   $request['messages'] === $messages;
+                   $request->data()['messages'] === $messages;
         });
 
         // Make sure we used the Http::fake() response

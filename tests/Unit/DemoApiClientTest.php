@@ -78,7 +78,7 @@ class DemoApiClientTest extends TestCase
         $result = $this->client->predictions($query, $maxResults);
 
         $this->assertEquals(200, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertTrue($responseData['success']);
         $this->assertNotEmpty($responseData['data']);
         $this->assertArrayHasKey('response', $result);
@@ -101,7 +101,7 @@ class DemoApiClientTest extends TestCase
         $result = $this->client->predictions('test', 10, $additionalParams);
 
         $this->assertEquals(200, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertTrue($responseData['success']);
         $this->assertNotEmpty($responseData['data']);
 
@@ -135,7 +135,7 @@ class DemoApiClientTest extends TestCase
         $result = $this->client->predictions($query, $maxResults, [], $attributes, $amount);
 
         $this->assertEquals(200, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertTrue($responseData['success']);
         $this->assertNotEmpty($responseData['data']);
         $this->assertArrayHasKey('response', $result);
@@ -157,7 +157,7 @@ class DemoApiClientTest extends TestCase
         $result = $this->client->reports($reportType, $dataSource);
 
         $this->assertEquals(200, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertTrue($responseData['success']);
         $this->assertNotEmpty($responseData['data']);
         $this->assertArrayHasKey('response', $result);
@@ -181,7 +181,7 @@ class DemoApiClientTest extends TestCase
         $result = $this->client->reports($reportType, $dataSource, [], $attributes, $amount);
 
         $this->assertEquals(200, $result['response']->status());
-        $responseData = json_decode($result['response']->body(), true);
+        $responseData = $result['response']->json();
         $this->assertTrue($responseData['success']);
         $this->assertNotEmpty($responseData['data']);
         $this->assertArrayHasKey('response', $result);

@@ -1197,128 +1197,6 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
-     * Get OnPage data from DataForSEO's Instant Pages API
-     *
-     * @param string      $url                      Target page URL (required)
-     * @param string|null $customUserAgent          Custom user agent for crawling a website
-     * @param string|null $browserPreset            Preset for browser screen parameters ("desktop", "mobile", "tablet")
-     * @param int|null    $browserScreenWidth       Browser screen width in pixels (min: 240, max: 9999)
-     * @param int|null    $browserScreenHeight      Browser screen height in pixels (min: 240, max: 9999)
-     * @param float|null  $browserScreenScaleFactor Browser screen scale factor (min: 0.5, max: 3)
-     * @param bool|null   $storeRawHtml             Store HTML of a crawled page
-     * @param string|null $acceptLanguage           Language header for accessing the website
-     * @param bool|null   $loadResources            Load image, stylesheets, scripts, and broken resources
-     * @param bool|null   $enableJavascript         Load javascript on a page
-     * @param bool|null   $enableBrowserRendering   Emulate browser rendering to measure Core Web Vitals
-     * @param bool|null   $disableCookiePopup       Disable the cookie popup
-     * @param bool|null   $returnDespiteTimeout     Return data on pages despite the timeout error
-     * @param bool|null   $enableXhr                Enable XMLHttpRequest on a page
-     * @param string|null $customJs                 Custom javascript
-     * @param bool|null   $validateMicromarkup      Enable microdata validation
-     * @param bool|null   $checkSpell               Check spelling
-     * @param array|null  $checksThreshold          Custom threshold values for checks
-     * @param bool|null   $switchPool               Switch proxy pool
-     * @param string|null $ipPoolForScan            Proxy pool location ('us', 'de')
-     * @param array       $additionalParams         Additional parameters
-     * @param string|null $attributes               Optional attributes to store with cache entry
-     * @param int         $amount                   Amount to pass to incrementAttempts
-     *
-     * @return array The API response data
-     */
-    public function onPageInstantPages(
-        string $url,
-        ?string $customUserAgent = null,
-        ?string $browserPreset = null,
-        ?int $browserScreenWidth = null,
-        ?int $browserScreenHeight = null,
-        ?float $browserScreenScaleFactor = null,
-        ?bool $storeRawHtml = null,
-        ?string $acceptLanguage = null,
-        ?bool $loadResources = null,
-        ?bool $enableJavascript = null,
-        ?bool $enableBrowserRendering = null,
-        ?bool $disableCookiePopup = null,
-        ?bool $returnDespiteTimeout = null,
-        ?bool $enableXhr = null,
-        ?string $customJs = null,
-        ?bool $validateMicromarkup = null,
-        ?bool $checkSpell = null,
-        ?array $checksThreshold = null,
-        ?bool $switchPool = null,
-        ?string $ipPoolForScan = null,
-        array $additionalParams = [],
-        ?string $attributes = null,
-        int $amount = 1
-    ): array {
-        Log::debug(
-            'Making DataForSEO OnPage Instant Pages Live request',
-            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
-        );
-
-        $params = $this->buildApiParams($additionalParams);
-
-        // DataForSEO API requires an array of tasks
-        $tasks = [$params];
-
-        // Pass the URL as attributes if attributes is not provided
-        if ($attributes === null) {
-            $attributes = $url;
-        }
-
-        // Make the API request to the onpage/instant_pages endpoint
-        return $this->sendCachedRequest(
-            'on_page/instant_pages',
-            $tasks,
-            'POST',
-            $attributes,
-            $amount
-        );
-    }
-
-    /**
-     * Get raw HTML from DataForSEO's OnPage API
-     *
-     * @param string      $id               ID of the task (required)
-     * @param string|null $url              Page URL (required if not set in Instant Pages task)
-     * @param array       $additionalParams Additional parameters
-     * @param string|null $attributes       Optional attributes to store with cache entry
-     * @param int         $amount           Amount to pass to incrementAttempts
-     *
-     * @return array The API response data
-     */
-    public function onPageRawHtml(
-        string $id,
-        ?string $url = null,
-        array $additionalParams = [],
-        ?string $attributes = null,
-        int $amount = 1
-    ): array {
-        Log::debug(
-            'Making DataForSEO OnPage Raw HTML request',
-            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
-        );
-
-        $params = $this->buildApiParams($additionalParams);
-
-        // DataForSEO API requires an array of tasks
-        $tasks = [$params];
-
-        // Pass the ID as attributes if attributes is not provided
-        if ($attributes === null) {
-            $attributes = $id;
-        }
-
-        // Make the API request to the onpage/raw_html endpoint
-        return $this->sendCachedRequest(
-            'on_page/raw_html',
-            $tasks,
-            'POST',
-            $attributes,
-            $amount
-        );
-    }
-
-    /**
      * Create a Google Organic SERP task using DataForSEO's Task POST endpoint
      *
      * @param string      $keyword                      The search query
@@ -3350,6 +3228,85 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Get OnPage data from DataForSEO's Instant Pages API
+     *
+     * @param string      $url                      Target page URL (required)
+     * @param string|null $customUserAgent          Custom user agent for crawling a website
+     * @param string|null $browserPreset            Preset for browser screen parameters ("desktop", "mobile", "tablet")
+     * @param int|null    $browserScreenWidth       Browser screen width in pixels (min: 240, max: 9999)
+     * @param int|null    $browserScreenHeight      Browser screen height in pixels (min: 240, max: 9999)
+     * @param float|null  $browserScreenScaleFactor Browser screen scale factor (min: 0.5, max: 3)
+     * @param bool|null   $storeRawHtml             Store HTML of a crawled page
+     * @param string|null $acceptLanguage           Language header for accessing the website
+     * @param bool|null   $loadResources            Load image, stylesheets, scripts, and broken resources
+     * @param bool|null   $enableJavascript         Load javascript on a page
+     * @param bool|null   $enableBrowserRendering   Emulate browser rendering to measure Core Web Vitals
+     * @param bool|null   $disableCookiePopup       Disable the cookie popup
+     * @param bool|null   $returnDespiteTimeout     Return data on pages despite the timeout error
+     * @param bool|null   $enableXhr                Enable XMLHttpRequest on a page
+     * @param string|null $customJs                 Custom javascript
+     * @param bool|null   $validateMicromarkup      Enable microdata validation
+     * @param bool|null   $checkSpell               Check spelling
+     * @param array|null  $checksThreshold          Custom threshold values for checks
+     * @param bool|null   $switchPool               Switch proxy pool
+     * @param string|null $ipPoolForScan            Proxy pool location ('us', 'de')
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function onPageInstantPages(
+        string $url,
+        ?string $customUserAgent = null,
+        ?string $browserPreset = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?float $browserScreenScaleFactor = null,
+        ?bool $storeRawHtml = null,
+        ?string $acceptLanguage = null,
+        ?bool $loadResources = null,
+        ?bool $enableJavascript = null,
+        ?bool $enableBrowserRendering = null,
+        ?bool $disableCookiePopup = null,
+        ?bool $returnDespiteTimeout = null,
+        ?bool $enableXhr = null,
+        ?string $customJs = null,
+        ?bool $validateMicromarkup = null,
+        ?bool $checkSpell = null,
+        ?array $checksThreshold = null,
+        ?bool $switchPool = null,
+        ?string $ipPoolForScan = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        Log::debug(
+            'Making DataForSEO OnPage Instant Pages Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the URL as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $url;
+        }
+
+        // Make the API request to the onpage/instant_pages endpoint
+        return $this->sendCachedRequest(
+            'on_page/instant_pages',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
      * Create an OnPage task using DataForSEO's Task POST endpoint
      *
      * @param string      $target                   Target domain (required, without https:// and www.)
@@ -3610,6 +3567,432 @@ class DataForSeoApiClient extends BaseApiClient
             "on_page/summary/{$id}",
             [],
             'GET',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get OnPage pages using DataForSEO's Pages endpoint
+     *
+     * @param string      $id               The task ID from the Task POST response
+     * @param int|null    $limit            Maximum number of returned pages (default: 100, max: 1000)
+     * @param int|null    $offset           Offset in the results array (default: 0)
+     * @param array|null  $filters          Array of results filtering parameters
+     * @param array|null  $orderBy          Results sorting rules
+     * @param string|null $searchAfterToken Token for subsequent requests
+     * @param string|null $tag              User-defined task identifier (max 255 chars)
+     * @param array       $additionalParams Additional API parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function onPagePagesPost(
+        string $id,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?string $searchAfterToken = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required task ID
+        if (empty($id)) {
+            throw new \InvalidArgumentException('Task ID cannot be empty');
+        }
+
+        // Validate limit
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        // Validate offset
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('Offset must be greater than or equal to 0');
+        }
+
+        // Validate filters array
+        if ($filters !== null && count($filters) > 8) {
+            throw new \InvalidArgumentException('Maximum 8 filters are allowed');
+        }
+
+        // Validate order by array (max 3 sorting rules)
+        if ($orderBy !== null && count($orderBy) > 3) {
+            throw new \InvalidArgumentException('Maximum 3 sorting rules are allowed');
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO OnPage Pages request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        $tasks = [$params];
+
+        // Pass the task ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the pages endpoint
+        return $this->sendCachedRequest(
+            'on_page/pages',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get OnPage resources using DataForSEO's Resources endpoint
+     *
+     * @param string      $id                   The task ID from the Task POST response
+     * @param string|null $url                  Page URL to get resources for a specific page
+     * @param int|null    $limit                Maximum number of returned resources (default: 100, max: 1000)
+     * @param int|null    $offset               Offset in the results array (default: 0)
+     * @param array|null  $filters              Array of results filtering parameters
+     * @param array|null  $relevantPagesFilters Filter resources by relevant pages
+     * @param array|null  $orderBy              Results sorting rules
+     * @param string|null $searchAfterToken     Token for subsequent requests
+     * @param string|null $tag                  User-defined task identifier (max 255 chars)
+     * @param array       $additionalParams     Additional API parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function onPageResourcesPost(
+        string $id,
+        ?string $url = null,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?array $filters = null,
+        ?array $relevantPagesFilters = null,
+        ?array $orderBy = null,
+        ?string $searchAfterToken = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required task ID
+        if (empty($id)) {
+            throw new \InvalidArgumentException('Task ID cannot be empty');
+        }
+
+        // Validate limit
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        // Validate offset
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('Offset must be greater than or equal to 0');
+        }
+
+        // Validate filters array
+        if ($filters !== null && count($filters) > 8) {
+            throw new \InvalidArgumentException('Maximum 8 filters are allowed');
+        }
+
+        // Validate relevant pages filters array
+        if ($relevantPagesFilters !== null && count($relevantPagesFilters) > 8) {
+            throw new \InvalidArgumentException('Maximum 8 relevant pages filters are allowed');
+        }
+
+        // Validate order by array (max 3 sorting rules)
+        if ($orderBy !== null && count($orderBy) > 3) {
+            throw new \InvalidArgumentException('Maximum 3 sorting rules are allowed');
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO OnPage Resources request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        $tasks = [$params];
+
+        // Pass the task ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the resources endpoint with the task ID in the URL
+        return $this->sendCachedRequest(
+            'on_page/resources',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get OnPage waterfall using DataForSEO's Waterfall endpoint
+     *
+     * @param string      $id               The task ID from the Task POST response
+     * @param string      $url              Page URL to receive timing for
+     * @param string|null $tag              User-defined task identifier (max 255 chars)
+     * @param array       $additionalParams Additional API parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function onPageWaterfallPost(
+        string $id,
+        string $url,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required task ID
+        if (empty($id)) {
+            throw new \InvalidArgumentException('Task ID cannot be empty');
+        }
+
+        // Validate required URL
+        if (empty($url)) {
+            throw new \InvalidArgumentException('URL cannot be empty');
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO OnPage Waterfall request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        $tasks = [$params];
+
+        // Pass the task ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the waterfall endpoint
+        return $this->sendCachedRequest(
+            'on_page/waterfall',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get OnPage keyword density using DataForSEO's Keyword Density endpoint
+     *
+     * @param string      $id               The task ID from the Task POST response
+     * @param int         $keywordLength    Number of words for a keyword (1-5)
+     * @param string|null $url              Page URL (optional - if not specified, results for whole website)
+     * @param int|null    $limit            Maximum number of returned keywords (default: 100, max: 1000)
+     * @param array|null  $filters          Array of results filtering parameters (max 8 filters)
+     * @param array|null  $orderBy          Results sorting rules (max 3 sorting rules)
+     * @param string|null $tag              User-defined task identifier (max 255 chars)
+     * @param array       $additionalParams Additional API parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function onPageKeywordDensityPost(
+        string $id,
+        int $keywordLength,
+        ?string $url = null,
+        ?int $limit = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required task ID
+        if (empty($id)) {
+            throw new \InvalidArgumentException('Task ID cannot be empty');
+        }
+
+        // Validate required keyword length
+        if (!in_array($keywordLength, [1, 2, 3, 4, 5], true)) {
+            throw new \InvalidArgumentException('Keyword length must be 1, 2, 3, 4, or 5');
+        }
+
+        // Validate limit
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        // Validate filters array
+        if ($filters !== null && count($filters) > 8) {
+            throw new \InvalidArgumentException('Maximum 8 filters are allowed');
+        }
+
+        // Validate order by array (max 3 sorting rules)
+        if ($orderBy !== null && count($orderBy) > 3) {
+            throw new \InvalidArgumentException('Maximum 3 sorting rules are allowed');
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO OnPage Keyword Density request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        $tasks = [$params];
+
+        // Pass the task ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the keyword_density endpoint
+        return $this->sendCachedRequest(
+            'on_page/keyword_density',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get raw HTML from DataForSEO's OnPage API
+     *
+     * @param string      $id               ID of the task (required)
+     * @param string|null $url              Page URL (required if not set in Instant Pages task)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function onPageRawHtmlPost(
+        string $id,
+        ?string $url = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        Log::debug(
+            'Making DataForSEO OnPage Raw HTML request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams);
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the onpage/raw_html endpoint
+        return $this->sendCachedRequest(
+            'on_page/raw_html',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get content parsing from DataForSEO's OnPage API
+     *
+     * @param string      $url              URL of the content to parse
+     * @param string      $id               ID of the task (enable_content_parsing must be set to true in POST)
+     * @param bool|null   $markdownView     Return page content as markdown (default: false)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function onPageContentParsingPost(
+        string $url,
+        string $id,
+        ?bool $markdownView = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required URL
+        if (empty($url)) {
+            throw new \InvalidArgumentException('URL cannot be empty');
+        }
+
+        // Validate required task ID
+        if (empty($id)) {
+            throw new \InvalidArgumentException('Task ID cannot be empty');
+        }
+
+        Log::debug(
+            'Making DataForSEO OnPage Content Parsing request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        $tasks = [$params];
+
+        // Pass the task ID as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $id;
+        }
+
+        // Make the API request to the content_parsing endpoint
+        return $this->sendCachedRequest(
+            'on_page/content_parsing',
+            $tasks,
+            'POST',
             $attributes,
             $amount
         );

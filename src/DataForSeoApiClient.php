@@ -3997,4 +3997,171 @@ class DataForSeoApiClient extends BaseApiClient
             $amount
         );
     }
+
+    /**
+     * Get backlinks summary data using DataForSEO's Backlinks Summary Live API
+     *
+     * @param string      $target                   Domain, subdomain or webpage to get data for (required)
+     * @param bool|null   $includeSubdomains        Include subdomains in search (default: true)
+     * @param bool|null   $includeIndirectLinks     Include indirect links (default: true)
+     * @param bool|null   $excludeInternalBacklinks Exclude internal backlinks from subdomains (default: true)
+     * @param int|null    $internalListLimit        Maximum elements within internal arrays (default: 10, max: 1000)
+     * @param string|null $backlinksStatusType      Type of backlinks to return ('all', 'live', 'lost', default: 'live')
+     * @param array|null  $backlinksFilters         Filter the backlinks of your target
+     * @param string|null $rankScale                Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag                      User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksSummaryLive(
+        string $target,
+        ?bool $includeSubdomains = true,
+        ?bool $includeIndirectLinks = true,
+        ?bool $excludeInternalBacklinks = true,
+        ?int $internalListLimit = 10,
+        ?string $backlinksStatusType = 'live',
+        ?array $backlinksFilters = null,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate internal_list_limit parameter
+        if ($internalListLimit !== null && ($internalListLimit < 1 || $internalListLimit > 1000)) {
+            throw new \InvalidArgumentException('internal_list_limit must be between 1 and 1000');
+        }
+
+        // Validate backlinks_status_type parameter
+        if ($backlinksStatusType !== null && !in_array($backlinksStatusType, ['all', 'live', 'lost'])) {
+            throw new \InvalidArgumentException('backlinks_status_type must be one of: all, live, lost');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Summary Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks summary live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/summary/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get backlinks history data using DataForSEO's Backlinks History Live API
+     *
+     * @param string      $target           Domain to get data for (required, without https:// and www.)
+     * @param string|null $dateFrom         Starting date of the time range (format: yyyy-mm-dd, minimum: 2019-01-01)
+     * @param string|null $dateTo           Ending date of the time range (format: yyyy-mm-dd, defaults to today)
+     * @param string|null $rankScale        Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag              User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksHistoryLive(
+        string $target,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate date_from parameter
+        if ($dateFrom !== null) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+                throw new \InvalidArgumentException('date_from must be in yyyy-mm-dd format');
+            }
+            if ($dateFrom < '2019-01-01') {
+                throw new \InvalidArgumentException('date_from must be 2019-01-01 or later');
+            }
+        }
+
+        // Validate date_to parameter
+        if ($dateTo !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            throw new \InvalidArgumentException('date_to must be in yyyy-mm-dd format');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks History Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks history live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/history/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
 }

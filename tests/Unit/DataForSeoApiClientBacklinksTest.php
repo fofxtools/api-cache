@@ -572,18 +572,18 @@ class DataForSeoApiClientBacklinksTest extends TestCase
                     'rank_scale' => 'one_thousand',
                 ],
             ],
-            'webpage target with minimum date' => [
+            'domain target with minimum date' => [
                 [
-                    'target'    => 'https://example.com/page',
+                    'target'    => 'example-page.com',
                     'dateFrom'  => '2019-01-01',
                     'rankScale' => 'one_hundred',
-                    'tag'       => 'webpage-history',
+                    'tag'       => 'domain-history',
                 ],
                 [
-                    'target'     => 'https://example.com/page',
+                    'target'     => 'example-page.com',
                     'date_from'  => '2019-01-01',
                     'rank_scale' => 'one_hundred',
-                    'tag'        => 'webpage-history',
+                    'tag'        => 'domain-history',
                 ],
             ],
             'only date_to specified' => [
@@ -733,5 +733,1320 @@ class DataForSeoApiClientBacklinksTest extends TestCase
 
             return true;
         });
+    }
+
+    // Test methods for backlinksBacklinksLive
+    public function test_backlinks_backlinks_live_successful_request()
+    {
+        $id           = 'test-backlinks-id-12345';
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '1.2345 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '1.1234 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'backlinks', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'backlinks',
+                        'target'   => 'example.com',
+                    ],
+                    'result' => [
+                        [
+                            'target'      => 'example.com',
+                            'domain_from' => 'referring-site.com',
+                            'url_from'    => 'https://referring-site.com/page',
+                            'url_to'      => 'https://example.com/target-page',
+                            'anchor'      => 'example link',
+                            'dofollow'    => true,
+                            'rank'        => 45.6,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->backlinksBacklinksLive('example.com');
+
+        // Verify the fake response was received
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Check that the request was made to the correct endpoint
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
+        });
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertCount(1, $requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals('example.com', $taskData['target']);
+            $this->assertEquals('as_is', $taskData['mode']);
+            $this->assertEquals(0, $taskData['offset']);
+            $this->assertEquals(100, $taskData['limit']);
+            $this->assertEquals('live', $taskData['backlinks_status_type']);
+            $this->assertTrue($taskData['include_subdomains']);
+            $this->assertTrue($taskData['include_indirect_links']);
+            $this->assertTrue($taskData['exclude_internal_backlinks']);
+            $this->assertEquals('one_thousand', $taskData['rank_scale']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+        $this->assertEquals(0.025, $result['request']['cost']);
+    }
+
+    public function test_backlinks_backlinks_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+
+        $this->client->backlinksBacklinksLive('');
+    }
+
+    public function test_backlinks_backlinks_live_validates_mode_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('mode must be one of: as_is, one_per_domain, one_per_anchor');
+
+        $this->client->backlinksBacklinksLive('example.com', mode: 'invalid');
+    }
+
+    public function test_backlinks_backlinks_live_validates_custom_mode_structure()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('custom_mode must be an array with field and value keys');
+
+        $this->client->backlinksBacklinksLive('example.com', customMode: ['invalid' => 'structure']);
+    }
+
+    public function test_backlinks_backlinks_live_validates_custom_mode_field()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('custom_mode field must be one of: anchor, domain_from, domain_from_country, tld_from, page_from_encoding, page_from_language, item_type, page_from_status_code, semantic_location');
+
+        $this->client->backlinksBacklinksLive('example.com', customMode: ['field' => 'invalid_field', 'value' => 10]);
+    }
+
+    public function test_backlinks_backlinks_live_validates_custom_mode_value()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('custom_mode value must be between 1 and 1000');
+
+        $this->client->backlinksBacklinksLive('example.com', customMode: ['field' => 'anchor', 'value' => 1001]);
+    }
+
+    public function test_backlinks_backlinks_live_validates_offset_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('offset must be between 0 and 20,000');
+
+        $this->client->backlinksBacklinksLive('example.com', offset: 20001);
+    }
+
+    public function test_backlinks_backlinks_live_validates_limit_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('limit must be between 1 and 1000');
+
+        $this->client->backlinksBacklinksLive('example.com', limit: 1001);
+    }
+
+    // Test methods for backlinksAnchorsLive
+    public function test_backlinks_anchors_live_successful_request()
+    {
+        $id           = 'test-anchors-id-12345';
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.8765 sec.',
+            'cost'           => 0.018,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.7654 sec.',
+                    'cost'           => 0.018,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'anchors', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'anchors',
+                        'target'   => 'example.com',
+                    ],
+                    'result' => [
+                        [
+                            'anchor'            => 'example link',
+                            'backlinks'         => 125,
+                            'referring_domains' => 45,
+                            'rank'              => 67.8,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->backlinksAnchorsLive('example.com');
+
+        // Verify the fake response was received
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Check that the request was made to the correct endpoint
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.dataforseo.com/v3/backlinks/anchors/live';
+        });
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertCount(1, $requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals('example.com', $taskData['target']);
+            $this->assertEquals(100, $taskData['limit']);
+            $this->assertEquals(0, $taskData['offset']);
+            $this->assertEquals(10, $taskData['internal_list_limit']);
+            $this->assertEquals('live', $taskData['backlinks_status_type']);
+            $this->assertTrue($taskData['include_subdomains']);
+            $this->assertTrue($taskData['include_indirect_links']);
+            $this->assertTrue($taskData['exclude_internal_backlinks']);
+            $this->assertEquals('one_thousand', $taskData['rank_scale']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+        $this->assertEquals(0.018, $result['request']['cost']);
+    }
+
+    public function test_backlinks_anchors_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+
+        $this->client->backlinksAnchorsLive('');
+    }
+
+    public function test_backlinks_anchors_live_validates_limit_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('limit must be between 1 and 1000');
+
+        $this->client->backlinksAnchorsLive('example.com', limit: 0);
+    }
+
+    public function test_backlinks_anchors_live_validates_offset_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('offset must be non-negative');
+
+        $this->client->backlinksAnchorsLive('example.com', offset: -1);
+    }
+
+    public function test_backlinks_anchors_live_validates_internal_list_limit_parameter()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('internal_list_limit must be between 1 and 1000');
+
+        $this->client->backlinksAnchorsLive('example.com', internalListLimit: 0);
+    }
+
+    // Test methods for backlinksDomainPagesLive
+    public function test_backlinks_domain_pages_live_successful_request()
+    {
+        $id           = 'test-domain-pages-id-12345';
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.9876 sec.',
+            'cost'           => 0.022,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.8765 sec.',
+                    'cost'           => 0.022,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'domain_pages', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'domain_pages',
+                        'target'   => 'example.com',
+                    ],
+                    'result' => [
+                        [
+                            'page'              => 'https://example.com/page1',
+                            'backlinks'         => 85,
+                            'referring_domains' => 32,
+                            'rank'              => 54.7,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->backlinksDomainPagesLive('example.com');
+
+        // Verify the fake response was received
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Check that the request was made to the correct endpoint
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.dataforseo.com/v3/backlinks/domain_pages/live';
+        });
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertCount(1, $requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals('example.com', $taskData['target']);
+            $this->assertEquals(100, $taskData['limit']);
+            $this->assertEquals(0, $taskData['offset']);
+            $this->assertEquals(10, $taskData['internal_list_limit']);
+            $this->assertEquals('live', $taskData['backlinks_status_type']);
+            $this->assertTrue($taskData['include_subdomains']);
+            $this->assertTrue($taskData['exclude_internal_backlinks']);
+            $this->assertEquals('one_thousand', $taskData['rank_scale']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+        $this->assertEquals(0.022, $result['request']['cost']);
+    }
+
+    public function test_backlinks_domain_pages_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+
+        $this->client->backlinksDomainPagesLive('');
+    }
+
+    // Test methods for backlinksDomainPagesSummaryLive
+    public function test_backlinks_domain_pages_summary_live_successful_request()
+    {
+        $id           = 'test-domain-pages-summary-id-12345';
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.7654 sec.',
+            'cost'           => 0.016,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.6543 sec.',
+                    'cost'           => 0.016,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'domain_pages_summary', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'domain_pages_summary',
+                        'target'   => 'example.com',
+                    ],
+                    'result' => [
+                        [
+                            'target'               => 'example.com',
+                            'total_pages'          => 450,
+                            'pages_with_backlinks' => 125,
+                            'total_backlinks'      => 2500,
+                            'referring_domains'    => 185,
+                            'rank'                 => 72.3,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->backlinksDomainPagesSummaryLive('example.com');
+
+        // Verify the fake response was received
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Check that the request was made to the correct endpoint
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.dataforseo.com/v3/backlinks/domain_pages_summary/live';
+        });
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertCount(1, $requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals('example.com', $taskData['target']);
+            $this->assertEquals(100, $taskData['limit']);
+            $this->assertEquals(0, $taskData['offset']);
+            $this->assertEquals(10, $taskData['internal_list_limit']);
+            $this->assertEquals('live', $taskData['backlinks_status_type']);
+            $this->assertTrue($taskData['include_subdomains']);
+            $this->assertTrue($taskData['include_indirect_links']);
+            $this->assertTrue($taskData['exclude_internal_backlinks']);
+            $this->assertEquals('one_thousand', $taskData['rank_scale']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+        $this->assertEquals(0.016, $result['request']['cost']);
+    }
+
+    public function test_backlinks_domain_pages_summary_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+
+        $this->client->backlinksDomainPagesSummaryLive('');
+    }
+
+    // Test methods for backlinksReferringDomainsLive
+    public function test_backlinks_referring_domains_live_successful_request()
+    {
+        $id           = 'test-referring-domains-id-12345';
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '1.1234 sec.',
+            'cost'           => 0.028,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '1.0123 sec.',
+                    'cost'           => 0.028,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'referring_domains', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'referring_domains',
+                        'target'   => 'example.com',
+                    ],
+                    'result' => [
+                        [
+                            'domain'             => 'referring-site.com',
+                            'backlinks'          => 45,
+                            'referring_pages'    => 12,
+                            'dofollow_backlinks' => 38,
+                            'rank'               => 61.4,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->backlinksReferringDomainsLive('example.com');
+
+        // Verify the fake response was received
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Check that the request was made to the correct endpoint
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.dataforseo.com/v3/backlinks/referring_domains/live';
+        });
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertCount(1, $requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals('example.com', $taskData['target']);
+            $this->assertEquals(100, $taskData['limit']);
+            $this->assertEquals(0, $taskData['offset']);
+            $this->assertEquals(10, $taskData['internal_list_limit']);
+            $this->assertEquals('live', $taskData['backlinks_status_type']);
+            $this->assertTrue($taskData['include_subdomains']);
+            $this->assertTrue($taskData['include_indirect_links']);
+            $this->assertTrue($taskData['exclude_internal_backlinks']);
+            $this->assertEquals('one_thousand', $taskData['rank_scale']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+        $this->assertEquals(0.028, $result['request']['cost']);
+    }
+
+    public function test_backlinks_referring_domains_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+
+        $this->client->backlinksReferringDomainsLive('');
+    }
+
+    // Test methods for backlinksReferringNetworksLive
+    public function test_backlinks_referring_networks_live_successful_request()
+    {
+        $id           = 'test-referring-networks-id-12345';
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.9876 sec.',
+            'cost'           => 0.021,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.8765 sec.',
+                    'cost'           => 0.021,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'referring_networks', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'referring_networks',
+                        'target'   => 'example.com',
+                    ],
+                    'result' => [
+                        [
+                            'network_address'   => '192.168.1.0',
+                            'backlinks'         => 28,
+                            'referring_domains' => 8,
+                            'referring_ips'     => 15,
+                            'rank'              => 45.6,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->backlinksReferringNetworksLive('example.com');
+
+        // Verify the fake response was received
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Check that the request was made to the correct endpoint
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.dataforseo.com/v3/backlinks/referring_networks/live';
+        });
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertCount(1, $requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals('example.com', $taskData['target']);
+            $this->assertEquals('ip', $taskData['network_address_type']);
+            $this->assertEquals(100, $taskData['limit']);
+            $this->assertEquals(0, $taskData['offset']);
+            $this->assertEquals(10, $taskData['internal_list_limit']);
+            $this->assertEquals('live', $taskData['backlinks_status_type']);
+            $this->assertTrue($taskData['include_subdomains']);
+            $this->assertTrue($taskData['include_indirect_links']);
+            $this->assertTrue($taskData['exclude_internal_backlinks']);
+            $this->assertEquals('one_thousand', $taskData['rank_scale']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+        $this->assertEquals(0.021, $result['request']['cost']);
+    }
+
+    public function test_backlinks_referring_networks_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+
+        $this->client->backlinksReferringNetworksLive('');
+    }
+
+    public function test_backlinks_referring_networks_live_validates_network_address_type()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('network_address_type must be one of: ip, subnet');
+
+        $this->client->backlinksReferringNetworksLive('example.com', networkAddressType: 'invalid');
+    }
+
+    // Additional validation tests for common parameters
+    public function test_backlinks_methods_validate_backlinks_status_type()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('backlinks_status_type must be one of: all, live, lost');
+
+        $this->client->backlinksAnchorsLive('example.com', backlinksStatusType: 'invalid');
+    }
+
+    public function test_backlinks_methods_validate_rank_scale()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('rank_scale must be one of: one_hundred, one_thousand');
+
+        $this->client->backlinksDomainPagesLive('example.com', rankScale: 'invalid');
+    }
+
+    public function test_backlinks_methods_validate_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+
+        $longTag = str_repeat('a', 256);
+        $this->client->backlinksReferringDomainsLive('example.com', tag: $longTag);
+    }
+
+    public function test_backlinks_methods_with_additional_params()
+    {
+        $id           = 'test-additional-params-id';
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.012,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.012,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'backlinks', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'backlinks',
+                        'target'   => 'example.com',
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $additionalParams = [
+            'custom_param'  => 'custom_value',
+            'another_param' => 123,
+        ];
+
+        $result = $this->client->backlinksBacklinksLive(
+            'example.com',
+            additionalParams: $additionalParams
+        );
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure includes additional params
+        Http::assertSent(function ($request) {
+            $requestData = $request->data();
+            $taskData    = $requestData[0];
+
+            $this->assertEquals('custom_value', $taskData['custom_param']);
+            $this->assertEquals(123, $taskData['another_param']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    /**
+     * Test target validation for domain-only methods
+     */
+    public function test_domain_only_methods_accept_valid_domains()
+    {
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => 'test-id', 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Test valid domain target - just test one to verify validation passes
+        $result = $this->client->backlinksDomainPagesLive('example.com');
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    public function test_domain_only_methods_reject_www()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target domain must be specified without www.');
+        $this->client->backlinksDomainPagesLive('www.example.com');
+    }
+
+    public function test_domain_only_methods_reject_http()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target domain must be specified without https:// or http://');
+        $this->client->backlinksHistoryLive('http://example.com');
+    }
+
+    public function test_domain_only_methods_reject_invalid_domain()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target must be a valid domain or subdomain');
+        $this->client->backlinksDomainPagesLive('invalid..domain');
+    }
+
+    /**
+     * Test target validation for domain-or-page methods
+     */
+    public function test_domain_or_page_methods_accept_valid_domains()
+    {
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => 'test-id', 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Test valid domain target - just test one to verify validation passes
+        $result = $this->client->backlinksSummaryLive('example.com');
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    public function test_domain_or_page_methods_accept_valid_urls()
+    {
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => 'test-id', 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Test valid URL target - just test one to verify validation passes
+        $result = $this->client->backlinksSummaryLive('https://example.com/page');
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    public function test_domain_or_page_methods_reject_domain_with_www()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target domain must be specified without www. (for domains) or as absolute URL (for pages)');
+        $this->client->backlinksSummaryLive('www.example.com');
+    }
+
+    public function test_domain_or_page_methods_reject_invalid_url()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target URL must be a valid absolute URL');
+        $this->client->backlinksBacklinksLive('https://invalid..url');
+    }
+
+    public function test_domain_or_page_methods_reject_invalid_domain_format()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)');
+        $this->client->backlinksAnchorsLive('invalid-domain-format!@#');
+    }
+
+    public function test_all_domain_or_page_methods_reject_www_domain()
+    {
+        $methods = [
+            'backlinksSummaryLive',
+            'backlinksBacklinksLive',
+            'backlinksAnchorsLive',
+            'backlinksDomainPagesSummaryLive',
+            'backlinksReferringDomainsLive',
+            'backlinksReferringNetworksLive',
+        ];
+
+        foreach ($methods as $method) {
+            try {
+                $this->client->$method('www.example.com');
+                $this->fail("Method $method should have thrown an exception for www.example.com");
+            } catch (\InvalidArgumentException $e) {
+                $this->assertStringContainsString('Target domain must be specified without www.', $e->getMessage());
+            }
+        }
+    }
+
+    public function test_all_domain_only_methods_reject_https()
+    {
+        $methods = [
+            'backlinksHistoryLive',
+            'backlinksDomainPagesLive',
+        ];
+
+        foreach ($methods as $method) {
+            try {
+                $this->client->$method('https://example.com');
+                $this->fail("Method $method should have thrown an exception for https://example.com");
+            } catch (\InvalidArgumentException $e) {
+                $this->assertStringContainsString('Target domain must be specified without https:// or http://', $e->getMessage());
+            }
+        }
+    }
+
+    public function test_target_validation_preserves_other_validations()
+    {
+        // Test that target validation doesn't break other parameter validations
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('limit must be between 1 and 1000');
+        $this->client->backlinksAnchorsLive('example.com', 2000); // Invalid limit
+    }
+
+    /**
+     * Test backlinks bulk ranks live successful request
+     */
+    public function test_backlinks_bulk_ranks_live_successful_request()
+    {
+        $id           = 'test-id-' . uniqid();
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'bulk_ranks', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'bulk_ranks',
+                        'targets'  => ['example.com', 'test.com'],
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'test.com'];
+        $result  = $this->client->backlinksBulkRanksLive($targets);
+
+        $responseData = $result['response']->json();
+
+        $this->assertEquals(20000, $responseData['status_code']);
+        $this->assertEquals('Ok.', $responseData['status_message']);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $this->assertStringContainsString('backlinks/bulk_ranks/live', $request->url());
+            $this->assertEquals('POST', $request->method());
+
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertNotEmpty($requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals(['example.com', 'test.com'], $taskData['targets']);
+            $this->assertEquals('one_thousand', $taskData['rank_scale']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    public function test_backlinks_bulk_ranks_live_validates_empty_targets()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Targets array cannot be empty');
+        $this->client->backlinksBulkRanksLive([]);
+    }
+
+    public function test_backlinks_bulk_ranks_live_validates_targets_limit()
+    {
+        $targets = array_fill(0, 1001, 'example.com');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum number of targets is 1000');
+        $this->client->backlinksBulkRanksLive($targets);
+    }
+
+    public function test_backlinks_bulk_ranks_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+        $this->client->backlinksBulkRanksLive(['example.com', '']);
+    }
+
+    public function test_backlinks_bulk_ranks_live_validates_rank_scale()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('rank_scale must be one of: one_hundred, one_thousand');
+        $this->client->backlinksBulkRanksLive(['example.com'], 'invalid_scale');
+    }
+
+    public function test_backlinks_bulk_ranks_live_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+        $this->client->backlinksBulkRanksLive(['example.com'], tag: str_repeat('a', 256));
+    }
+
+    public function test_backlinks_bulk_ranks_live_with_parameters()
+    {
+        $id           = 'test-id';
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => $id, 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'https://test.com/page'];
+        $result  = $this->client->backlinksBulkRanksLive(
+            $targets,
+            'one_hundred',
+            'test-tag'
+        );
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals(['example.com', 'https://test.com/page'], $taskData['targets']);
+            $this->assertEquals('one_hundred', $taskData['rank_scale']);
+            $this->assertEquals('test-tag', $taskData['tag']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    /**
+     * Test backlinks bulk backlinks live successful request
+     */
+    public function test_backlinks_bulk_backlinks_live_successful_request()
+    {
+        $id           = 'test-id-' . uniqid();
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'bulk_backlinks', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'bulk_backlinks',
+                        'targets'  => ['example.com', 'test.com'],
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'test.com'];
+        $result  = $this->client->backlinksBulkBacklinksLive($targets);
+
+        $responseData = $result['response']->json();
+
+        $this->assertEquals(20000, $responseData['status_code']);
+        $this->assertEquals('Ok.', $responseData['status_message']);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $this->assertStringContainsString('backlinks/bulk_backlinks/live', $request->url());
+            $this->assertEquals('POST', $request->method());
+
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertNotEmpty($requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals(['example.com', 'test.com'], $taskData['targets']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    public function test_backlinks_bulk_backlinks_live_validates_empty_targets()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Targets array cannot be empty');
+        $this->client->backlinksBulkBacklinksLive([]);
+    }
+
+    public function test_backlinks_bulk_backlinks_live_validates_targets_limit()
+    {
+        $targets = array_fill(0, 1001, 'example.com');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum number of targets is 1000');
+        $this->client->backlinksBulkBacklinksLive($targets);
+    }
+
+    public function test_backlinks_bulk_backlinks_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+        $this->client->backlinksBulkBacklinksLive(['example.com', '']);
+    }
+
+    public function test_backlinks_bulk_backlinks_live_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+        $this->client->backlinksBulkBacklinksLive(['example.com'], str_repeat('a', 256));
+    }
+
+    public function test_backlinks_bulk_backlinks_live_with_parameters()
+    {
+        $id           = 'test-id';
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => $id, 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'https://test.com/page'];
+        $result  = $this->client->backlinksBulkBacklinksLive($targets, 'test-tag');
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals(['example.com', 'https://test.com/page'], $taskData['targets']);
+            $this->assertEquals('test-tag', $taskData['tag']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    /**
+     * Test backlinks bulk spam score live successful request
+     */
+    public function test_backlinks_bulk_spam_score_live_successful_request()
+    {
+        $id           = 'test-id-' . uniqid();
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'bulk_spam_score', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'bulk_spam_score',
+                        'targets'  => ['example.com', 'test.com'],
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'test.com'];
+        $result  = $this->client->backlinksBulkSpamScoreLive($targets);
+
+        $responseData = $result['response']->json();
+
+        $this->assertEquals(20000, $responseData['status_code']);
+        $this->assertEquals('Ok.', $responseData['status_message']);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $this->assertStringContainsString('backlinks/bulk_spam_score/live', $request->url());
+            $this->assertEquals('POST', $request->method());
+
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertNotEmpty($requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals(['example.com', 'test.com'], $taskData['targets']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    public function test_backlinks_bulk_spam_score_live_validates_empty_targets()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Targets array cannot be empty');
+        $this->client->backlinksBulkSpamScoreLive([]);
+    }
+
+    public function test_backlinks_bulk_spam_score_live_validates_targets_limit()
+    {
+        $targets = array_fill(0, 1001, 'example.com');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum number of targets is 1000');
+        $this->client->backlinksBulkSpamScoreLive($targets);
+    }
+
+    public function test_backlinks_bulk_spam_score_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+        $this->client->backlinksBulkSpamScoreLive(['example.com', '']);
+    }
+
+    public function test_backlinks_bulk_spam_score_live_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+        $this->client->backlinksBulkSpamScoreLive(['example.com'], str_repeat('a', 256));
+    }
+
+    public function test_backlinks_bulk_spam_score_live_with_parameters()
+    {
+        $id           = 'test-id';
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => $id, 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'https://test.com/page'];
+        $result  = $this->client->backlinksBulkSpamScoreLive($targets, 'test-tag');
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals(['example.com', 'https://test.com/page'], $taskData['targets']);
+            $this->assertEquals('test-tag', $taskData['tag']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    /**
+     * Test bulk methods handle target validation
+     */
+    public function test_bulk_methods_validate_target_format()
+    {
+        // Test invalid domain format with www
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target domain must be specified without www.');
+        $this->client->backlinksBulkRanksLive(['example.com', 'www.invalid.com']);
+    }
+
+    public function test_bulk_methods_accept_mixed_targets()
+    {
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => 'test-id', 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = [
+            'example.com',
+            'subdomain.test.com',
+            'https://www.site.com/page',
+            'http://another.com/path',
+        ];
+
+        // Test all three bulk methods accept mixed targets
+        $this->client->backlinksBulkRanksLive($targets);
+        $this->client->backlinksBulkBacklinksLive($targets);
+        $this->client->backlinksBulkSpamScoreLive($targets);
+
+        // Verify all requests were sent successfully
+        Http::assertSentCount(3);
+    }
+
+    public function test_bulk_methods_with_additional_params()
+    {
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => 'test-id', 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets          = ['example.com', 'test.com'];
+        $additionalParams = [
+            'custom_param'  => 'custom_value',
+            'another_param' => 123,
+        ];
+
+        $result = $this->client->backlinksBulkRanksLive(
+            $targets,
+            additionalParams: $additionalParams
+        );
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals('custom_value', $taskData['custom_param']);
+            $this->assertEquals(123, $taskData['another_param']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
     }
 }

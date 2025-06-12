@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use FOfX\Helper\ReflectionUtils;
 use FOfX\Helper;
+use Pdp\Rules;
+use Pdp\Domain;
 
 class DataForSeoApiClient extends BaseApiClient
 {
@@ -691,6 +693,77 @@ class DataForSeoApiClient extends BaseApiClient
             $endpoint,
             attributes: $taskId
         );
+    }
+
+    /**
+     * Validate target parameter for domain-only endpoints (must be domain without https:// and www.)
+     *
+     * @param string $target The target to validate
+     *
+     * @throws \InvalidArgumentException If validation fails
+     */
+    public function validateDomainTarget(string $target): void
+    {
+        // Check for forbidden protocols
+        if (preg_match('/^https?:\/\//', $target)) {
+            throw new \InvalidArgumentException('Target domain must be specified without https:// or http://');
+        }
+
+        // Check for www prefix
+        if (preg_match('/^www\./', $target)) {
+            throw new \InvalidArgumentException('Target domain must be specified without www.');
+        }
+
+        try {
+            $path   = download_public_suffix_list();
+            $rules  = Rules::fromPath($path);
+            $domain = Domain::fromIDNA2008($target);
+            $result = $rules->resolve($domain);
+
+            if (empty($result->registrableDomain()->toString()) || empty($result->suffix()->value())) {
+                throw new \InvalidArgumentException('Target must be a valid domain or subdomain');
+            }
+        } catch (\Throwable $e) {
+            throw new \InvalidArgumentException('Target must be a valid domain or subdomain');
+        }
+    }
+
+    /**
+     * Validate target parameter for domain-or-page endpoints (domain without protocols/www or absolute URL)
+     *
+     * @param string $target The target to validate
+     *
+     * @throws \InvalidArgumentException If validation fails
+     */
+    public function validateDomainOrPageTarget(string $target): void
+    {
+        // Check if it's an absolute URL
+        if (preg_match('/^https?:\/\//', $target)) {
+            // Validate as URL
+            if (!filter_var($target, FILTER_VALIDATE_URL)) {
+                throw new \InvalidArgumentException('Target URL must be a valid absolute URL');
+            }
+
+            return;
+        }
+
+        // Check for www prefix on domain-only targets
+        if (preg_match('/^www\./', $target)) {
+            throw new \InvalidArgumentException('Target domain must be specified without www. (for domains) or as absolute URL (for pages)');
+        }
+
+        try {
+            $path   = download_public_suffix_list();
+            $rules  = Rules::fromPath($path);
+            $domain = Domain::fromIDNA2008($target);
+            $result = $rules->resolve($domain);
+
+            if (empty($result->registrableDomain()->toString()) || empty($result->suffix()->value())) {
+                throw new \InvalidArgumentException('Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)');
+            }
+        } catch (\Throwable $e) {
+            throw new \InvalidArgumentException('Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)');
+        }
     }
 
     /**
@@ -4037,6 +4110,9 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Target cannot be empty');
         }
 
+        // Validate target format (domain/subdomain without https:// and www. OR absolute URL)
+        $this->validateDomainOrPageTarget($target);
+
         // Validate internal_list_limit parameter
         if ($internalListLimit !== null && ($internalListLimit < 1 || $internalListLimit > 1000)) {
             throw new \InvalidArgumentException('internal_list_limit must be between 1 and 1000');
@@ -4114,6 +4190,9 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Target cannot be empty');
         }
 
+        // Validate target format (domain only, without https:// and www.)
+        $this->validateDomainTarget($target);
+
         // Validate date_from parameter
         if ($dateFrom !== null) {
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
@@ -4158,6 +4237,877 @@ class DataForSeoApiClient extends BaseApiClient
         // Make the API request to the backlinks history live endpoint
         return $this->sendCachedRequest(
             'backlinks/history/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get backlinks data using DataForSEO's Backlinks Backlinks Live API
+     *
+     * @param string      $target                   Domain, subdomain or webpage to get backlinks for (required)
+     * @param string|null $mode                     Results grouping type ('as_is', 'one_per_domain', 'one_per_anchor', default: 'as_is')
+     * @param array|null  $customMode               Detailed results grouping type with field and value
+     * @param array|null  $filters                  Array of results filtering parameters (max 8 filters)
+     * @param array|null  $orderBy                  Results sorting rules (max 3 rules)
+     * @param int|null    $offset                   Offset in the results array (default: 0, max: 20,000)
+     * @param string|null $searchAfterToken         Token for subsequent requests
+     * @param int|null    $limit                    Maximum number of returned backlinks (default: 100, max: 1000)
+     * @param string|null $backlinksStatusType      Type of backlinks to return ('all', 'live', 'lost', default: 'live')
+     * @param bool|null   $includeSubdomains        Include subdomains in search (default: true)
+     * @param bool|null   $includeIndirectLinks     Include indirect links (default: true)
+     * @param bool|null   $excludeInternalBacklinks Exclude internal backlinks from subdomains (default: true)
+     * @param string|null $rankScale                Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag                      User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBacklinksLive(
+        string $target,
+        ?string $mode = 'as_is',
+        ?array $customMode = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?int $offset = 0,
+        ?string $searchAfterToken = null,
+        ?int $limit = 100,
+        ?string $backlinksStatusType = 'live',
+        ?bool $includeSubdomains = true,
+        ?bool $includeIndirectLinks = true,
+        ?bool $excludeInternalBacklinks = true,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target format (domain/subdomain without https:// and www. OR absolute URL)
+        $this->validateDomainOrPageTarget($target);
+
+        // Validate mode parameter
+        if ($mode !== null && !in_array($mode, ['as_is', 'one_per_domain', 'one_per_anchor'])) {
+            throw new \InvalidArgumentException('mode must be one of: as_is, one_per_domain, one_per_anchor');
+        }
+
+        // Validate custom_mode parameter
+        if ($customMode !== null) {
+            if (!isset($customMode['field']) || !isset($customMode['value'])) {
+                throw new \InvalidArgumentException('custom_mode must be an array with field and value keys');
+            }
+            $validFields = ['anchor', 'domain_from', 'domain_from_country', 'tld_from', 'page_from_encoding', 'page_from_language', 'item_type', 'page_from_status_code', 'semantic_location'];
+            if (!in_array($customMode['field'], $validFields)) {
+                throw new \InvalidArgumentException('custom_mode field must be one of: ' . implode(', ', $validFields));
+            }
+            if (!is_int($customMode['value']) || $customMode['value'] < 1 || $customMode['value'] > 1000) {
+                throw new \InvalidArgumentException('custom_mode value must be between 1 and 1000');
+            }
+        }
+
+        // Validate offset parameter
+        if ($offset !== null && ($offset < 0 || $offset > 20000)) {
+            throw new \InvalidArgumentException('offset must be between 0 and 20,000');
+        }
+
+        // Validate limit parameter
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('limit must be between 1 and 1000');
+        }
+
+        // Validate backlinks_status_type parameter
+        if ($backlinksStatusType !== null && !in_array($backlinksStatusType, ['all', 'live', 'lost'])) {
+            throw new \InvalidArgumentException('backlinks_status_type must be one of: all, live, lost');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Backlinks Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks backlinks live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/backlinks/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get backlinks anchors data using DataForSEO's Backlinks Anchors Live API
+     *
+     * @param string      $target                   Domain, subdomain or webpage to get anchors for (required)
+     * @param int|null    $limit                    Maximum number of returned anchors (default: 100, max: 1000)
+     * @param int|null    $offset                   Offset in the results array (default: 0)
+     * @param int|null    $internalListLimit        Maximum elements within internal arrays (default: 10, max: 1000)
+     * @param string|null $backlinksStatusType      Type of backlinks to return ('all', 'live', 'lost', default: 'live')
+     * @param array|null  $filters                  Array of results filtering parameters (max 8 filters)
+     * @param array|null  $orderBy                  Results sorting rules (max 3 rules)
+     * @param array|null  $backlinksFilters         Filter the backlinks of your target
+     * @param bool|null   $includeSubdomains        Include subdomains in search (default: true)
+     * @param bool|null   $includeIndirectLinks     Include indirect links (default: true)
+     * @param bool|null   $excludeInternalBacklinks Exclude internal backlinks from subdomains (default: true)
+     * @param string|null $rankScale                Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag                      User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksAnchorsLive(
+        string $target,
+        ?int $limit = 100,
+        ?int $offset = 0,
+        ?int $internalListLimit = 10,
+        ?string $backlinksStatusType = 'live',
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?array $backlinksFilters = null,
+        ?bool $includeSubdomains = true,
+        ?bool $includeIndirectLinks = true,
+        ?bool $excludeInternalBacklinks = true,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target format (domain/subdomain without https:// and www. OR absolute URL)
+        $this->validateDomainOrPageTarget($target);
+
+        // Validate limit parameter
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('offset must be non-negative');
+        }
+
+        // Validate internal_list_limit parameter
+        if ($internalListLimit !== null && ($internalListLimit < 1 || $internalListLimit > 1000)) {
+            throw new \InvalidArgumentException('internal_list_limit must be between 1 and 1000');
+        }
+
+        // Validate backlinks_status_type parameter
+        if ($backlinksStatusType !== null && !in_array($backlinksStatusType, ['all', 'live', 'lost'])) {
+            throw new \InvalidArgumentException('backlinks_status_type must be one of: all, live, lost');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Anchors Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks anchors live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/anchors/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get backlinks domain pages data using DataForSEO's Backlinks Domain Pages Live API
+     *
+     * @param string      $target                   Domain or subdomain (required, without https:// and www.)
+     * @param int|null    $limit                    Maximum number of returned pages (default: 100, max: 1000)
+     * @param int|null    $offset                   Offset in the results array (default: 0)
+     * @param int|null    $internalListLimit        Maximum elements within internal arrays (default: 10, max: 1000)
+     * @param string|null $backlinksStatusType      Type of backlinks to return ('all', 'live', 'lost', default: 'live')
+     * @param array|null  $filters                  Array of results filtering parameters (max 8 filters)
+     * @param array|null  $orderBy                  Results sorting rules (max 3 rules)
+     * @param array|null  $backlinksFilters         Filter the backlinks of your target
+     * @param bool|null   $includeSubdomains        Include subdomains in search (default: true)
+     * @param bool|null   $excludeInternalBacklinks Exclude internal backlinks from subdomains (default: true)
+     * @param string|null $rankScale                Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag                      User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksDomainPagesLive(
+        string $target,
+        ?int $limit = 100,
+        ?int $offset = 0,
+        ?int $internalListLimit = 10,
+        ?string $backlinksStatusType = 'live',
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?array $backlinksFilters = null,
+        ?bool $includeSubdomains = true,
+        ?bool $excludeInternalBacklinks = true,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target format (domain only, without https:// and www.)
+        $this->validateDomainTarget($target);
+
+        // Validate limit parameter
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('offset must be non-negative');
+        }
+
+        // Validate internal_list_limit parameter
+        if ($internalListLimit !== null && ($internalListLimit < 1 || $internalListLimit > 1000)) {
+            throw new \InvalidArgumentException('internal_list_limit must be between 1 and 1000');
+        }
+
+        // Validate backlinks_status_type parameter
+        if ($backlinksStatusType !== null && !in_array($backlinksStatusType, ['all', 'live', 'lost'])) {
+            throw new \InvalidArgumentException('backlinks_status_type must be one of: all, live, lost');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Domain Pages Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks domain pages live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/domain_pages/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get backlinks domain pages summary data using DataForSEO's Backlinks Domain Pages Summary Live API
+     *
+     * @param string      $target                   Domain, subdomain or webpage to get summary data for (required)
+     * @param int|null    $limit                    Maximum number of returned anchors (default: 100, max: 1000)
+     * @param int|null    $offset                   Offset in the results array (default: 0)
+     * @param int|null    $internalListLimit        Maximum elements within internal arrays (default: 10, max: 1000)
+     * @param string|null $backlinksStatusType      Type of backlinks to return ('all', 'live', 'lost', default: 'live')
+     * @param array|null  $filters                  Array of results filtering parameters (max 8 filters)
+     * @param array|null  $orderBy                  Results sorting rules (max 3 rules)
+     * @param array|null  $backlinksFilters         Filter the backlinks of your target
+     * @param bool|null   $includeSubdomains        Include subdomains of the target domain (default: true)
+     * @param bool|null   $includeIndirectLinks     Include indirect links (default: true)
+     * @param bool|null   $excludeInternalBacklinks Exclude backlinks from subdomains of the target (default: true)
+     * @param string|null $rankScale                Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag                      User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksDomainPagesSummaryLive(
+        string $target,
+        ?int $limit = 100,
+        ?int $offset = 0,
+        ?int $internalListLimit = 10,
+        ?string $backlinksStatusType = 'live',
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?array $backlinksFilters = null,
+        ?bool $includeSubdomains = true,
+        ?bool $includeIndirectLinks = true,
+        ?bool $excludeInternalBacklinks = true,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target format (domain/subdomain without https:// and www. OR absolute URL)
+        $this->validateDomainOrPageTarget($target);
+
+        // Validate limit parameter
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('offset must be non-negative');
+        }
+
+        // Validate internal_list_limit parameter
+        if ($internalListLimit !== null && ($internalListLimit < 1 || $internalListLimit > 1000)) {
+            throw new \InvalidArgumentException('internal_list_limit must be between 1 and 1000');
+        }
+
+        // Validate backlinks_status_type parameter
+        if ($backlinksStatusType !== null && !in_array($backlinksStatusType, ['all', 'live', 'lost'])) {
+            throw new \InvalidArgumentException('backlinks_status_type must be one of: all, live, lost');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Domain Pages Summary Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks domain pages summary live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/domain_pages_summary/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get backlinks referring domains data using DataForSEO's Backlinks Referring Domains Live API
+     *
+     * @param string      $target                   Domain, subdomain or webpage to get referring domains for (required)
+     * @param int|null    $limit                    Maximum number of returned domains (default: 100, max: 1000)
+     * @param int|null    $offset                   Offset in the results array (default: 0)
+     * @param int|null    $internalListLimit        Maximum elements within internal arrays (default: 10, max: 1000)
+     * @param string|null $backlinksStatusType      Type of backlinks to return ('all', 'live', 'lost', default: 'live')
+     * @param array|null  $filters                  Array of results filtering parameters (max 8 filters)
+     * @param array|null  $orderBy                  Results sorting rules (max 3 rules)
+     * @param array|null  $backlinksFilters         Filter the backlinks of your target
+     * @param bool|null   $includeSubdomains        Include subdomains in search (default: true)
+     * @param bool|null   $includeIndirectLinks     Include indirect links (default: true)
+     * @param bool|null   $excludeInternalBacklinks Exclude backlinks from subdomains of the target (default: true)
+     * @param string|null $rankScale                Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag                      User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksReferringDomainsLive(
+        string $target,
+        ?int $limit = 100,
+        ?int $offset = 0,
+        ?int $internalListLimit = 10,
+        ?string $backlinksStatusType = 'live',
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?array $backlinksFilters = null,
+        ?bool $includeSubdomains = true,
+        ?bool $includeIndirectLinks = true,
+        ?bool $excludeInternalBacklinks = true,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target format (domain/subdomain without https:// and www. OR absolute URL)
+        $this->validateDomainOrPageTarget($target);
+
+        // Validate limit parameter
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('offset must be non-negative');
+        }
+
+        // Validate internal_list_limit parameter
+        if ($internalListLimit !== null && ($internalListLimit < 1 || $internalListLimit > 1000)) {
+            throw new \InvalidArgumentException('internal_list_limit must be between 1 and 1000');
+        }
+
+        // Validate backlinks_status_type parameter
+        if ($backlinksStatusType !== null && !in_array($backlinksStatusType, ['all', 'live', 'lost'])) {
+            throw new \InvalidArgumentException('backlinks_status_type must be one of: all, live, lost');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Referring Domains Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks referring domains live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/referring_domains/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get backlinks referring networks data using DataForSEO's Backlinks Referring Networks Live API
+     *
+     * @param string      $target                   Domain, subdomain or webpage to get referring networks for (required)
+     * @param string|null $networkAddressType       Type of network to get data for ('ip', 'subnet', default: 'ip')
+     * @param int|null    $limit                    Maximum number of returned networks (default: 100, max: 1000)
+     * @param int|null    $offset                   Offset in the results array (default: 0)
+     * @param int|null    $internalListLimit        Maximum elements within internal arrays (default: 10, max: 1000)
+     * @param string|null $backlinksStatusType      Type of backlinks to return ('all', 'live', 'lost', default: 'live')
+     * @param array|null  $filters                  Array of results filtering parameters (max 8 filters)
+     * @param array|null  $orderBy                  Results sorting rules (max 3 rules)
+     * @param array|null  $backlinksFilters         Filter the backlinks of your target
+     * @param bool|null   $includeSubdomains        Include subdomains in search (default: true)
+     * @param bool|null   $includeIndirectLinks     Include indirect links (default: true)
+     * @param bool|null   $excludeInternalBacklinks Exclude backlinks from subdomains of the target (default: true)
+     * @param string|null $rankScale                Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag                      User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksReferringNetworksLive(
+        string $target,
+        ?string $networkAddressType = 'ip',
+        ?int $limit = 100,
+        ?int $offset = 0,
+        ?int $internalListLimit = 10,
+        ?string $backlinksStatusType = 'live',
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?array $backlinksFilters = null,
+        ?bool $includeSubdomains = true,
+        ?bool $includeIndirectLinks = true,
+        ?bool $excludeInternalBacklinks = true,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate required target parameter
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target format (domain/subdomain without https:// and www. OR absolute URL)
+        $this->validateDomainOrPageTarget($target);
+
+        // Validate network_address_type parameter
+        if ($networkAddressType !== null && !in_array($networkAddressType, ['ip', 'subnet'])) {
+            throw new \InvalidArgumentException('network_address_type must be one of: ip, subnet');
+        }
+
+        // Validate limit parameter
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('offset must be non-negative');
+        }
+
+        // Validate internal_list_limit parameter
+        if ($internalListLimit !== null && ($internalListLimit < 1 || $internalListLimit > 1000)) {
+            throw new \InvalidArgumentException('internal_list_limit must be between 1 and 1000');
+        }
+
+        // Validate backlinks_status_type parameter
+        if ($backlinksStatusType !== null && !in_array($backlinksStatusType, ['all', 'live', 'lost'])) {
+            throw new \InvalidArgumentException('backlinks_status_type must be one of: all, live, lost');
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Referring Networks Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the backlinks referring networks live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/referring_networks/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get bulk ranks data using DataForSEO's Backlinks Bulk Ranks Live API
+     *
+     * @param array       $targets          Array of domains, subdomains or webpages to get ranks for (required, max 1000)
+     * @param string|null $rankScale        Scale for rank values ('one_hundred', 'one_thousand', default: 'one_thousand')
+     * @param string|null $tag              User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBulkRanksLive(
+        array $targets,
+        ?string $rankScale = 'one_thousand',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate targets array is not empty
+        if (empty($targets)) {
+            throw new \InvalidArgumentException('Targets array cannot be empty');
+        }
+
+        // Validate targets array length is within limits
+        if (count($targets) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of targets is 1000');
+        }
+
+        // Validate each target format
+        foreach ($targets as $target) {
+            if (empty($target)) {
+                throw new \InvalidArgumentException('Target cannot be empty');
+            }
+            $this->validateDomainOrPageTarget($target);
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'])) {
+            throw new \InvalidArgumentException('rank_scale must be one of: one_hundred, one_thousand');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Bulk Ranks Live request',
+            ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of targets as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', array_slice($targets, 0, 10)) . (count($targets) > 10 ? '...' : '');
+        }
+
+        // Make the API request to the backlinks bulk ranks live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/bulk_ranks/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get bulk backlinks data using DataForSEO's Backlinks Bulk Backlinks Live API
+     *
+     * @param array       $targets          Array of domains, subdomains or webpages to get backlinks count for (required, max 1000)
+     * @param string|null $tag              User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBulkBacklinksLive(
+        array $targets,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate targets array is not empty
+        if (empty($targets)) {
+            throw new \InvalidArgumentException('Targets array cannot be empty');
+        }
+
+        // Validate targets array length is within limits
+        if (count($targets) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of targets is 1000');
+        }
+
+        // Validate each target format
+        foreach ($targets as $target) {
+            if (empty($target)) {
+                throw new \InvalidArgumentException('Target cannot be empty');
+            }
+            $this->validateDomainOrPageTarget($target);
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Bulk Backlinks Live request',
+            ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of targets as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', array_slice($targets, 0, 10)) . (count($targets) > 10 ? '...' : '');
+        }
+
+        // Make the API request to the backlinks bulk backlinks live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/bulk_backlinks/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get bulk spam score data using DataForSEO's Backlinks Bulk Spam Score Live API
+     *
+     * @param array       $targets          Array of domains, subdomains or webpages to get spam scores for (required, max 1000)
+     * @param string|null $tag              User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBulkSpamScoreLive(
+        array $targets,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate targets array is not empty
+        if (empty($targets)) {
+            throw new \InvalidArgumentException('Targets array cannot be empty');
+        }
+
+        // Validate targets array length is within limits
+        if (count($targets) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of targets is 1000');
+        }
+
+        // Validate each target format
+        foreach ($targets as $target) {
+            if (empty($target)) {
+                throw new \InvalidArgumentException('Target cannot be empty');
+            }
+            $this->validateDomainOrPageTarget($target);
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Bulk Spam Score Live request',
+            ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of targets as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', array_slice($targets, 0, 10)) . (count($targets) > 10 ? '...' : '');
+        }
+
+        // Make the API request to the backlinks bulk spam score live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/bulk_spam_score/live',
             $tasks,
             'POST',
             $attributes,

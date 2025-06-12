@@ -1361,4 +1361,122 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $rawResponseData, 'GET');
         $this->addToAssertionCount(1);
     }
+
+    /**
+     * Data provider for validateDomainTarget tests
+     */
+    public static function domainTargetDataProvider(): array
+    {
+        return [
+            // Valid domains
+            'simple domain'         => ['example.com', true],
+            'subdomain'             => ['sub.example.com', true],
+            'multi-level subdomain' => ['blog.api.example.com', true],
+            'domain with numbers'   => ['test123.com', true],
+            'domain with hyphens'   => ['test-site.co.uk', true],
+            'single letter domain'  => ['a.co', true],
+            'numeric TLD'           => ['example.123', true],
+            'long TLD'              => ['example.online', true],
+            'long TLD subdomain'    => ['blog.api.example.website', true],
+
+            // Invalid domains - with protocols
+            'https protocol'       => ['https://example.com', false, 'Target domain must be specified without https:// or http://'],
+            'http protocol'        => ['http://example.com', false, 'Target domain must be specified without https:// or http://'],
+            'https with subdomain' => ['https://sub.example.com', false, 'Target domain must be specified without https:// or http://'],
+
+            // Invalid domains - with www
+            'www prefix'         => ['www.example.com', false, 'Target domain must be specified without www.'],
+            'www with subdomain' => ['www.sub.example.com', false, 'Target domain must be specified without www.'],
+
+            // Invalid domains - bad format
+            'empty string'           => ['', false, 'Target must be a valid domain or subdomain'],
+            'invalid characters'     => ['exa@mple.com', false, 'Target must be a valid domain or subdomain'],
+            'spaces'                 => ['example .com', false, 'Target must be a valid domain or subdomain'],
+            'consecutive dots'       => ['example..com', false, 'Target must be a valid domain or subdomain'],
+            'multiple trailing dots' => ['example.com..', false, 'Target must be a valid domain or subdomain'],
+
+            // Invalid - single word (no TLD)
+            'single word' => ['example', false, 'Target must be a valid domain or subdomain'],
+        ];
+    }
+
+    /**
+     * Test validateDomainTarget with valid and invalid inputs
+     */
+    #[DataProvider('domainTargetDataProvider')]
+    public function test_validateDomainTarget(string $target, bool $shouldPass, ?string $expectedMessage = null)
+    {
+        if (!$shouldPass) {
+            $this->expectException(\InvalidArgumentException::class);
+            if ($expectedMessage) {
+                $this->expectExceptionMessage($expectedMessage);
+            }
+        }
+
+        $this->client->validateDomainTarget($target);
+
+        if ($shouldPass) {
+            // If we get here without exception, the test passed
+            $this->addToAssertionCount(1);
+        }
+    }
+
+    /**
+     * Data provider for validateDomainOrPageTarget tests
+     */
+    public static function domainOrPageTargetDataProvider(): array
+    {
+        return [
+            // Valid domains (without protocols)
+            'simple domain'       => ['example.com', true],
+            'subdomain'           => ['sub.example.com', true],
+            'domain with hyphens' => ['test-site.co.uk', true],
+
+            // Valid URLs (with protocols)
+            'https URL'               => ['https://example.com', true],
+            'http URL'                => ['http://example.com', true],
+            'https URL with path'     => ['https://example.com/page', true],
+            'https URL with query'    => ['https://example.com/page?param=value', true],
+            'https URL with fragment' => ['https://example.com/page#section', true],
+            'https URL with port'     => ['https://example.com:8080', true],
+            'https subdomain URL'     => ['https://sub.example.com/path', true],
+
+            // Invalid - www prefix on domain-only targets
+            'www prefix domain'  => ['www.example.com', false, 'Target domain must be specified without www. (for domains) or as absolute URL (for pages)'],
+            'www with subdomain' => ['www.sub.example.com', false, 'Target domain must be specified without www. (for domains) or as absolute URL (for pages)'],
+
+            // Invalid - bad domain format
+            'empty string'                 => ['', false, 'Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)'],
+            'invalid characters in domain' => ['exa@mple.com', false, 'Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)'],
+
+            // Invalid - single word (no TLD)
+            'single word domain' => ['example', false, 'Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)'],
+
+            // Invalid - bad URL format
+            'invalid URL'   => ['https://invalid url with spaces', false, 'Target URL must be a valid absolute URL'],
+            'malformed URL' => ['https://', false, 'Target URL must be a valid absolute URL'],
+            'protocol only' => ['https:///', false, 'Target URL must be a valid absolute URL'],
+        ];
+    }
+
+    /**
+     * Test validateDomainOrPageTarget with valid and invalid inputs
+     */
+    #[DataProvider('domainOrPageTargetDataProvider')]
+    public function test_validateDomainOrPageTarget(string $target, bool $shouldPass, ?string $expectedMessage = null)
+    {
+        if (!$shouldPass) {
+            $this->expectException(\InvalidArgumentException::class);
+            if ($expectedMessage) {
+                $this->expectExceptionMessage($expectedMessage);
+            }
+        }
+
+        $this->client->validateDomainOrPageTarget($target);
+
+        if ($shouldPass) {
+            // If we get here without exception, the test passed
+            $this->addToAssertionCount(1);
+        }
+    }
 }

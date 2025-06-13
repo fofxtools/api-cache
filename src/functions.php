@@ -115,7 +115,7 @@ function create_responses_table(
                 $table->mediumText('request_headers')->nullable();
                 $table->mediumText('request_body')->nullable();
                 $table->mediumText('response_headers')->nullable();
-                $table->mediumText('response_body')->nullable();
+                $table->longText('response_body')->nullable();
             }
 
             $table->integer('response_status_code');
@@ -153,7 +153,7 @@ function create_responses_table(
                     MODIFY request_headers MEDIUMBLOB,
                     MODIFY request_body MEDIUMBLOB,
                     MODIFY response_headers MEDIUMBLOB,
-                    MODIFY response_body MEDIUMBLOB
+                    MODIFY response_body LONGBLOB
                 ");
             } elseif ($driver === 'sqlsrv') {
                 Log::debug('Altering table columns for SQL Server VARBINARY(MAX)', [

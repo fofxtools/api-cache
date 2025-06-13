@@ -448,7 +448,7 @@ class DataForSeoApiClient extends BaseApiClient
         int $amount = 1
     ): array {
         // Validate endpointPath format
-        if (!preg_match('#^[a-z0-9_/]+/task_get/[a-z]+$#i', $endpointPath)) {
+        if (!preg_match('#^[a-z0-9_/]+/task_get(/[a-z]+)?$#i', $endpointPath)) {
             throw new \InvalidArgumentException('Invalid endpoint path format. Expected format: path/to/task_get/type');
         }
 
@@ -830,7 +830,7 @@ class DataForSeoApiClient extends BaseApiClient
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
 
-        $params = $this->buildApiParams($additionalParams);
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -935,7 +935,7 @@ class DataForSeoApiClient extends BaseApiClient
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
 
-        $params = $this->buildApiParams($additionalParams);
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -1000,7 +1000,7 @@ class DataForSeoApiClient extends BaseApiClient
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
 
-        $params = $this->buildApiParams($additionalParams);
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -1013,255 +1013,6 @@ class DataForSeoApiClient extends BaseApiClient
         // Make the API request to the live endpoint
         return $this->sendCachedRequest(
             'serp/google/autocomplete/live/advanced',
-            $tasks,
-            'POST',
-            $attributes,
-            $amount
-        );
-    }
-
-    /**
-     * Get Amazon Bulk Search Volume data using DataForSEO Labs API
-     *
-     * @param array       $keywords         Target keywords array (max 1000)
-     * @param string|null $locationName     Location name (e.g., "United States")
-     * @param int|null    $locationCode     Location code (e.g., 2840)
-     * @param string|null $languageName     Language name (e.g., "English")
-     * @param string|null $languageCode     Language code (e.g., "en")
-     * @param string|null $tag              User-defined task identifier
-     * @param array       $additionalParams Additional parameters
-     * @param string|null $attributes       Optional attributes to store with cache entry
-     * @param int         $amount           Amount to pass to incrementAttempts
-     *
-     * @return array The API response data
-     */
-    public function labsAmazonBulkSearchVolumeLive(
-        array $keywords,
-        ?string $locationName = null,
-        ?int $locationCode = 2840,
-        ?string $languageName = null,
-        ?string $languageCode = 'en',
-        ?string $tag = null,
-        array $additionalParams = [],
-        ?string $attributes = null,
-        int $amount = 1
-    ): array {
-        // Check if keywords array is not empty
-        if (empty($keywords)) {
-            throw new \InvalidArgumentException('Keywords array cannot be empty');
-        }
-
-        // Check if keywords array length is within limits
-        if (count($keywords) > 1000) {
-            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
-        }
-
-        // Validate that at least one language parameter is provided
-        if ($languageName === null && $languageCode === null) {
-            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
-        }
-
-        // Validate that at least one location parameter is provided
-        if ($locationName === null && $locationCode === null) {
-            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
-        }
-
-        // Extract args but without keywords, and add keywords_count
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Labs Amazon Bulk Search Volume request', $args);
-
-        $params = $this->buildApiParams($additionalParams);
-
-        // DataForSEO API requires an array of tasks
-        $tasks = [$params];
-
-        // Use concatenation of keywords as attributes if attributes is not provided
-        if ($attributes === null) {
-            $attributes = implode(',', $keywords);
-        }
-
-        // Make the API request to the labs endpoint
-        return $this->sendCachedRequest(
-            'dataforseo_labs/amazon/bulk_search_volume/live',
-            $tasks,
-            'POST',
-            $attributes,
-            $amount
-        );
-    }
-
-    /**
-     * Get Amazon Related Keywords data using DataForSEO Labs API
-     *
-     * Pricing: $0.01 per task + $0.0001 per returned keyword
-     *
-     * Cost breakdown by depth level (if max possible keywords returned):
-     * - Depth 0: $0.0101 (1 keyword)
-     * - Depth 1: $0.0106 (6 keywords)
-     * - Depth 2: $0.0142 (42 keywords)
-     * - Depth 3: $0.0402 (258 keywords)
-     * - Depth 4: $0.1702 (1554 keywords)
-     *
-     * @param string      $keyword            Seed keyword
-     * @param string|null $locationName       Location name (e.g., "United States")
-     * @param int|null    $locationCode       Location code (e.g., 2840)
-     * @param string|null $languageName       Language name (e.g., "English")
-     * @param string|null $languageCode       Language code (e.g., "en")
-     * @param int|null    $depth              Keyword search depth level (0-4)
-     * @param bool|null   $includeSeedKeyword Include data for the seed keyword
-     * @param bool|null   $ignoreSynonyms     Ignore highly similar keywords
-     * @param int|null    $limit              Maximum number of returned keywords (max 1000)
-     * @param int|null    $offset             Offset in the results array
-     * @param string|null $tag                User-defined task identifier
-     * @param array       $additionalParams   Additional parameters
-     * @param string|null $attributes         Optional attributes to store with cache entry
-     * @param int         $amount             Amount to pass to incrementAttempts
-     *
-     * @return array The API response data
-     */
-    public function labsAmazonRelatedKeywordsLive(
-        string $keyword,
-        ?string $locationName = null,
-        ?int $locationCode = 2840,
-        ?string $languageName = null,
-        ?string $languageCode = 'en',
-        ?int $depth = 2,
-        ?bool $includeSeedKeyword = null,
-        ?bool $ignoreSynonyms = null,
-        ?int $limit = null,
-        ?int $offset = null,
-        ?string $tag = null,
-        array $additionalParams = [],
-        ?string $attributes = null,
-        int $amount = 1
-    ): array {
-        // Validate that keyword is not empty
-        if (empty($keyword)) {
-            throw new \InvalidArgumentException('Keyword cannot be empty');
-        }
-
-        // Validate that at least one language parameter is provided
-        if ($languageName === null && $languageCode === null) {
-            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
-        }
-
-        // Validate that at least one location parameter is provided
-        if ($locationName === null && $locationCode === null) {
-            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
-        }
-
-        // Validate depth parameter is within allowed range
-        if ($depth !== null && ($depth < 0 || $depth > 4)) {
-            throw new \InvalidArgumentException('Depth must be between 0 and 4');
-        }
-
-        // Validate limit parameter is within allowed range
-        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
-            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
-        }
-
-        Log::debug(
-            'Making DataForSEO Labs Amazon Related Keywords request',
-            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
-        );
-
-        $params = $this->buildApiParams($additionalParams);
-
-        // DataForSEO API requires an array of tasks
-        $tasks = [$params];
-
-        // Pass the query as attributes if attributes is not provided
-        if ($attributes === null) {
-            $attributes = $keyword;
-        }
-
-        // Make the API request to the labs endpoint
-        return $this->sendCachedRequest(
-            'dataforseo_labs/amazon/related_keywords/live',
-            $tasks,
-            'POST',
-            $attributes,
-            $amount
-        );
-    }
-
-    /**
-     * Get Amazon Ranked Keywords data using DataForSEO Labs API
-     *
-     * Returns keywords that the specified product (ASIN) ranks for on Amazon.
-     *
-     * @param string      $asin             Amazon product ID (ASIN)
-     * @param string|null $locationName     Location name (e.g., "United States")
-     * @param int|null    $locationCode     Location code (e.g., 2840)
-     * @param string|null $languageName     Language name (e.g., "English")
-     * @param string|null $languageCode     Language code (e.g., "en")
-     * @param int|null    $limit            Maximum number of returned keywords (max 1000)
-     * @param bool|null   $ignoreSynonyms   Ignore highly similar keywords
-     * @param array|null  $filters          Array of results filtering parameters
-     * @param array|null  $orderBy          Results sorting rules
-     * @param int|null    $offset           Offset in the results array
-     * @param string|null $tag              User-defined task identifier
-     * @param array       $additionalParams Additional parameters
-     * @param string|null $attributes       Optional attributes to store with cache entry
-     * @param int         $amount           Amount to pass to incrementAttempts
-     *
-     * @return array The API response data
-     */
-    public function labsAmazonRankedKeywordsLive(
-        string $asin,
-        ?string $locationName = null,
-        ?int $locationCode = 2840,
-        ?string $languageName = null,
-        ?string $languageCode = 'en',
-        ?int $limit = null,
-        ?bool $ignoreSynonyms = null,
-        ?array $filters = null,
-        ?array $orderBy = null,
-        ?int $offset = null,
-        ?string $tag = null,
-        array $additionalParams = [],
-        ?string $attributes = null,
-        int $amount = 1
-    ): array {
-        // Validate that ASIN is not empty
-        if (empty($asin)) {
-            throw new \InvalidArgumentException('ASIN cannot be empty');
-        }
-
-        // Validate that at least one language parameter is provided
-        if ($languageName === null && $languageCode === null) {
-            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
-        }
-
-        // Validate that at least one location parameter is provided
-        if ($locationName === null && $locationCode === null) {
-            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
-        }
-
-        // Validate limit parameter is within allowed range
-        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
-            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
-        }
-
-        Log::debug(
-            'Making DataForSEO Labs Amazon Ranked Keywords request',
-            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
-        );
-
-        $params = $this->buildApiParams($additionalParams);
-
-        // DataForSEO API requires an array of tasks
-        $tasks = [$params];
-
-        // Pass the ASIN as attributes if attributes is not provided
-        if ($attributes === null) {
-            $attributes = $asin;
-        }
-
-        // Make the API request to the labs endpoint
-        return $this->sendCachedRequest(
-            'dataforseo_labs/amazon/ranked_keywords/live',
             $tasks,
             'POST',
             $attributes,
@@ -1372,7 +1123,7 @@ class DataForSeoApiClient extends BaseApiClient
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
 
-        $params = $this->buildApiParams($additionalParams);
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -1531,7 +1282,7 @@ class DataForSeoApiClient extends BaseApiClient
             'usePostback',
             'usePingback',
             'postTaskIfNotCached',
-        ]);
+        ], __METHOD__, get_defined_vars());
 
         // Type is always part of the endpoint
         $endpoint = "serp/google/organic/task_get/{$type}";
@@ -1971,7 +1722,7 @@ class DataForSeoApiClient extends BaseApiClient
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
 
-        $params = $this->buildApiParams($additionalParams);
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -2057,7 +1808,7 @@ class DataForSeoApiClient extends BaseApiClient
             'usePostback',
             'usePingback',
             'postTaskIfNotCached',
-        ]);
+        ], __METHOD__, get_defined_vars());
 
         $endpoint = 'serp/google/autocomplete/task_get/advanced';
 
@@ -2099,6 +1850,1813 @@ class DataForSeoApiClient extends BaseApiClient
             'advanced',
             $pingbackUrl,
             $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Submit a Google Ads Search Volume task using DataForSEO Keywords Data API
+     *
+     * This method submits a task to retrieve Google Ads search volume data for keywords.
+     * The task must be retrieved later using the task ID returned in the response.
+     *
+     * @param array       $keywords             Keywords array (max 1000, max 80 chars each)
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param string|null $postbackUrl          Return URL for sending task results
+     * @param string|null $pingbackUrl          Notification URL of a completed task
+     * @param string|null $tag                  User-defined task identifier
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsSearchVolumeTaskPost(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?bool $includeAdultKeywords = false,
+        ?string $sortBy = 'relevance',
+        ?string $postbackUrl = null,
+        ?string $pingbackUrl = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate keyword length and character limits
+        foreach ($keywords as $keyword) {
+            if (strlen($keyword) > 80) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 80 characters');
+            }
+            $wordCount = str_word_count($keyword);
+            if ($wordCount > 10) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 10 words');
+            }
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+        }
+        if ($dateTo !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+        }
+
+        // Validate date range if both dates provided
+        if ($dateFrom !== null && $dateTo !== null) {
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'search_volume', 'competition_index', 'low_top_of_page_bid', 'high_top_of_page_bid'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Search Volume Task POST request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/search_volume/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Retrieve Google Ads Search Volume task results using DataForSEO Keywords Data API
+     *
+     * This method retrieves results for a previously submitted search volume task.
+     * Tasks remain available for 30 days after submission.
+     *
+     * @param string      $id         Task identifier in UUID format
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsSearchVolumeTaskGet(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet(
+            'keywords_data/google_ads/search_volume/task_get',
+            $id,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Ads Search Volume data immediately using DataForSEO Keywords Data API
+     *
+     * This method provides immediate results for search volume analysis without requiring
+     * task submission and retrieval.
+     *
+     * @param array       $keywords             Keywords array (max 1000, max 80 chars each)
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param string|null $tag                  User-defined task identifier
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsSearchVolumeLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?bool $includeAdultKeywords = false,
+        ?string $sortBy = 'relevance',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate keyword length and character limits
+        foreach ($keywords as $keyword) {
+            if (strlen($keyword) > 80) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 80 characters');
+            }
+            $wordCount = str_word_count($keyword);
+            if ($wordCount > 10) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 10 words');
+            }
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+        }
+        if ($dateTo !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+        }
+
+        // Validate date range if both dates provided
+        if ($dateFrom !== null && $dateTo !== null) {
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'search_volume', 'competition_index', 'low_top_of_page_bid', 'high_top_of_page_bid'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Search Volume Live request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/search_volume/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Google Ads Search Volume Standard method wrapper
+     *
+     * @param array       $keywords             Keywords array (max 1000, max 80 chars each, max 10 words each)
+     * @param int|null    $priority             Task priority (1-3)
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param bool        $usePostback          Enable postback webhook (default: false)
+     * @param bool        $usePingback          Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached  Create task if not cached (default: false)
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function keywordsDataGoogleAdsSearchVolumeStandard(
+        array $keywords,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?bool $includeAdultKeywords = false,
+        ?string $sortBy = 'relevance',
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ], __METHOD__, get_defined_vars());
+
+        $endpoint = 'keywords_data/google_ads/search_volume/task_get';
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->keywordsDataGoogleAdsSearchVolumeTaskPost(
+            $keywords,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $searchPartners,
+            $dateFrom,
+            $dateTo,
+            $includeAdultKeywords,
+            $sortBy,
+            $postbackUrl,
+            $pingbackUrl,
+            $cacheKey,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Submit a Google Ads Keywords For Site task using DataForSEO Keywords Data API
+     *
+     * This method submits a task to retrieve keywords for a target domain or page.
+     * The task must be retrieved later using the task ID returned in the response.
+     *
+     * @param string      $target               Target domain or page URL
+     * @param string|null $targetType           Search type: 'site' or 'page' (default: 'page')
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param string|null $postbackUrl          Return URL for sending task results
+     * @param string|null $pingbackUrl          Notification URL of completed task
+     * @param string|null $tag                  User-defined task identifier
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsKeywordsForSiteTaskPost(
+        string $target,
+        ?string $targetType = 'page',
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?bool $includeAdultKeywords = false,
+        ?string $sortBy = 'relevance',
+        ?string $postbackUrl = null,
+        ?string $pingbackUrl = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate target is not empty
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target_type parameter
+        $validTargetTypes = ['site', 'page'];
+        if ($targetType !== null && !in_array($targetType, $validTargetTypes)) {
+            throw new \InvalidArgumentException('targetType must be one of: ' . implode(', ', $validTargetTypes));
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+        }
+        if ($dateTo !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+        }
+
+        // Validate date range if both dates provided
+        if ($dateFrom !== null && $dateTo !== null) {
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'search_volume', 'competition_index', 'low_top_of_page_bid', 'high_top_of_page_bid'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
+        }
+
+        $args = ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Site Task POST request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/keywords_for_site/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Retrieve Google Ads Keywords For Site task results using DataForSEO Keywords Data API
+     *
+     * This method retrieves results for a previously submitted keywords for site task.
+     * Tasks remain available for 30 days after submission.
+     *
+     * @param string      $id         Task identifier in UUID format
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsKeywordsForSiteTaskGet(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet(
+            'keywords_data/google_ads/keywords_for_site/task_get',
+            $id,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Ads Keywords For Site data immediately using DataForSEO Keywords Data API
+     *
+     * This method provides immediate results for keywords analysis of a target domain or page
+     * without requiring task submission and retrieval.
+     *
+     * @param string      $target               Target domain or page URL
+     * @param string|null $targetType           Search type: 'site' or 'page' (default: 'page')
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param string|null $tag                  User-defined task identifier
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsKeywordsForSiteLive(
+        string $target,
+        ?string $targetType = 'page',
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?bool $includeAdultKeywords = false,
+        ?string $sortBy = 'relevance',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate target is not empty
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target cannot be empty');
+        }
+
+        // Validate target_type parameter
+        $validTargetTypes = ['site', 'page'];
+        if ($targetType !== null && !in_array($targetType, $validTargetTypes)) {
+            throw new \InvalidArgumentException('targetType must be one of: ' . implode(', ', $validTargetTypes));
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+        }
+        if ($dateTo !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+        }
+
+        // Validate date range if both dates provided
+        if ($dateFrom !== null && $dateTo !== null) {
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'search_volume', 'competition_index', 'low_top_of_page_bid', 'high_top_of_page_bid'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
+        }
+
+        $args = ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Site Live request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use target as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/keywords_for_site/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Google Ads Keywords For Site Standard method wrapper
+     *
+     * @param string      $target               Target domain or page URL
+     * @param string|null $targetType           Search type: 'site' or 'page' (default: 'page')
+     * @param int|null    $priority             Task priority (1-3)
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param bool        $usePostback          Enable postback webhook (default: false)
+     * @param bool        $usePingback          Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached  Create task if not cached (default: false)
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function keywordsDataGoogleAdsKeywordsForSiteStandard(
+        string $target,
+        ?string $targetType = 'page',
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?bool $includeAdultKeywords = false,
+        ?string $sortBy = 'relevance',
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ], __METHOD__, get_defined_vars());
+
+        $endpoint = 'keywords_data/google_ads/keywords_for_site/task_get';
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->keywordsDataGoogleAdsKeywordsForSiteTaskPost(
+            $target,
+            $targetType,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $searchPartners,
+            $dateFrom,
+            $dateTo,
+            $includeAdultKeywords,
+            $sortBy,
+            $postbackUrl,
+            $pingbackUrl,
+            $cacheKey,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Submit Google Ads Keywords For Keywords task using DataForSEO Keywords Data API
+     *
+     * @param array       $keywords             Keywords array (max 20, max 80 chars each)
+     * @param string|null $target               Target website or URL
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $postbackUrl          Return URL for sending task results
+     * @param string|null $pingbackUrl          Notification URL of a completed task
+     * @param string|null $tag                  User-defined task identifier
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsKeywordsForKeywordsTaskPost(
+        array $keywords,
+        ?string $target = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $sortBy = 'relevance',
+        ?bool $includeAdultKeywords = false,
+        ?string $postbackUrl = null,
+        ?string $pingbackUrl = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 20) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 20');
+        }
+
+        // Validate keyword length limits
+        foreach ($keywords as $keyword) {
+            if (strlen($keyword) > 80) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 80 characters');
+            }
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+        }
+        if ($dateTo !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+        }
+
+        // Validate date range if both dates provided
+        if ($dateFrom !== null && $dateTo !== null) {
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'search_volume', 'competition_index', 'low_top_of_page_bid', 'high_top_of_page_bid'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Keywords Task POST request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/keywords_for_keywords/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Retrieve Google Ads Keywords For Keywords task results using DataForSEO Keywords Data API
+     *
+     * This method retrieves results for a previously submitted keywords for keywords task.
+     * Tasks remain available for 30 days after submission.
+     *
+     * @param string      $id         Task identifier in UUID format
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsKeywordsForKeywordsTaskGet(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet(
+            'keywords_data/google_ads/keywords_for_keywords/task_get',
+            $id,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Ads Keywords For Keywords data immediately using DataForSEO Keywords Data API
+     *
+     * This method provides immediate results for keywords for keywords analysis without requiring
+     * task submission and retrieval.
+     *
+     * @param array       $keywords             Keywords array (max 20, max 80 chars each)
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param string|null $tag                  User-defined task identifier
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsKeywordsForKeywordsLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $sortBy = 'relevance',
+        ?bool $includeAdultKeywords = false,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 20) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 20');
+        }
+
+        // Validate keyword length limits
+        foreach ($keywords as $keyword) {
+            if (strlen($keyword) > 80) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 80 characters');
+            }
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+        }
+        if ($dateTo !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+        }
+
+        // Validate date range if both dates provided
+        if ($dateFrom !== null && $dateTo !== null) {
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'search_volume', 'competition_index', 'low_top_of_page_bid', 'high_top_of_page_bid'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Keywords Live request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/keywords_for_keywords/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Google Ads Keywords For Keywords Standard method wrapper
+     *
+     * @param array       $keywords             Keywords array (max 20, max 80 chars each)
+     * @param string|null $target               Target website or URL
+     * @param int|null    $priority             Task priority (1-3)
+     * @param string|null $locationName         Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode         Location code (e.g., 2840)
+     * @param string|null $locationCoordinate   Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName         Language name (e.g., "English")
+     * @param string|null $languageCode         Language code (e.g., "en")
+     * @param bool|null   $searchPartners       Include Google search partners
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
+     * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
+     * @param bool|null   $includeAdultKeywords Include adult keywords
+     * @param bool        $usePostback          Enable postback webhook (default: false)
+     * @param bool        $usePingback          Enable pingback webhook (default: false)
+     * @param bool        $postTaskIfNotCached  Create task if not cached (default: false)
+     * @param array       $additionalParams     Additional parameters
+     * @param string|null $attributes           Optional attributes to store with cache entry
+     * @param int         $amount               Amount to pass to incrementAttempts
+     *
+     * @return array|null Cached data if available, task creation response if posting, null if not cached and posting disabled
+     */
+    public function keywordsDataGoogleAdsKeywordsForKeywordsStandard(
+        array $keywords,
+        ?string $target = null,
+        ?int $priority = null,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $searchPartners = false,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $sortBy = 'relevance',
+        ?bool $includeAdultKeywords = false,
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ], __METHOD__, get_defined_vars());
+
+        $endpoint = 'keywords_data/google_ads/keywords_for_keywords/task_get';
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->keywordsDataGoogleAdsKeywordsForKeywordsTaskPost(
+            $keywords,
+            $target,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $searchPartners,
+            $dateFrom,
+            $dateTo,
+            $sortBy,
+            $includeAdultKeywords,
+            $postbackUrl,
+            $pingbackUrl,
+            $cacheKey,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Submit Google Ads Ad Traffic By Keywords task using DataForSEO Keywords Data API
+     *
+     * @param array       $keywords           Keywords array (max 1000, max 80 chars each, max 10 words each)
+     * @param float       $bid                Maximum custom bid
+     * @param string      $match              Keywords match-type (exact, broad, phrase)
+     * @param bool|null   $searchPartners     Include Google search partners
+     * @param string|null $locationName       Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode       Location code (e.g., 2840)
+     * @param string|null $locationCoordinate Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName       Language name (e.g., "English")
+     * @param string|null $languageCode       Language code (e.g., "en")
+     * @param string|null $dateFrom           Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo             Ending date (yyyy-mm-dd format)
+     * @param string|null $dateInterval       Forecasting date interval (next_week, next_month, next_quarter)
+     * @param string|null $sortBy             Sort by parameter (relevance, impressions, ctr, average_cpc, cost, clicks)
+     * @param string|null $postbackUrl        Return URL for sending task results
+     * @param string|null $pingbackUrl        Notification URL of a completed task
+     * @param string|null $tag                User-defined task identifier
+     * @param array       $additionalParams   Additional parameters
+     * @param string|null $attributes         Optional attributes to store with cache entry
+     * @param int         $amount             Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsAdTrafficByKeywordsTaskPost(
+        array $keywords,
+        float $bid,
+        string $match,
+        ?bool $searchPartners = false,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $dateInterval = 'next_month',
+        ?string $sortBy = 'relevance',
+        ?string $postbackUrl = null,
+        ?string $pingbackUrl = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate keyword length and word count limits
+        foreach ($keywords as $keyword) {
+            if (strlen($keyword) > 80) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 80 characters');
+            }
+            $wordCount = str_word_count($keyword);
+            if ($wordCount > 10) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 10 words');
+            }
+        }
+
+        // Validate bid is positive
+        if ($bid <= 0) {
+            throw new \InvalidArgumentException('Bid must be a positive number');
+        }
+
+        // Validate match parameter
+        $validMatchTypes = ['exact', 'broad', 'phrase'];
+        if (!in_array($match, $validMatchTypes)) {
+            throw new \InvalidArgumentException('match must be one of: ' . implode(', ', $validMatchTypes));
+        }
+
+        // Validate date range parameters
+        if ($dateFrom !== null && $dateTo !== null) {
+            if ($dateInterval !== null) {
+                throw new \InvalidArgumentException('Cannot specify both dateFrom/dateTo and dateInterval');
+            }
+
+            // Validate date format
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+                throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+            }
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+                throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+            }
+
+            // Validate date range
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        } elseif ($dateFrom !== null || $dateTo !== null) {
+            throw new \InvalidArgumentException('Both dateFrom and dateTo must be specified together');
+        }
+
+        // Validate date interval
+        if ($dateInterval !== null) {
+            $validIntervals = ['next_week', 'next_month', 'next_quarter'];
+            if (!in_array($dateInterval, $validIntervals)) {
+                throw new \InvalidArgumentException('dateInterval must be one of: ' . implode(', ', $validIntervals));
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'impressions', 'ctr', 'average_cpc', 'cost', 'clicks'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Ad Traffic By Keywords Task POST request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/ad_traffic_by_keywords/task_post',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Retrieve Google Ads Ad Traffic By Keywords task results using DataForSEO Keywords Data API
+     *
+     * This method retrieves results for a previously submitted ad traffic by keywords task.
+     * Tasks remain available for 30 days after submission.
+     *
+     * @param string      $id         Task identifier in UUID format
+     * @param string|null $attributes Optional attributes to store with cache entry
+     * @param int         $amount     Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsAdTrafficByKeywordsTaskGet(
+        string $id,
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        return $this->taskGet(
+            'keywords_data/google_ads/ad_traffic_by_keywords/task_get',
+            $id,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Ads Ad Traffic By Keywords data immediately using DataForSEO Keywords Data API
+     *
+     * This method provides immediate results for ad traffic by keywords analysis without requiring
+     * task submission and retrieval.
+     *
+     * @param array       $keywords           Keywords array (max 1000, max 80 chars each, max 10 words each)
+     * @param float       $bid                Maximum custom bid
+     * @param string      $match              Keywords match-type (exact, broad, phrase)
+     * @param bool|null   $searchPartners     Include Google search partners
+     * @param string|null $locationName       Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode       Location code (e.g., 2840)
+     * @param string|null $locationCoordinate Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName       Language name (e.g., "English")
+     * @param string|null $languageCode       Language code (e.g., "en")
+     * @param string|null $dateFrom           Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo             Ending date (yyyy-mm-dd format)
+     * @param string|null $dateInterval       Forecasting date interval (next_week, next_month, next_quarter)
+     * @param string|null $sortBy             Sort by parameter (relevance, impressions, ctr, average_cpc, cost, clicks)
+     * @param string|null $tag                User-defined task identifier
+     * @param array       $additionalParams   Additional parameters
+     * @param string|null $attributes         Optional attributes to store with cache entry
+     * @param int         $amount             Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function keywordsDataGoogleAdsAdTrafficByKeywordsLive(
+        array $keywords,
+        float $bid,
+        string $match,
+        ?bool $searchPartners = false,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $dateInterval = 'next_month',
+        ?string $sortBy = 'relevance',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate keyword length and word count limits
+        foreach ($keywords as $keyword) {
+            if (strlen($keyword) > 80) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 80 characters');
+            }
+            $wordCount = str_word_count($keyword);
+            if ($wordCount > 10) {
+                throw new \InvalidArgumentException('Each keyword cannot exceed 10 words');
+            }
+        }
+
+        // Validate bid is positive
+        if ($bid <= 0) {
+            throw new \InvalidArgumentException('Bid must be a positive number');
+        }
+
+        // Validate match parameter
+        $validMatchTypes = ['exact', 'broad', 'phrase'];
+        if (!in_array($match, $validMatchTypes)) {
+            throw new \InvalidArgumentException('match must be one of: ' . implode(', ', $validMatchTypes));
+        }
+
+        // Validate date range parameters
+        if ($dateFrom !== null && $dateTo !== null) {
+            if ($dateInterval !== null) {
+                throw new \InvalidArgumentException('Cannot specify both dateFrom/dateTo and dateInterval');
+            }
+
+            // Validate date format
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+                throw new \InvalidArgumentException('dateFrom must be in yyyy-mm-dd format');
+            }
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+                throw new \InvalidArgumentException('dateTo must be in yyyy-mm-dd format');
+            }
+
+            // Validate date range
+            if (strtotime($dateFrom) > strtotime($dateTo)) {
+                throw new \InvalidArgumentException('dateFrom cannot be greater than dateTo');
+            }
+        } elseif ($dateFrom !== null || $dateTo !== null) {
+            throw new \InvalidArgumentException('Both dateFrom and dateTo must be specified together');
+        }
+
+        // Validate date interval
+        if ($dateInterval !== null) {
+            $validIntervals = ['next_week', 'next_month', 'next_quarter'];
+            if (!in_array($dateInterval, $validIntervals)) {
+                throw new \InvalidArgumentException('dateInterval must be one of: ' . implode(', ', $validIntervals));
+            }
+        }
+
+        // Validate location coordinate format if provided
+        if ($locationCoordinate !== null && !preg_match('/^-?\d+\.?\d*,-?\d+\.?\d*$/', $locationCoordinate)) {
+            throw new \InvalidArgumentException('locationCoordinate must be in "latitude,longitude" format');
+        }
+
+        // Validate sortBy parameter
+        $validSortOptions = ['relevance', 'impressions', 'ctr', 'average_cpc', 'cost', 'clicks'];
+        if ($sortBy !== null && !in_array($sortBy, $validSortOptions)) {
+            throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
+        }
+
+        // Validate tag length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Keywords Data Google Ads Ad Traffic By Keywords Live request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the keywords data endpoint
+        return $this->sendCachedRequest(
+            'keywords_data/google_ads/ad_traffic_by_keywords/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Standard Google Ads Ad Traffic By Keywords method with caching support
+     *
+     * This method first checks cache for existing results. If not cached and postTaskIfNotCached is true,
+     * it creates a new task with webhook URLs from configuration for automatic caching when complete.
+     *
+     * @param array       $keywords            Keywords array (max 1000, max 80 chars each, max 10 words each)
+     * @param float       $bid                 Maximum custom bid
+     * @param string      $match               Keywords match-type (exact, broad, phrase)
+     * @param int|null    $priority            Task priority (1-30, where 1 is highest)
+     * @param bool|null   $searchPartners      Include Google search partners
+     * @param string|null $locationName        Location name (e.g., "London,England,United Kingdom")
+     * @param int|null    $locationCode        Location code (e.g., 2840)
+     * @param string|null $locationCoordinate  Location coordinate (e.g., "52.6178549,-155.352142")
+     * @param string|null $languageName        Language name (e.g., "English")
+     * @param string|null $languageCode        Language code (e.g., "en")
+     * @param string|null $dateFrom            Starting date (yyyy-mm-dd format)
+     * @param string|null $dateTo              Ending date (yyyy-mm-dd format)
+     * @param string|null $dateInterval        Forecasting date interval (next_week, next_month, next_quarter)
+     * @param string|null $sortBy              Sort by parameter (relevance, impressions, ctr, average_cpc, cost, clicks)
+     * @param bool        $usePostback         Whether to use postback URL from config
+     * @param bool        $usePingback         Whether to use pingback URL from config
+     * @param bool        $postTaskIfNotCached Whether to post task if data not in cache
+     * @param array       $additionalParams    Additional parameters
+     * @param string|null $attributes          Optional attributes to store with cache entry
+     * @param int         $amount              Amount to pass to incrementAttempts
+     *
+     * @return array|null The cached API response data or null if not cached and task creation disabled
+     */
+    public function keywordsDataGoogleAdsAdTrafficByKeywordsStandard(
+        array $keywords,
+        float $bid,
+        string $match,
+        ?int $priority = null,
+        ?bool $searchPartners = false,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $locationCoordinate = null,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $dateInterval = 'next_month',
+        ?string $sortBy = 'relevance',
+        bool $usePostback = false,
+        bool $usePingback = false,
+        bool $postTaskIfNotCached = false,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): ?array {
+        // Generate cache key based only on search parameters (exclude webhook and control params)
+        $searchParams = $this->buildApiParams($additionalParams, [
+            'usePostback',
+            'usePingback',
+            'postTaskIfNotCached',
+        ], __METHOD__, get_defined_vars());
+
+        $endpoint = 'keywords_data/google_ads/ad_traffic_by_keywords/task_get';
+
+        $cacheKey = $this->cacheManager->generateCacheKey(
+            $this->clientName,
+            $endpoint,
+            $searchParams,
+            'POST',
+            $this->version
+        );
+
+        // Check cache first - return cached data if available
+        $cached = $this->cacheManager->getCachedResponse($this->clientName, $cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // If not cached and task creation disabled, return null
+        if (!$postTaskIfNotCached) {
+            return $cached;
+        }
+
+        // Create task with webhook URLs from config
+        $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
+        $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Create task with our cache key as tag for webhook caching bridge
+        return $this->keywordsDataGoogleAdsAdTrafficByKeywordsTaskPost(
+            $keywords,
+            $bid,
+            $match,
+            $searchPartners,
+            $locationName,
+            $locationCode,
+            $locationCoordinate,
+            $languageName,
+            $languageCode,
+            $dateFrom,
+            $dateTo,
+            $dateInterval,
+            $sortBy,
+            $postbackUrl,
+            $pingbackUrl,
+            $cacheKey,
+            $additionalParams,
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Bulk Keyword Difficulty data using DataForSEO Labs API
+     *
+     * @param array       $keywords         Target keywords (max 1000)
+     * @param string|null $locationName     Location name (e.g., "United States")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleBulkKeywordDifficultyLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Labs Google Bulk Keyword Difficulty request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/bulk_keyword_difficulty/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Amazon Bulk Search Volume data using DataForSEO Labs API
+     *
+     * @param array       $keywords         Target keywords array (max 1000)
+     * @param string|null $locationName     Location name (e.g., "United States")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsAmazonBulkSearchVolumeLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Check if keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Check if keywords array length is within limits
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Extract args but without keywords, and add keywords_count
+        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
+
+        Log::debug('Making DataForSEO Labs Amazon Bulk Search Volume request', $args);
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/amazon/bulk_search_volume/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Amazon Related Keywords data using DataForSEO Labs API
+     *
+     * Pricing: $0.01 per task + $0.0001 per returned keyword
+     *
+     * Cost breakdown by depth level (if max possible keywords returned):
+     * - Depth 0: $0.0101 (1 keyword)
+     * - Depth 1: $0.0106 (6 keywords)
+     * - Depth 2: $0.0142 (42 keywords)
+     * - Depth 3: $0.0402 (258 keywords)
+     * - Depth 4: $0.1702 (1554 keywords)
+     *
+     * @param string      $keyword            Seed keyword
+     * @param string|null $locationName       Location name (e.g., "United States")
+     * @param int|null    $locationCode       Location code (e.g., 2840)
+     * @param string|null $languageName       Language name (e.g., "English")
+     * @param string|null $languageCode       Language code (e.g., "en")
+     * @param int|null    $depth              Keyword search depth level (0-4)
+     * @param bool|null   $includeSeedKeyword Include data for the seed keyword
+     * @param bool|null   $ignoreSynonyms     Ignore highly similar keywords
+     * @param int|null    $limit              Maximum number of returned keywords (max 1000)
+     * @param int|null    $offset             Offset in the results array
+     * @param string|null $tag                User-defined task identifier
+     * @param array       $additionalParams   Additional parameters
+     * @param string|null $attributes         Optional attributes to store with cache entry
+     * @param int         $amount             Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsAmazonRelatedKeywordsLive(
+        string $keyword,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $depth = 2,
+        ?bool $includeSeedKeyword = null,
+        ?bool $ignoreSynonyms = null,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that keyword is not empty
+        if (empty($keyword)) {
+            throw new \InvalidArgumentException('Keyword cannot be empty');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate depth parameter is within allowed range
+        if ($depth !== null && ($depth < 0 || $depth > 4)) {
+            throw new \InvalidArgumentException('Depth must be between 0 and 4');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Amazon Related Keywords request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the query as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/amazon/related_keywords/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Amazon Ranked Keywords data using DataForSEO Labs API
+     *
+     * Returns keywords that the specified product (ASIN) ranks for on Amazon.
+     *
+     * @param string      $asin             Amazon product ID (ASIN)
+     * @param string|null $locationName     Location name (e.g., "United States")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param int|null    $limit            Maximum number of returned keywords (max 1000)
+     * @param bool|null   $ignoreSynonyms   Ignore highly similar keywords
+     * @param array|null  $filters          Array of results filtering parameters
+     * @param array|null  $orderBy          Results sorting rules
+     * @param int|null    $offset           Offset in the results array
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsAmazonRankedKeywordsLive(
+        string $asin,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $limit = null,
+        ?bool $ignoreSynonyms = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?int $offset = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate that ASIN is not empty
+        if (empty($asin)) {
+            throw new \InvalidArgumentException('ASIN cannot be empty');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Amazon Ranked Keywords request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Pass the ASIN as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $asin;
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/amazon/ranked_keywords/live',
+            $tasks,
+            'POST',
             $attributes,
             $amount
         );
@@ -2364,7 +3922,7 @@ class DataForSeoApiClient extends BaseApiClient
             'usePostback',
             'usePingback',
             'postTaskIfNotCached',
-        ]);
+        ], __METHOD__, get_defined_vars());
 
         // Type is always part of the endpoint
         $endpoint = "merchant/amazon/products/task_get/{$type}";
@@ -2778,7 +4336,7 @@ class DataForSeoApiClient extends BaseApiClient
             'usePostback',
             'usePingback',
             'postTaskIfNotCached',
-        ]);
+        ], __METHOD__, get_defined_vars());
 
         // Type is always part of the endpoint
         $endpoint = "merchant/amazon/asin/task_get/{$type}";
@@ -3142,7 +4700,7 @@ class DataForSeoApiClient extends BaseApiClient
             'usePostback',
             'usePingback',
             'postTaskIfNotCached',
-        ]);
+        ], __METHOD__, get_defined_vars());
 
         // Type is always part of the endpoint
         $endpoint = "merchant/amazon/sellers/task_get/{$type}";
@@ -3359,7 +4917,7 @@ class DataForSeoApiClient extends BaseApiClient
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
 
-        $params = $this->buildApiParams($additionalParams);
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -3994,7 +5552,7 @@ class DataForSeoApiClient extends BaseApiClient
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
 
-        $params = $this->buildApiParams($additionalParams);
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
@@ -4962,9 +6520,8 @@ class DataForSeoApiClient extends BaseApiClient
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
 
-        // Use concatenation of targets as attributes if attributes is not provided
         if ($attributes === null) {
-            $attributes = implode(',', array_slice($targets, 0, 10)) . (count($targets) > 10 ? '...' : '');
+            $attributes = implode(',', $targets);
         }
 
         // Make the API request to the backlinks bulk ranks live endpoint
@@ -5031,9 +6588,8 @@ class DataForSeoApiClient extends BaseApiClient
         // DataForSEO API requires an array of tasks
         $tasks = [$params];
 
-        // Use concatenation of targets as attributes if attributes is not provided
         if ($attributes === null) {
-            $attributes = implode(',', array_slice($targets, 0, 10)) . (count($targets) > 10 ? '...' : '');
+            $attributes = implode(',', $targets);
         }
 
         // Make the API request to the backlinks bulk backlinks live endpoint
@@ -5102,7 +6658,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         // Use concatenation of targets as attributes if attributes is not provided
         if ($attributes === null) {
-            $attributes = implode(',', array_slice($targets, 0, 10)) . (count($targets) > 10 ? '...' : '');
+            $attributes = implode(',', $targets);
         }
 
         // Make the API request to the backlinks bulk spam score live endpoint

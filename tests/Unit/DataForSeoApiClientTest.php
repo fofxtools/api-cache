@@ -1336,9 +1336,24 @@ class DataForSeoApiClientTest extends TestCase
         $taskId          = 'test-task-id';
         $rawResponseData = json_encode($responseArray);
 
-        // This method primarily delegates to ApiCacheManager, so we just verify it doesn't throw
+        // Mock the cache manager to verify storeResponse is called with correct parameters
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse')
+            ->with(
+                'dataforseo',                    // clientName
+                $cacheKey,                       // cacheKey
+                ['keyword' => 'test', 'location_code' => 2840], // params (extracted from responseArray)
+                $this->anything(),               // apiResult (complex array)
+                $endpoint,                       // endpoint
+                'v3',                           // version
+                null,                           // ttl
+                $taskId,                        // attributes
+                null                            // credits
+            );
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
         $this->client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $rawResponseData);
-        $this->addToAssertionCount(1);
     }
 
     public function test_storeInCache_stores_response_data_with_get_method()
@@ -1357,9 +1372,27 @@ class DataForSeoApiClientTest extends TestCase
         $taskId          = 'test-task-id';
         $rawResponseData = json_encode($responseArray);
 
-        // This method primarily delegates to ApiCacheManager, so we just verify it doesn't throw
+        // Mock the cache manager to verify storeResponse is called with correct parameters including GET method
+        $mockCacheManager = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager->expects($this->once())
+            ->method('storeResponse')
+            ->with(
+                'dataforseo',                    // clientName
+                $cacheKey,                       // cacheKey
+                ['keyword' => 'test', 'location_code' => 2840], // params (extracted from responseArray)
+                $this->callback(function ($apiResult) {
+                    // Verify the HTTP method is set to GET in the apiResult
+                    return $apiResult['request']['method'] === 'GET';
+                }),
+                $endpoint,                       // endpoint
+                'v3',                           // version
+                null,                           // ttl
+                $taskId,                        // attributes
+                null                            // credits
+            );
+
+        $this->client = new DataForSeoApiClient($mockCacheManager);
         $this->client->storeInCache($responseArray, $cacheKey, $endpoint, $cost, $taskId, $rawResponseData, 'GET');
-        $this->addToAssertionCount(1);
     }
 
     /**

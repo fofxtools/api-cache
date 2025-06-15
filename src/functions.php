@@ -409,7 +409,7 @@ function create_errors_table(
             $table->string('log_level')->index();                // error, warning, info, etc.
             $table->text('error_message')->nullable();              // Error message
             $table->text('response_preview')->nullable(); // First 500 chars of response
-            $table->json('context_data')->nullable();   // Additional context as JSON
+            $table->text('context_data')->nullable();   // Additional context
             $table->timestamps();
         });
 

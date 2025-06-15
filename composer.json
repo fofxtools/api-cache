@@ -47,5 +47,8 @@
                 "FOfX\\ApiCache\\ApiCacheServiceProvider"
             ]
         }
+    },
+    "config": {
+        "process-timeout": 900
     }
 }

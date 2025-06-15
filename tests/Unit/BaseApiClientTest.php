@@ -8,6 +8,7 @@ use FOfX\ApiCache\ApiCacheManager;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\RateLimitException;
+use Illuminate\Support\Facades\DB;
 use Mockery;
 use FOfX\ApiCache\Tests\TestCase;
 
@@ -425,6 +426,69 @@ class BaseApiClientTest extends TestCase
             'log_level'     => 'error',
             'error_message' => $message,
         ]);
+    }
+
+    public function test_logApiError_stores_pretty_printed_context_when_enabled(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.test_error' => true]);
+        config(['api-cache.error_logging.levels.test_error' => 'error']);
+
+        $errorType = 'test_error';
+        $message   = 'Test error message';
+        $context   = ['nested' => ['data' => 'value', 'array' => [1, 2, 3]]];
+        $response  = 'Test response body';
+
+        // Test with prettyPrint = true (explicit)
+        $this->client->logApiError($errorType, $message, $context, $response, true);
+
+        // Verify context_data contains formatted JSON with newlines and indentation
+        $record = DB::table('api_cache_errors')->first();
+        $this->assertStringContainsString("\n", $record->context_data); // Has newlines
+        $this->assertStringContainsString('    ', $record->context_data); // Has indentation
+        $this->assertStringContainsString('nested', $record->context_data);
+        $this->assertStringContainsString('data', $record->context_data);
+    }
+
+    public function test_logApiError_stores_compact_context_when_disabled(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.test_error' => true]);
+        config(['api-cache.error_logging.levels.test_error' => 'error']);
+
+        $errorType = 'test_error';
+        $message   = 'Test error message';
+        $context   = ['nested' => ['data' => 'value', 'array' => [1, 2, 3]]];
+        $response  = 'Test response body';
+
+        // Test with prettyPrint = false
+        $this->client->logApiError($errorType, $message, $context, $response, false);
+
+        // Verify context_data contains compact JSON without newlines
+        $record = DB::table('api_cache_errors')->first();
+        $this->assertStringNotContainsString("\n", $record->context_data); // No newlines
+        $this->assertStringNotContainsString('    ', $record->context_data); // No indentation
+        $this->assertStringContainsString('nested', $record->context_data);
+        $this->assertStringContainsString('data', $record->context_data);
+    }
+
+    public function test_logApiError_uses_pretty_print_by_default(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.test_error' => true]);
+        config(['api-cache.error_logging.levels.test_error' => 'error']);
+
+        $errorType = 'test_error';
+        $message   = 'Test error message';
+        $context   = ['nested' => ['data' => 'value']];
+
+        // Call without specifying prettyPrint parameter (should default to true)
+        $this->client->logApiError($errorType, $message, $context);
+
+        // Verify context_data contains formatted JSON (pretty printed by default)
+        $record = DB::table('api_cache_errors')->first();
+        $this->assertStringContainsString("\n", $record->context_data); // Has newlines
+        $this->assertStringContainsString('    ', $record->context_data); // Has indentation
     }
 
     public function test_sendCachedRequest_respects_shouldCache_result(): void

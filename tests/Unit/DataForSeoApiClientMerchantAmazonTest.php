@@ -1556,8 +1556,11 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
 
     public function test_merchant_amazon_asin_standard_creates_task_when_not_cached_and_posting_enabled()
     {
+        $taskPostEndpoint = 'merchant/amazon/asin/task_post';
+        $taskGetEndpoint  = 'merchant/amazon/asin/task_get/advanced'; // This gets appended to pingback URL
+
         Http::fake([
-            "{$this->apiBaseUrl}/merchant/amazon/asin/task_post" => Http::response([
+            "{$this->apiBaseUrl}/{$taskPostEndpoint}" => Http::response([
                 'status_code' => 20000,
                 'tasks'       => [
                     [
@@ -1586,9 +1589,9 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
 
         $this->client = new DataForSeoApiClient($mockCacheManager);
 
-        // Set up config for webhook URLs
-        Config::set('api-cache.apis.dataforseo.postback_url', 'https://example.com/postback');
-        Config::set('api-cache.apis.dataforseo.pingback_url', 'https://example.com/pingback');
+        // Use actual config values instead of overriding them
+        $expectedPostbackUrl = config('api-cache.apis.dataforseo.postback_url');
+        $expectedPingbackUrl = config('api-cache.apis.dataforseo.pingback_url');
 
         $response = $this->client->merchantAmazonAsinStandard(
             'B08N5WRWNW',
@@ -1607,15 +1610,30 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
             true   // postTaskIfNotCached = true
         );
 
-        Http::assertSent(function ($request) {
-            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/asin/task_post" &&
-                   $request->method() === 'POST' &&
-                   isset($request->data()[0]) &&
-                   $request->data()[0]['asin'] === 'B08N5WRWNW' &&
-                   $request->data()[0]['tag'] === 'test-cache-key' &&
-                   $request->data()[0]['postback_url'] === 'https://example.com/postback' &&
-                   $request->data()[0]['postback_data'] === 'advanced' &&
-                   $request->data()[0]['pingback_url'] === 'https://example.com/pingback';
+        Http::assertSent(function ($request) use ($taskPostEndpoint, $taskGetEndpoint, $expectedPostbackUrl, $expectedPingbackUrl) {
+            // Individual assertions for better error reporting
+            $this->assertEquals("{$this->apiBaseUrl}/{$taskPostEndpoint}", $request->url(), 'URL mismatch');
+            $this->assertEquals('POST', $request->method(), 'Method mismatch');
+            $this->assertTrue(isset($request->data()[0]), 'Request data[0] not set');
+
+            if (isset($request->data()[0])) {
+                $data = $request->data()[0];
+                $this->assertEquals('B08N5WRWNW', $data['asin'] ?? null, 'ASIN mismatch');
+                $this->assertEquals('test-cache-key', $data['tag'] ?? null, 'Tag mismatch');
+                $this->assertEquals($expectedPostbackUrl, $data['postback_url'] ?? null, 'Postback URL mismatch');
+                $this->assertEquals('advanced', $data['postback_data'] ?? null, 'Postback data mismatch');
+
+                // Calculate expected pingback URL with endpoint
+                if ($expectedPingbackUrl) {
+                    $separator                    = str_contains($expectedPingbackUrl, '?') ? '&' : '?';
+                    $expectedPingbackWithEndpoint = $expectedPingbackUrl . $separator . 'endpoint=' . urlencode($taskGetEndpoint);
+                    $this->assertEquals($expectedPingbackWithEndpoint, $data['pingback_url'] ?? null, 'Pingback URL mismatch');
+                } else {
+                    $this->assertNull($data['pingback_url'] ?? null, 'Pingback URL should be null when not configured');
+                }
+            }
+
+            return true; // If we get here, all assertions passed
         });
 
         // Make sure we used the Http::fake() response
@@ -1768,7 +1786,8 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
 
         $this->client = new DataForSeoApiClient($mockCacheManager);
 
-        Config::set('api-cache.apis.dataforseo.postback_url', 'https://example.com/postback');
+        $postbackUrl = 'https://example.com/postback.php';
+        Config::set('api-cache.apis.dataforseo.postback_url', $postbackUrl);
 
         $response = $this->client->$method(
             'B08N5WRWNW',
@@ -1786,12 +1805,19 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
             true   // postTaskIfNotCached
         );
 
-        Http::assertSent(function ($request) use ($expectedType) {
-            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/asin/task_post" &&
-                   isset($request->data()[0]) &&
-                   $request->data()[0]['asin'] === 'B08N5WRWNW' &&
-                   $request->data()[0]['postback_url'] === 'https://example.com/postback' &&
-                   $request->data()[0]['postback_data'] === $expectedType;
+        Http::assertSent(function ($request) use ($postbackUrl, $expectedType) {
+            // Individual assertions for better error reporting
+            $this->assertEquals("{$this->apiBaseUrl}/merchant/amazon/asin/task_post", $request->url(), 'URL mismatch');
+            $this->assertTrue(isset($request->data()[0]), 'Request data[0] not set');
+
+            if (isset($request->data()[0])) {
+                $data = $request->data()[0];
+                $this->assertEquals('B08N5WRWNW', $data['asin'], 'ASIN mismatch');
+                $this->assertEquals($postbackUrl, $data['postback_url'], 'Postback URL mismatch');
+                $this->assertEquals($expectedType, $data['postback_data'], 'Postback data mismatch');
+            }
+
+            return true; // If we get here, all assertions passed
         });
 
         $body = $response['response']->json();
@@ -2471,7 +2497,8 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
 
         $this->client = new DataForSeoApiClient($mockCacheManager);
 
-        Config::set('api-cache.apis.dataforseo.postback_url', 'https://example.com/postback');
+        $postbackUrl = 'https://example.com/postback.php';
+        Config::set('api-cache.apis.dataforseo.postback_url', $postbackUrl);
 
         $response = $this->client->$method(
             'B085RFFC9Q',
@@ -2487,12 +2514,19 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
             true   // postTaskIfNotCached
         );
 
-        Http::assertSent(function ($request) use ($expectedType) {
-            return $request->url() === "{$this->apiBaseUrl}/merchant/amazon/sellers/task_post" &&
-                   isset($request->data()[0]) &&
-                   $request->data()[0]['asin'] === 'B085RFFC9Q' &&
-                   $request->data()[0]['postback_url'] === 'https://example.com/postback' &&
-                   $request->data()[0]['postback_data'] === $expectedType;
+        Http::assertSent(function ($request) use ($postbackUrl, $expectedType) {
+            // Individual assertions for better error reporting
+            $this->assertEquals("{$this->apiBaseUrl}/merchant/amazon/sellers/task_post", $request->url(), 'URL mismatch');
+            $this->assertTrue(isset($request->data()[0]), 'Request data[0] not set');
+
+            if (isset($request->data()[0])) {
+                $data = $request->data()[0];
+                $this->assertEquals('B085RFFC9Q', $data['asin'], 'ASIN mismatch');
+                $this->assertEquals($postbackUrl, $data['postback_url'], 'Postback URL mismatch');
+                $this->assertEquals($expectedType, $data['postback_data'], 'Postback data mismatch');
+            }
+
+            return true; // If we get here, all assertions passed
         });
 
         $body = $response['response']->json();

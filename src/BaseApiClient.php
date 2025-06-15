@@ -353,14 +353,15 @@ class BaseApiClient
     /**
      * Log an API error to the database
      *
-     * @param string      $errorType Type of error (http_error, cache_rejected, etc.)
-     * @param string|null $message   Error message
-     * @param array       $context   Additional context data
-     * @param string|null $response  Response body (will be truncated to 2000 chars)
+     * @param string      $errorType   Type of error (http_error, cache_rejected, etc.)
+     * @param string|null $message     Error message
+     * @param array       $context     Additional context data
+     * @param string|null $response    Response body (will be truncated to 2000 chars)
+     * @param bool        $prettyPrint Whether to pretty print the context data
      *
      * @return void
      */
-    public function logApiError(string $errorType, ?string $message, array $context = [], ?string $response = null): void
+    public function logApiError(string $errorType, ?string $message, array $context = [], ?string $response = null, bool $prettyPrint = true): void
     {
         // Add class and method name to the log context
         Log::withContext([
@@ -380,6 +381,10 @@ class BaseApiClient
                     $responsePreview = mb_substr($response, 0, 2000);
                 }
 
+                $contextData = !empty($context)
+                    ? json_encode($context, $prettyPrint ? (JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : 0)
+                    : null;
+
                 Log::debug('Logging API error', [
                     'client'        => $this->clientName,
                     'error_type'    => $errorType,
@@ -393,7 +398,7 @@ class BaseApiClient
                     'log_level'        => $logLevel,
                     'error_message'    => $message,
                     'response_preview' => $responsePreview,
-                    'context_data'     => !empty($context) ? json_encode($context) : null,
+                    'context_data'     => $contextData,
                     'created_at'       => now(),
                 ]);
             }

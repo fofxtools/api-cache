@@ -370,8 +370,10 @@ class DataForSeoApiClient extends BaseApiClient
         $context = [
             'http_code'   => $httpCode,
             'request_uri' => $_SERVER['REQUEST_URI'] ?? '',
+            'method'      => $_SERVER['REQUEST_METHOD'] ?? '',
             'user_agent'  => $_SERVER['HTTP_USER_AGENT'] ?? '',
-            'ip_address'  => $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '',
+            'ip_address'  => $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '',
+            'query'       => $_GET,
         ];
 
         // Use client's error logging infrastructure
@@ -511,13 +513,13 @@ class DataForSeoApiClient extends BaseApiClient
         $responseArray = json_decode($jsonData, true);
         $statusCode    = $responseArray['status_code'] ?? 0;
 
-        if ($statusCode !== 20000) {
-            $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'postback_api_error', $jsonData);
-        }
-
         // Log response if filename provided
         if ($logFilename !== null) {
             $this->logResponse($logFilename, 'result', $responseArray);
+        }
+
+        if ($statusCode !== 20000) {
+            $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'postback_api_error', $jsonData);
         }
 
         $task     = $responseArray['tasks'][0] ?? null;
@@ -565,6 +567,11 @@ class DataForSeoApiClient extends BaseApiClient
         $tag             = $_GET['tag'] ?? null;
         $taskGetEndpoint = $_GET['endpoint'] ?? null;
 
+        // Log pingback GET if filename provided
+        if ($logFilename !== null) {
+            $this->logResponse($logFilename, 'get', $_GET);
+        }
+
         if (!$taskId) {
             $this->throwErrorWithLogging(400, 'Missing task ID in pingback', $errorType ?? 'pingback_missing_task_id');
         }
@@ -599,18 +606,17 @@ class DataForSeoApiClient extends BaseApiClient
         $params        = $this->extractParams($responseArray);
         $method        = 'GET';
 
+        // Log result if filename provided
+        if ($logFilename !== null) {
+            $this->logResponse($logFilename, 'result', $responseArray);
+        }
+
         if ($statusCode !== 20000) {
             $this->throwErrorWithLogging(400, 'DataForSEO error response', $errorType ?? 'pingback_api_error', $jsonData);
         }
 
         // Use resolveEndpoint with response array for storage purposes
         $storageEndpoint = $this->resolveEndpoint($taskId, $responseArray);
-
-        // Log pingback if filename provided
-        if ($logFilename !== null) {
-            $this->logResponse($logFilename, 'get', $_GET);
-            $this->logResponse($logFilename, 'result', $responseArray);
-        }
 
         if (!$task) {
             $this->throwErrorWithLogging(400, 'No task data in response', $errorType ?? 'pingback_no_task_data', $jsonData);
@@ -655,7 +661,7 @@ class DataForSeoApiClient extends BaseApiClient
         string $rawResponseData,
         string $httpMethod = 'POST'
     ): void {
-        $manager = app(\FOfX\ApiCache\ApiCacheManager::class);
+        $manager = $this->cacheManager;
 
         $response = new \Illuminate\Http\Client\Response(
             new \GuzzleHttp\Psr7\Response(
@@ -691,6 +697,7 @@ class DataForSeoApiClient extends BaseApiClient
             $params,
             $apiResult,
             $endpoint,
+            $this->getVersion(),
             attributes: $taskId
         );
     }
@@ -1310,6 +1317,12 @@ class DataForSeoApiClient extends BaseApiClient
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
 
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
+
         // Create task with our cache key as tag for webhook caching bridge
         return $this->serpGoogleOrganicTaskPost(
             $keyword,
@@ -1835,6 +1848,12 @@ class DataForSeoApiClient extends BaseApiClient
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
 
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
+
         // Create task with our cache key as tag for webhook caching bridge
         return $this->serpGoogleAutocompleteTaskPost(
             $keyword,
@@ -2186,6 +2205,12 @@ class DataForSeoApiClient extends BaseApiClient
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
 
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
+
         // Create task with our cache key as tag for webhook caching bridge
         return $this->keywordsDataGoogleAdsSearchVolumeTaskPost(
             $keywords,
@@ -2532,6 +2557,12 @@ class DataForSeoApiClient extends BaseApiClient
         // Create task with webhook URLs from config
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
 
         // Create task with our cache key as tag for webhook caching bridge
         return $this->keywordsDataGoogleAdsKeywordsForSiteTaskPost(
@@ -2889,6 +2920,12 @@ class DataForSeoApiClient extends BaseApiClient
         // Create task with webhook URLs from config
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
 
         // Create task with our cache key as tag for webhook caching bridge
         return $this->keywordsDataGoogleAdsKeywordsForKeywordsTaskPost(
@@ -3317,6 +3354,12 @@ class DataForSeoApiClient extends BaseApiClient
         // Create task with webhook URLs from config
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
 
         // Create task with our cache key as tag for webhook caching bridge
         return $this->keywordsDataGoogleAdsAdTrafficByKeywordsTaskPost(
@@ -3950,6 +3993,12 @@ class DataForSeoApiClient extends BaseApiClient
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
 
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
+
         // Create task with our cache key as tag for webhook caching bridge
         return $this->merchantAmazonProductsTaskPost(
             $keyword,
@@ -4364,6 +4413,12 @@ class DataForSeoApiClient extends BaseApiClient
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
 
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
+
         // Create task with our cache key as tag for webhook caching bridge
         return $this->merchantAmazonAsinTaskPost(
             $asin,
@@ -4727,6 +4782,12 @@ class DataForSeoApiClient extends BaseApiClient
         // Create task with webhook URLs from config
         $postbackUrl = $usePostback ? config('api-cache.apis.dataforseo.postback_url') : null;
         $pingbackUrl = $usePingback ? config('api-cache.apis.dataforseo.pingback_url') : null;
+
+        // Append endpoint to the pingback URL if not null
+        if ($pingbackUrl !== null) {
+            $separator = str_contains($pingbackUrl, '?') ? '&' : '?';
+            $pingbackUrl .= $separator . 'endpoint=' . urlencode($endpoint);
+        }
 
         // Create task with our cache key as tag for webhook caching bridge
         return $this->merchantAmazonSellersTaskPost(

@@ -105,7 +105,10 @@ This library takes an unconventional approach to database migrations in order to
 Instead of duplicating table creation logic in each migration file, we use shared helper functions defined in `src/functions.php`:
 
 - `create_responses_table()`: Creates tables for storing API responses
-- `create_pixabay_images_table()`: Creates tables for storing Pixabay image data
+- `create_errors_table()`: Creates table for storing error logs
+- `create_pixabay_images_table()`: Creates table for storing Pixabay image data
+- `create_dataforseo_serp_google_organic_items_table()`: Creates table for storing DataForSEO SERP Google Organic Items data
+- `create_dataforseo_serp_google_organic_paa_items_table()`: Creates table for storing DataForSEO SERP Google Organic PAA Items data
 
 Example migration:
 ```php

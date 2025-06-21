@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Facade;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Redis\RedisServiceProvider;
+use Illuminate\Database\Schema\Builder;
 
 /**
  * Create both compressed and uncompressed tables for a client
@@ -49,6 +50,18 @@ function createClientTables(string $clientName, bool $dropExisting = false, bool
         'uncompressed_table' => $uncompressedTable,
         'compressed_table'   => $compressedTable,
     ]);
+}
+
+function createProcessedResponseTables(Builder $schema, bool $dropExisting = false, bool $verify = false): void
+{
+    // Create pixabay_images table
+    create_pixabay_images_table($schema, dropExisting: $dropExisting, verify: $verify);
+
+    // Create dataforseo_serp_google_organic_items table
+    create_dataforseo_serp_google_organic_items_table($schema, dropExisting: $dropExisting, verify: $verify);
+
+    // Create dataforseo_serp_google_organic_paa_items table
+    create_dataforseo_serp_google_organic_paa_items_table($schema, dropExisting: $dropExisting, verify: $verify);
 }
 
 // Bootstrap Laravel

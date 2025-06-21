@@ -783,3 +783,192 @@ function uuid_v4(?string $data = null): string
     // Output the 36 character UUID.
     return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
 }
+
+/**
+ * Create DataForSEO SERP Google Organic Items table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_serp_google_organic_items_table(
+    Builder $schema,
+    string $table = 'dataforseo_serp_google_organic_items',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO SERP Google Organic Items table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO SERP Google Organic Items table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable()->index();
+            $table->unsignedBigInteger('task_id')->nullable()->index();
+
+            $table->string('keyword')->nullable()->index();
+            $table->string('se_domain')->nullable()->index();
+            $table->integer('location_code')->nullable()->index();
+            $table->string('language_code')->nullable()->index();
+            $table->string('device')->nullable()->index();
+            $table->string('os')->nullable()->index();
+
+            $table->string('type')->nullable()->index();
+            $table->integer('rank_group')->nullable()->index();
+            $table->integer('rank_absolute')->nullable()->index();
+            $table->string('domain')->nullable()->index();
+            $table->text('title')->nullable();
+            $table->text('description')->nullable();
+            $table->text('url')->nullable();
+            $table->text('breadcrumb')->nullable();
+
+            $table->boolean('is_image')->nullable()->index();
+            $table->boolean('is_video')->nullable()->index();
+            $table->boolean('is_featured_snippet')->nullable()->index();
+            $table->boolean('is_malicious')->nullable()->index();
+            $table->boolean('is_web_story')->nullable()->index();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->json('processed_status')->nullable();
+        });
+
+        Log::debug('DataForSEO SERP Google Organic Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create DataForSEO SERP Google Organic PAA Items table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_serp_google_organic_paa_items_table(
+    Builder $schema,
+    string $table = 'dataforseo_serp_google_organic_paa_items',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO SERP Google Organic PAA Items table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO SERP Google Organic PAA Items table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable()->index();
+            $table->unsignedBigInteger('task_id')->nullable()->index();
+            $table->unsignedBigInteger('organic_items_id')->nullable()->index();
+
+            $table->string('keyword')->nullable()->index();
+            $table->string('se_domain')->nullable()->index();
+            $table->integer('location_code')->nullable()->index();
+            $table->string('language_code')->nullable()->index();
+            $table->string('device')->nullable()->index();
+            $table->string('os')->nullable()->index();
+
+            $table->string('type')->nullable()->index();
+            $table->text('title')->nullable();
+            $table->text('seed_question')->nullable();
+            $table->text('xpath')->nullable();
+
+            $table->string('answer_type')->nullable()->index();
+            $table->text('answer_featured_title')->nullable();
+            $table->text('answer_url')->nullable();
+            $table->string('answer_domain')->nullable();
+            $table->text('answer_title')->nullable();
+            $table->text('answer_description')->nullable();
+            $table->json('answer_images')->nullable();
+            $table->string('answer_timestamp')->nullable();
+            $table->json('answer_table')->nullable();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->json('processed_status')->nullable();
+        });
+
+        Log::debug('DataForSEO SERP Google Organic PAA Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}

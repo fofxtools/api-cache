@@ -25,7 +25,7 @@ $clientName   = 'pixabay';
 //config(["api-cache.apis.{$clientName}.compression_enabled" => true]);
 
 createClientTables($clientName, $dropExisting);
-create_pixabay_images_table(schema: $capsule->schema(), dropExisting: $dropExisting);
+createProcessedResponseTables(schema: $capsule->schema(), dropExisting: $dropExisting);
 
 $client = new PixabayApiClient();
 

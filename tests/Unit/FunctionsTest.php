@@ -24,6 +24,8 @@ use function FOfX\ApiCache\summarize_params;
 use function FOfX\ApiCache\download_public_suffix_list;
 use function FOfX\ApiCache\extract_registrable_domain;
 use function FOfX\ApiCache\create_errors_table;
+use function FOfX\ApiCache\create_dataforseo_serp_google_organic_items_table;
+use function FOfX\ApiCache\create_dataforseo_serp_google_organic_paa_items_table;
 
 class FunctionsTest extends TestCase
 {
@@ -871,5 +873,72 @@ class FunctionsTest extends TestCase
     {
         $actual = extract_registrable_domain($url, $stripWww);
         $this->assertEquals($expected, $actual);
+    }
+
+    public function test_create_dataforseo_serp_google_organic_items_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = 'test_serp_google_organic_items_' . uniqid();
+        create_dataforseo_serp_google_organic_items_table($schema, $table, true, true);
+        $this->assertTrue($schema->hasTable($table));
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('keyword', $columns);
+        $this->assertContains('is_featured_snippet', $columns);
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_serp_google_organic_items_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = 'test_serp_google_organic_items_' . uniqid();
+        create_dataforseo_serp_google_organic_items_table($schema, $table, true, false);
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'    => 'test-keyword',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        create_dataforseo_serp_google_organic_items_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_serp_google_organic_items_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_serp_google_organic_paa_items_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = 'test_serp_google_organic_paa_items_' . uniqid();
+        create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, true);
+        $this->assertTrue($schema->hasTable($table));
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('organic_items_id', $columns);
+        $this->assertContains('keyword', $columns);
+        $this->assertContains('answer_type', $columns);
+        $this->assertContains('answer_images', $columns);
+        $this->assertContains('answer_table', $columns);
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_serp_google_organic_paa_items_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = 'test_serp_google_organic_paa_items_' . uniqid();
+        create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, false);
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'    => 'test-keyword',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        create_dataforseo_serp_google_organic_paa_items_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+        $schema->dropIfExists($table);
     }
 }

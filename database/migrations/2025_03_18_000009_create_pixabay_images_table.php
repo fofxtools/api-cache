@@ -11,11 +11,11 @@ return new class () extends Migration {
     public function up(): void
     {
         $schema = Schema::connection($this->getConnection());
-        create_pixabay_images_table($schema, 'api_cache_pixabay_images', false);
+        create_pixabay_images_table($schema, 'pixabay_images', false);
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('api_cache_pixabay_images');
+        Schema::dropIfExists('pixabay_images');
     }
 };

@@ -24,16 +24,19 @@ config.*.php
 /storage/
 
 # IDE and Editor Files
+.augment-guidelines
 .cursorrules
 .windsurfrules
-.augment-guidelines
 CLAUDE.local.md
+global_rules.md
 
 # IDE and Editor Folders
+/.claude/
 /.cursor/
 /.fleet/
 /.idea/
 /.vscode/
+/.windsurf/
 /.zed/
 
 # Cache Files
@@ -48,14 +51,23 @@ CLAUDE.local.md
 /public/hot
 
 # Build Folders
+/build/
 /coverage/
 /node_modules/
 /public/build/
 /public/storage
 
 # Temporary Files
-/temp*.php
-/out*.txt
+/temp/
+/tmp/
+/temp.php
+/temp[0-9A-Za-z].php
+/temp-[0-9A-Za-z].php
+/temp_[0-9A-Za-z].php
+/out.txt
+/out[0-9A-Za-z].txt
+/out-[0-9A-Za-z].txt
+/out_[0-9A-Za-z].txt
 
 # SQLite Files
 *.sqlite*
@@ -76,6 +88,13 @@ Thumbs.db
 Homestead.json
 Homestead.yaml
 auth.json
+
+# Phive and phpDocumentor
+.phive/
+!.phive/phars.xml
+.phpdoc/
+phpdoc.xml
+/tools/phpDocumentor
 
 # Custom Output Files
 /*repopack-output*.*

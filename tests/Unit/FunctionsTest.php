@@ -27,8 +27,10 @@ use function FOfX\ApiCache\create_errors_table;
 
 class FunctionsTest extends TestCase
 {
-    protected string $testTable  = 'api_cache_test_responses';
-    protected string $clientName = 'demo';
+    protected string $testResponsesTable = 'api_cache_responses_test';
+    protected string $testErrorsTable    = 'api_cache_errors_test';
+    protected string $testImagesTable    = 'pixabay_images_test';
+    protected string $clientName         = 'demo';
     protected string $apiBaseUrl;
     protected array $mockApiResponse;
 
@@ -36,6 +38,11 @@ class FunctionsTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+
+        // Append unique ID to test table names
+        $this->testResponsesTable .= '_' . uniqid();
+        $this->testErrorsTable .= '_' . uniqid();
+        $this->testImagesTable .= '_' . uniqid();
 
         // Get base URL from config
         $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
@@ -137,12 +144,12 @@ class FunctionsTest extends TestCase
     public function test_create_responses_table_creates_uncompressed_table(): void
     {
         $schema = Schema::connection(null);
-        create_responses_table($schema, $this->testTable);
+        create_responses_table($schema, $this->testResponsesTable);
 
-        $this->assertTrue($schema->hasTable($this->testTable));
+        $this->assertTrue($schema->hasTable($this->testResponsesTable));
 
         // Verify columns
-        $columns = $schema->getColumnListing($this->testTable);
+        $columns = $schema->getColumnListing($this->testResponsesTable);
         $this->assertContains('id', $columns);
         $this->assertContains('key', $columns);
         $this->assertContains('client', $columns);
@@ -163,12 +170,12 @@ class FunctionsTest extends TestCase
     public function test_create_responses_table_creates_compressed_table(): void
     {
         $schema = Schema::connection(null);
-        create_responses_table($schema, $this->testTable . '_compressed', true);
+        create_responses_table($schema, $this->testResponsesTable . '_compressed', true);
 
-        $this->assertTrue($schema->hasTable($this->testTable . '_compressed'));
+        $this->assertTrue($schema->hasTable($this->testResponsesTable . '_compressed'));
 
         // Verify columns
-        $columns = $schema->getColumnListing($this->testTable . '_compressed');
+        $columns = $schema->getColumnListing($this->testResponsesTable . '_compressed');
         $this->assertContains('id', $columns);
         $this->assertContains('key', $columns);
         $this->assertContains('client', $columns);
@@ -191,10 +198,10 @@ class FunctionsTest extends TestCase
         $schema = Schema::connection(null);
 
         // Create table first time
-        create_responses_table($schema, $this->testTable);
+        create_responses_table($schema, $this->testResponsesTable);
 
         // Insert a record
-        DB::table($this->testTable)->insert([
+        DB::table($this->testResponsesTable)->insert([
             'key'                  => 'test-key',
             'client'               => 'test-client',
             'endpoint'             => 'test-endpoint',
@@ -202,16 +209,16 @@ class FunctionsTest extends TestCase
         ]);
 
         // Create table again without drop
-        create_responses_table($schema, $this->testTable, false, false);
+        create_responses_table($schema, $this->testResponsesTable, false, false);
 
         // Record should still exist
-        $this->assertEquals(1, DB::table($this->testTable)->count());
+        $this->assertEquals(1, DB::table($this->testResponsesTable)->count());
 
         // Create table again with drop
-        create_responses_table($schema, $this->testTable, false, true);
+        create_responses_table($schema, $this->testResponsesTable, false, true);
 
         // Table should be empty
-        $this->assertEquals(0, DB::table($this->testTable)->count());
+        $this->assertEquals(0, DB::table($this->testResponsesTable)->count());
     }
 
     /**
@@ -219,14 +226,13 @@ class FunctionsTest extends TestCase
      */
     public function test_create_pixabay_images_table_creates_table(): void
     {
-        $schema    = Schema::connection(null);
-        $testTable = 'api_cache_test_pixabay_images';
-        create_pixabay_images_table($schema, $testTable);
+        $schema = Schema::connection(null);
+        create_pixabay_images_table($schema, $this->testImagesTable);
 
-        $this->assertTrue($schema->hasTable($testTable));
+        $this->assertTrue($schema->hasTable($this->testImagesTable));
 
         // Verify essential columns
-        $columns = $schema->getColumnListing($testTable);
+        $columns = $schema->getColumnListing($this->testImagesTable);
         $this->assertContains('row_id', $columns);
         $this->assertContains('id', $columns);
         $this->assertContains('pageURL', $columns);
@@ -244,30 +250,29 @@ class FunctionsTest extends TestCase
 
     public function test_create_pixabay_images_table_respects_drop_existing_parameter(): void
     {
-        $schema    = Schema::connection(null);
-        $testTable = 'api_cache_test_pixabay_images';
+        $schema = Schema::connection(null);
 
         // Create table first time
-        create_pixabay_images_table($schema, $testTable);
+        create_pixabay_images_table($schema, $this->testImagesTable);
 
         // Insert a record
-        DB::table($testTable)->insert([
+        DB::table($this->testImagesTable)->insert([
             'id'      => 123456,
             'pageURL' => 'https://example.com/image',
             'type'    => 'photo',
         ]);
 
         // Create table again without drop
-        create_pixabay_images_table($schema, $testTable, false, false);
+        create_pixabay_images_table($schema, $this->testImagesTable, false, false);
 
         // Record should still exist
-        $this->assertEquals(1, DB::table($testTable)->count());
+        $this->assertEquals(1, DB::table($this->testImagesTable)->count());
 
         // Create table again with drop
-        create_pixabay_images_table($schema, $testTable, true, false);
+        create_pixabay_images_table($schema, $this->testImagesTable, true, false);
 
         // Table should be empty
-        $this->assertEquals(0, DB::table($testTable)->count());
+        $this->assertEquals(0, DB::table($this->testImagesTable)->count());
     }
 
     /**
@@ -275,14 +280,13 @@ class FunctionsTest extends TestCase
      */
     public function test_create_errors_table_creates_table(): void
     {
-        $schema    = Schema::connection(null);
-        $testTable = 'api_cache_test_errors';
-        create_errors_table($schema, $testTable);
+        $schema = Schema::connection(null);
+        create_errors_table($schema, $this->testErrorsTable);
 
-        $this->assertTrue($schema->hasTable($testTable));
+        $this->assertTrue($schema->hasTable($this->testErrorsTable));
 
         // Verify essential columns
-        $columns = $schema->getColumnListing($testTable);
+        $columns = $schema->getColumnListing($this->testErrorsTable);
         $this->assertContains('id', $columns);
         $this->assertContains('api_client', $columns);
         $this->assertContains('error_type', $columns);
@@ -296,14 +300,13 @@ class FunctionsTest extends TestCase
 
     public function test_create_errors_table_respects_drop_existing_parameter(): void
     {
-        $schema    = Schema::connection(null);
-        $testTable = 'api_cache_test_errors';
+        $schema = Schema::connection(null);
 
         // Create table first time
-        create_errors_table($schema, $testTable);
+        create_errors_table($schema, $this->testErrorsTable);
 
         // Insert a record
-        DB::table($testTable)->insert([
+        DB::table($this->testErrorsTable)->insert([
             'api_client'    => 'test-client',
             'error_type'    => 'http_error',
             'log_level'     => 'error',
@@ -312,34 +315,33 @@ class FunctionsTest extends TestCase
         ]);
 
         // Create table again without drop
-        create_errors_table($schema, $testTable, false);
+        create_errors_table($schema, $this->testErrorsTable, false);
 
         // Record should still exist
-        $this->assertEquals(1, DB::table($testTable)->count());
+        $this->assertEquals(1, DB::table($this->testErrorsTable)->count());
 
         // Create table again with drop
-        create_errors_table($schema, $testTable, true);
+        create_errors_table($schema, $this->testErrorsTable, true);
 
         // Table should be empty
-        $this->assertEquals(0, DB::table($testTable)->count());
+        $this->assertEquals(0, DB::table($this->testErrorsTable)->count());
     }
 
     public function test_create_errors_table_with_verify_parameter(): void
     {
-        $schema    = Schema::connection(null);
-        $testTable = 'api_cache_test_errors';
+        $schema = Schema::connection(null);
 
         // Test with verify = true, should not throw an exception
-        create_errors_table($schema, $testTable, false, true);
+        create_errors_table($schema, $this->testErrorsTable, false, true);
 
-        $this->assertTrue($schema->hasTable($testTable));
+        $this->assertTrue($schema->hasTable($this->testErrorsTable));
 
         // Drop and recreate to test verification
-        $schema->dropIfExists($testTable);
-        create_errors_table($schema, $testTable, false, true);
+        $schema->dropIfExists($this->testErrorsTable);
+        create_errors_table($schema, $this->testErrorsTable, false, true);
 
         // Insert a record to verify table is functional
-        DB::table($testTable)->insert([
+        DB::table($this->testErrorsTable)->insert([
             'api_client'    => 'test-client',
             'error_type'    => 'cache_rejected',
             'log_level'     => 'warning',
@@ -347,7 +349,7 @@ class FunctionsTest extends TestCase
             'created_at'    => now(),
         ]);
 
-        $this->assertEquals(1, DB::table($testTable)->count());
+        $this->assertEquals(1, DB::table($this->testErrorsTable)->count());
     }
 
     public static function normalize_params_provider(): array

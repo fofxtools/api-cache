@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Http;
 
 class PixabayApiClient extends BaseApiClient
 {
+    protected string $imagesTableName = 'pixabay_images';
+
     /**
      * Constructor for PixabayApiClient
      *
@@ -270,8 +272,7 @@ class PixabayApiClient extends BaseApiClient
      */
     public function processResponses(?int $limit = 1): array
     {
-        $tableName       = $this->getTableName();
-        $imagesTableName = 'api_cache_' . $this->clientName . '_images';
+        $tableName = $this->getTableName();
 
         // Get the cache keys of unprocessed responses for images endpoint only
         $query = DB::table($tableName)
@@ -346,7 +347,7 @@ class PixabayApiClient extends BaseApiClient
                         foreach (array_chunk($images, 100) as $chunk) {
                             try {
                                 // Attempt bulk insert
-                                $insertedCount = DB::table($imagesTableName)->insertOrIgnore($chunk);
+                                $insertedCount = DB::table($this->imagesTableName)->insertOrIgnore($chunk);
                                 $processed += $insertedCount;
                                 $duplicates += count($chunk) - $insertedCount;
                             } catch (\Exception $e) {
@@ -356,7 +357,7 @@ class PixabayApiClient extends BaseApiClient
 
                                 // Fallback: Use updateOrInsert() in bulk
                                 foreach ($chunk as $image) {
-                                    DB::table($imagesTableName)->updateOrInsert(['id' => $image['id']], $image);
+                                    DB::table($this->imagesTableName)->updateOrInsert(['id' => $image['id']], $image);
                                 }
                                 $processed += count($chunk);
                             }
@@ -429,10 +430,8 @@ class PixabayApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Invalid image type. Must be one of: ' . implode(', ', $validTypes));
         }
 
-        $imagesTableName = 'api_cache_' . $this->clientName . '_images';
-
         // Get image record
-        $query = DB::table($imagesTableName);
+        $query = DB::table($this->imagesTableName);
         if ($id) {
             $query->where('id', $id);
         } else {
@@ -497,7 +496,7 @@ class PixabayApiClient extends BaseApiClient
             }
 
             // Update database
-            DB::table($imagesTableName)
+            DB::table($this->imagesTableName)
                 ->where('id', $image->id)
                 ->update([
                     "file_contents_$imageType" => $response->body(),
@@ -530,10 +529,8 @@ class PixabayApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Invalid image type. Must be one of: ' . implode(', ', $validTypes));
         }
 
-        $imagesTableName = 'api_cache_' . $this->clientName . '_images';
-
         // Get image record
-        $query = DB::table($imagesTableName);
+        $query = DB::table($this->imagesTableName);
         if ($id) {
             $query->where('id', $id);
         } else {
@@ -627,7 +624,7 @@ class PixabayApiClient extends BaseApiClient
             }
 
             // Update database
-            DB::table($imagesTableName)
+            DB::table($this->imagesTableName)
                 ->where('id', $image->id)
                 ->update(["storage_filepath_$imageType" => $fullPath]);
 

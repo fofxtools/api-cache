@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 
 class PixabayApiClientTest extends TestCase
 {
+    protected string $imagesTableName = 'pixabay_images';
     protected PixabayApiClient $client;
     protected string $apiKey     = 'test-api-key';
     protected string $apiBaseUrl = 'https://pixabay.com';
@@ -338,13 +339,13 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(0, $result['duplicates']);
 
         // Verify images were inserted
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'      => 123,
             'pageURL' => 'https://example.com/123',
             'user'    => 'testuser',
         ]);
 
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'      => 456,
             'pageURL' => 'https://example.com/456',
             'user'    => 'testuser2',
@@ -394,7 +395,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(0, $result['duplicates']);
 
         // Verify no images were inserted
-        $this->assertDatabaseCount('api_cache_pixabay_images', 0);
+        $this->assertDatabaseCount($this->imagesTableName, 0);
 
         // Verify response was marked as processed
         $this->assertDatabaseHas('api_cache_pixabay_responses', [
@@ -435,7 +436,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(0, $result['duplicates']);
 
         // Verify no images were inserted
-        $this->assertDatabaseCount('api_cache_pixabay_images', 0);
+        $this->assertDatabaseCount($this->imagesTableName, 0);
 
         // Verify response was marked as processed with error
         $this->assertDatabaseHas('api_cache_pixabay_responses', [
@@ -466,7 +467,7 @@ class PixabayApiClientTest extends TestCase
         $imageData = 'fake image data';
 
         // Insert test image
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'            => $imageId,
             'previewURL'    => 'https://example.com/preview.jpg',
             'webformatURL'  => 'https://example.com/webformat.jpg',
@@ -489,7 +490,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(1, $downloadedCount);
 
         // Verify database has the Http::fake() response $imageData
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'                    => $imageId,
             'file_contents_preview' => $imageData,
             'filesize_preview'      => strlen($imageData),
@@ -505,7 +506,7 @@ class PixabayApiClientTest extends TestCase
         $imageData = 'fake image data';
 
         // Insert test image
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'            => $imageId,
             'previewURL'    => 'https://example.com/preview.jpg',
             'webformatURL'  => 'https://example.com/webformat.jpg',
@@ -528,7 +529,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(1, $downloadedCount);
 
         // Verify database has the Http::fake() response $imageData
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'                      => $imageId,
             'file_contents_webformat' => $imageData,
             'filesize_webformat'      => strlen($imageData),
@@ -542,7 +543,7 @@ class PixabayApiClientTest extends TestCase
         $now     = now();
 
         // Insert test image
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'            => $imageId,
             'previewURL'    => 'https://example.com/preview.jpg',
             'webformatURL'  => 'https://example.com/webformat.jpg',
@@ -571,7 +572,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(3, $downloadedCount);
 
         // Verify database has the Http::fake() responses
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'                       => $imageId,
             'file_contents_preview'    => 'preview data',
             'filesize_preview'         => strlen('preview data'),
@@ -616,7 +617,7 @@ class PixabayApiClientTest extends TestCase
         $now     = now();
 
         // Insert test image with some types already downloaded
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'                    => $imageId,
             'previewURL'            => 'https://example.com/preview.jpg',
             'webformatURL'          => 'https://example.com/webformat.jpg',
@@ -644,7 +645,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals(2, $downloadedCount);
 
         // Verify database has the Http::fake() responses
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'                       => $imageId,
             'file_contents_preview'    => 'already downloaded',
             'file_contents_webformat'  => 'new data',
@@ -664,7 +665,7 @@ class PixabayApiClientTest extends TestCase
         $expectedPath = $basePath . DIRECTORY_SEPARATOR . $imageId . '_preview.jpg';
 
         // Insert test image with content
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'                    => $imageId,
             'previewURL'            => 'https://example.com/preview.jpg',
             'webformatURL'          => 'https://example.com/webformat.jpg',
@@ -684,7 +685,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals($imageData, file_get_contents($expectedPath));
 
         // Verify database
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'                       => $imageId,
             'storage_filepath_preview' => $expectedPath,
         ]);
@@ -700,7 +701,7 @@ class PixabayApiClientTest extends TestCase
         $expectedPath = $basePath . DIRECTORY_SEPARATOR . $imageId . '_webformat.jpg';
 
         // Insert test image with content
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'                      => $imageId,
             'previewURL'              => 'https://example.com/preview.jpg',
             'webformatURL'            => 'https://example.com/webformat.jpg',
@@ -720,7 +721,7 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals($imageData, file_get_contents($expectedPath));
 
         // Verify database
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'                         => $imageId,
             'storage_filepath_webformat' => $expectedPath,
         ]);
@@ -739,7 +740,7 @@ class PixabayApiClientTest extends TestCase
         ];
 
         // Insert test image with content
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'                       => $imageId,
             'previewURL'               => 'https://example.com/preview.jpg',
             'webformatURL'             => 'https://example.com/webformat.jpg',
@@ -765,7 +766,7 @@ class PixabayApiClientTest extends TestCase
         }
 
         // Verify database
-        $this->assertDatabaseHas('api_cache_pixabay_images', [
+        $this->assertDatabaseHas($this->imagesTableName, [
             'id'                          => $imageId,
             'storage_filepath_preview'    => $expectedPaths['preview'],
             'storage_filepath_webformat'  => $expectedPaths['webformat'],
@@ -796,7 +797,7 @@ class PixabayApiClientTest extends TestCase
         $now     = now();
 
         // Insert test image without content
-        DB::table('api_cache_pixabay_images')->insert([
+        DB::table($this->imagesTableName)->insert([
             'id'            => $imageId,
             'previewURL'    => 'https://example.com/preview.jpg',
             'webformatURL'  => 'https://example.com/webformat.jpg',

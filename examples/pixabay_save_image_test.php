@@ -31,7 +31,7 @@ create_pixabay_images_table(schema: $capsule->schema(), dropExisting: $dropExist
 // Use ternary operator to avoid PHPStan error
 $resetStorageFilepaths = getenv('RESET_STORAGE_FILEPATHS') ?: false;
 if ($resetStorageFilepaths) {
-    DB::table('api_cache_' . $clientName . '_images')->update([
+    DB::table($clientName . '_images')->update([
         'storage_filepath_preview'    => null,
         'storage_filepath_webformat'  => null,
         'storage_filepath_largeImage' => null,

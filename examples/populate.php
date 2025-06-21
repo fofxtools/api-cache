@@ -76,6 +76,15 @@ foreach ($keywordsSetA as $keyword) {
     echo "Response Body:\n";
     print_r($body);
 
+    // With people_also_ask_click_depth 4 and load_async_ai_overview true and expand_ai_overview true
+    // people_also_ask_click_depth and load_async_ai_overview incur extra charges
+
+    $result   = $dfs->serpGoogleOrganicStandardAdvanced($keyword, peopleAlsoAskClickDepth: 4, loadAsyncAiOverview: true, expandAiOverview: true, usePingback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->serpGoogleAutocompleteStandardAdvanced($keyword, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();

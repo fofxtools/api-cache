@@ -28,7 +28,9 @@
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.5",
         "orchestra/testbench": "^9.9",
-        "phpstan/phpstan-mockery": "^2.0"
+        "phpstan/phpstan-mockery": "^2.0",
+        "phpdocumentor/graphviz": "^2.1",
+        "phpdocumentor/reflection": "^6.3"
     },
     "scripts": {
         "phpstan": "vendor/bin/phpstan analyse",

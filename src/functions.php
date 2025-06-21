@@ -218,7 +218,7 @@ function create_responses_table(
  */
 function create_pixabay_images_table(
     Builder $schema,
-    string $table = 'api_cache_pixabay_images',
+    string $table = 'pixabay_images',
     bool $dropExisting = false,
     bool $verify = false
 ): void {

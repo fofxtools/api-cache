@@ -9,6 +9,8 @@ parameters:
         - local
         - public
         - src
+        - tools
     excludePaths:
         - vendor
         - local/deleted
+        - resources

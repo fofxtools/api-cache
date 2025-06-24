@@ -106,9 +106,7 @@ Instead of duplicating table creation logic in each migration file, we use share
 
 - `create_responses_table()`: Creates tables for storing API responses
 - `create_errors_table()`: Creates table for storing error logs
-- `create_pixabay_images_table()`: Creates table for storing Pixabay image data
-- `create_dataforseo_serp_google_organic_items_table()`: Creates table for storing DataForSEO SERP Google Organic Items data
-- `create_dataforseo_serp_google_organic_paa_items_table()`: Creates table for storing DataForSEO SERP Google Organic PAA Items data
+- Other tables for saving processed data from API responses
 
 Example migration:
 ```php

@@ -22,6 +22,7 @@ config.*.php
 
 # Storage Folders
 /storage/
+/uploads/
 
 # IDE and Editor Files
 .augment-guidelines
@@ -29,6 +30,7 @@ config.*.php
 .windsurfrules
 CLAUDE.local.md
 global_rules.md
+usage_tracking*.json
 
 # IDE and Editor Folders
 /.claude/

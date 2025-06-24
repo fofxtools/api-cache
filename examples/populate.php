@@ -28,7 +28,7 @@ $clientName   = 'dataforseo';
 //config(["api-cache.apis.{$clientName}.compression_enabled" => true]);
 
 createClientTables($clientName, $dropExisting);
-create_errors_table($schema, 'api_cache_errors', false);
+createProcessedResponseTables($schema, $dropExisting);
 
 $dfs = new DataForSeoApiClient();
 
@@ -125,6 +125,12 @@ foreach ($keywordsArrays as $keywordSet) {
     print_r($body);
 
     $result   = $dfs->labsAmazonBulkSearchVolumeLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleBulkKeywordDifficultyLive($keywordSet);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";

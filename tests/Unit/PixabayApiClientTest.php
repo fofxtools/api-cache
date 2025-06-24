@@ -361,7 +361,7 @@ class PixabayApiClientTest extends TestCase
                 'error'      => null,
                 'processed'  => 2,
                 'duplicates' => 0,
-            ]),
+            ], JSON_PRETTY_PRINT),
         ]);
     }
 
@@ -407,7 +407,7 @@ class PixabayApiClientTest extends TestCase
                 'error'      => null,
                 'processed'  => 0,
                 'duplicates' => 0,
-            ]),
+            ], JSON_PRETTY_PRINT),
         ]);
     }
 
@@ -447,7 +447,7 @@ class PixabayApiClientTest extends TestCase
                 'error'      => 'Failed to decode response body: Syntax error',
                 'processed'  => 0,
                 'duplicates' => 0,
-            ]),
+            ], JSON_PRETTY_PRINT),
         ]);
 
         // Verify processed_at is not null

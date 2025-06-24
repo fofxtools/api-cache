@@ -26,6 +26,7 @@ use function FOfX\ApiCache\extract_registrable_domain;
 use function FOfX\ApiCache\create_errors_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_items_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_paa_items_table;
+use function FOfX\ApiCache\create_dataforseo_keywords_data_google_ads_keywords_items_table;
 
 class FunctionsTest extends TestCase
 {
@@ -938,6 +939,57 @@ class FunctionsTest extends TestCase
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_keywords_data_google_ads_keywords_items_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = 'test_keywords_data_google_ads_keywords_items_' . uniqid();
+        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, true);
+        $this->assertTrue($schema->hasTable($table));
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('keyword', $columns);
+        $this->assertContains('se', $columns);
+        $this->assertContains('location_code', $columns);
+        $this->assertContains('language_code', $columns);
+        $this->assertContains('search_partners', $columns);
+        $this->assertContains('competition', $columns);
+        $this->assertContains('competition_index', $columns);
+        $this->assertContains('search_volume', $columns);
+        $this->assertContains('low_top_of_page_bid', $columns);
+        $this->assertContains('high_top_of_page_bid', $columns);
+        $this->assertContains('cpc', $columns);
+        $this->assertContains('monthly_searches', $columns);
+        $this->assertContains('bid', $columns);
+        $this->assertContains('match', $columns);
+        $this->assertContains('impressions', $columns);
+        $this->assertContains('ctr', $columns);
+        $this->assertContains('average_cpc', $columns);
+        $this->assertContains('cost', $columns);
+        $this->assertContains('clicks', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_keywords_data_google_ads_keywords_items_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = 'test_keywords_data_google_ads_keywords_items_' . uniqid();
+        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, false);
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'    => 'test-keyword',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, false);
         $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
         $schema->dropIfExists($table);
     }

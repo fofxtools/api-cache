@@ -124,13 +124,13 @@ function create_responses_table(
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
             $table->timestamp('processed_at')->nullable();
-            $table->json('processed_status')->nullable();
+            $table->text('processed_status')->nullable();
 
             // Add indexes for better performance
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->index(['client', 'endpoint', 'version'], 'client_endpoint_version_index');
+                $table->index(['client', 'endpoint', 'version'], 'client_endpoint_version_idx');
             } else {
                 $table->index(['client', 'endpoint', 'version']);
             }
@@ -305,7 +305,7 @@ function create_pixabay_images_table(
 
             // Processing information
             $table->timestamp('processed_at')->nullable()->index();
-            $table->json('processed_status')->nullable();
+            $table->text('processed_status')->nullable();
 
             // Add fulltext indexes
             if ($driver === 'mysql' || $driver === 'pgsql') {
@@ -819,6 +819,7 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->unsignedBigInteger('response_id')->nullable()->index();
             $table->unsignedBigInteger('task_id')->nullable()->index();
 
+            // Fields passed
             $table->string('keyword')->nullable()->index();
             $table->string('se_domain')->nullable()->index();
             $table->integer('location_code')->nullable()->index();
@@ -826,6 +827,7 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->string('device')->nullable()->index();
             $table->string('os')->nullable()->index();
 
+            // Fields returned
             $table->string('type')->nullable()->index();
             $table->integer('rank_group')->nullable()->index();
             $table->integer('rank_absolute')->nullable()->index();
@@ -835,6 +837,7 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->text('url')->nullable();
             $table->text('breadcrumb')->nullable();
 
+            // Advanced
             $table->boolean('is_image')->nullable()->index();
             $table->boolean('is_video')->nullable()->index();
             $table->boolean('is_featured_snippet')->nullable()->index();
@@ -843,7 +846,7 @@ function create_dataforseo_serp_google_organic_items_table(
 
             $table->timestamps();
             $table->timestamp('processed_at')->nullable()->index();
-            $table->json('processed_status')->nullable();
+            $table->text('processed_status')->nullable();
         });
 
         Log::debug('DataForSEO SERP Google Organic Items table created successfully', [
@@ -914,6 +917,7 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->unsignedBigInteger('task_id')->nullable()->index();
             $table->unsignedBigInteger('organic_items_id')->nullable()->index();
 
+            // Fields passed
             $table->string('keyword')->nullable()->index();
             $table->string('se_domain')->nullable()->index();
             $table->integer('location_code')->nullable()->index();
@@ -921,11 +925,14 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->string('device')->nullable()->index();
             $table->string('os')->nullable()->index();
 
+            // Fields returned
+            // From people_also_ask_element
             $table->string('type')->nullable()->index();
             $table->text('title')->nullable();
             $table->text('seed_question')->nullable();
             $table->text('xpath')->nullable();
 
+            // From people_also_ask_expanded_element
             $table->string('answer_type')->nullable()->index();
             $table->text('answer_featured_title')->nullable();
             $table->text('answer_url')->nullable();
@@ -938,10 +945,253 @@ function create_dataforseo_serp_google_organic_paa_items_table(
 
             $table->timestamps();
             $table->timestamp('processed_at')->nullable()->index();
-            $table->json('processed_status')->nullable();
+            $table->text('processed_status')->nullable();
         });
 
         Log::debug('DataForSEO SERP Google Organic PAA Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create DataForSEO SERP Google Autocomplete Items table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_serp_google_autocomplete_items_table(
+    Builder $schema,
+    string $table = 'dataforseo_serp_google_autocomplete_items',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO SERP Google Autocomplete Items table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO SERP Google Autocomplete Items table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable()->index();
+            $table->unsignedBigInteger('task_id')->nullable()->index();
+
+            // Fields passed
+            $table->string('keyword')->nullable()->index();
+            $table->string('se_domain')->nullable()->index();
+            $table->integer('location_code')->nullable()->index();
+            $table->string('language_code')->nullable()->index();
+            $table->string('device')->nullable()->index();
+            $table->string('os')->nullable()->index();
+
+            // Fields returned
+            $table->string('type')->nullable()->index();
+            $table->integer('rank_group')->nullable()->index();
+            $table->integer('rank_absolute')->nullable()->index();
+            $table->integer('relevance')->nullable();
+            $table->text('suggestion')->nullable();
+            $table->string('suggestion_type')->nullable();
+            $table->text('highlighted')->nullable();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->text('processed_status')->nullable();
+        });
+
+        Log::debug('DataForSEO SERP Google Autocomplete Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create DataForSEO Keywords Data Google Ads Keywords Items table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_keywords_data_google_ads_keywords_items_table(
+    Builder $schema,
+    string $table = 'dataforseo_keywords_data_google_ads_keywords_items',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO Keywords Data Google Ads Keywords Items table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO Keywords Data Google Ads Keywords Items table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable();
+            $table->unsignedBigInteger('task_id')->nullable();
+
+            // Fields passed
+            $table->string('keyword')->nullable();
+            $table->string('se')->nullable();
+            $table->integer('location_code')->nullable();
+            $table->string('language_code')->nullable();
+
+            // Fields returned
+            $table->boolean('search_partners')->nullable();
+            $table->string('competition')->nullable();
+            $table->integer('competition_index')->nullable();
+            $table->integer('search_volume')->nullable();
+            $table->float('low_top_of_page_bid')->nullable();
+            $table->float('high_top_of_page_bid')->nullable();
+            $table->float('cpc')->nullable();
+            $table->text('monthly_searches')->nullable();
+
+            // From Ad Traffic By Keywords
+            $table->float('bid')->nullable();
+            $table->string('match')->nullable();
+            $table->float('impressions')->nullable();
+            $table->float('ctr')->nullable();
+            $table->float('average_cpc')->nullable();
+            $table->float('cost')->nullable();
+            $table->float('clicks')->nullable();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable();
+            $table->text('processed_status')->nullable();
+
+            // Add indexes for better performance
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->index('response_id', 'kdga_response_id_idx');
+                $table->index('task_id', 'kdga_task_id_idx');
+
+                $table->index('keyword', 'kdga_keyword_idx');
+                $table->index('se', 'kdga_se_idx');
+                $table->index('location_code', 'kdga_location_code_idx');
+                $table->index('language_code', 'kdga_language_code_idx');
+
+                $table->index('search_partners', 'kdga_search_partners_idx');
+                $table->index('competition', 'kdga_competition_idx');
+                $table->index('competition_index', 'kdga_competition_index_idx');
+                $table->index('search_volume', 'kdga_search_volume_idx');
+                $table->index('low_top_of_page_bid', 'kdga_low_top_of_page_bid_idx');
+                $table->index('high_top_of_page_bid', 'kdga_high_top_of_page_bid_idx');
+                $table->index('cpc', 'kdga_cpc_idx');
+
+                $table->index('bid', 'kdga_bid_idx');
+                $table->index('match', 'kdga_match_idx');
+                $table->index('impressions', 'kdga_impressions_idx');
+                $table->index('ctr', 'kdga_ctr_idx');
+                $table->index('average_cpc', 'kdga_average_cpc_idx');
+                $table->index('cost', 'kdga_cost_idx');
+                $table->index('clicks', 'kdga_clicks_idx');
+
+                $table->index('processed_at', 'kdga_processed_at_idx');
+            } else {
+                $table->index('response_id');
+                $table->index('task_id');
+
+                $table->index('keyword');
+                $table->index('se');
+                $table->index('location_code');
+                $table->index('language_code');
+
+                $table->index('search_partners');
+                $table->index('competition');
+                $table->index('competition_index');
+                $table->index('search_volume');
+                $table->index('low_top_of_page_bid');
+                $table->index('high_top_of_page_bid');
+                $table->index('cpc');
+
+                $table->index('bid');
+                $table->index('match');
+                $table->index('impressions');
+                $table->index('ctr');
+                $table->index('average_cpc');
+                $table->index('cost');
+                $table->index('clicks');
+
+                $table->index('processed_at');
+            }
+        });
+
+        Log::debug('DataForSEO Keywords Data Google Ads Keywords Items table created successfully', [
             'table' => $table,
         ]);
     }

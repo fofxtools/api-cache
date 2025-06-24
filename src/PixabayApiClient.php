@@ -375,7 +375,7 @@ class PixabayApiClient extends BaseApiClient
                             'error'      => null,
                             'processed'  => $processed,
                             'duplicates' => $duplicates,
-                        ]),
+                        ], JSON_PRETTY_PRINT),
                     ]);
             } catch (\Exception $e) {
                 Log::error('Failed to process Pixabay response', [
@@ -393,7 +393,7 @@ class PixabayApiClient extends BaseApiClient
                             'error'      => $e->getMessage(),
                             'processed'  => $processed,
                             'duplicates' => $duplicates,
-                        ]),
+                        ], JSON_PRETTY_PRINT),
                     ]);
             }
         }

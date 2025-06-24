@@ -62,6 +62,12 @@ function createProcessedResponseTables(Builder $schema, bool $dropExisting = fal
 
     // Create dataforseo_serp_google_organic_paa_items table
     create_dataforseo_serp_google_organic_paa_items_table($schema, dropExisting: $dropExisting, verify: $verify);
+
+    // Create dataforseo_serp_google_autocomplete_items table
+    create_dataforseo_serp_google_autocomplete_items_table($schema, dropExisting: $dropExisting, verify: $verify);
+
+    // Create create_dataforseo_keywords_data_google_ads_keywords_items_table
+    create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, dropExisting: $dropExisting, verify: $verify);
 }
 
 // Bootstrap Laravel

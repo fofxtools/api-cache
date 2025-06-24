@@ -2049,4 +2049,529 @@ class DataForSeoApiClientBacklinksTest extends TestCase
 
         $this->assertArrayHasKey('response', $result);
     }
+
+    /**
+     * Test backlinks bulk referring domains live successful request
+     */
+    public function test_backlinks_bulk_referring_domains_live_successful_request()
+    {
+        $id           = 'test-id-' . uniqid();
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'bulk_referring_domains', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'bulk_referring_domains',
+                        'targets'  => ['example.com', 'test.com'],
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'test.com'];
+        $result  = $this->client->backlinksBulkReferringDomainsLive($targets);
+
+        $responseData = $result['response']->json();
+
+        $this->assertEquals(20000, $responseData['status_code']);
+        $this->assertEquals('Ok.', $responseData['status_message']);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $this->assertStringContainsString('backlinks/bulk_referring_domains/live', $request->url());
+            $this->assertEquals('POST', $request->method());
+
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertNotEmpty($requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals(['example.com', 'test.com'], $taskData['targets']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    public function test_backlinks_bulk_referring_domains_live_validates_empty_targets()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Targets array cannot be empty');
+        $this->client->backlinksBulkReferringDomainsLive([]);
+    }
+
+    public function test_backlinks_bulk_referring_domains_live_validates_targets_limit()
+    {
+        $targets = array_fill(0, 1001, 'example.com');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum number of targets is 1000');
+        $this->client->backlinksBulkReferringDomainsLive($targets);
+    }
+
+    public function test_backlinks_bulk_referring_domains_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+        $this->client->backlinksBulkReferringDomainsLive(['example.com', '']);
+    }
+
+    public function test_backlinks_bulk_referring_domains_live_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+        $this->client->backlinksBulkReferringDomainsLive(['example.com'], str_repeat('a', 256));
+    }
+
+    public function test_backlinks_bulk_referring_domains_live_with_parameters()
+    {
+        $id           = 'test-id';
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => $id, 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'https://test.com/page'];
+        $result  = $this->client->backlinksBulkReferringDomainsLive($targets, 'test-tag');
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals(['example.com', 'https://test.com/page'], $taskData['targets']);
+            $this->assertEquals('test-tag', $taskData['tag']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    /**
+     * Test backlinks bulk new lost backlinks live successful request
+     */
+    public function test_backlinks_bulk_new_lost_backlinks_live_successful_request()
+    {
+        $id           = 'test-id-' . uniqid();
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'bulk_new_lost_backlinks', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'bulk_new_lost_backlinks',
+                        'targets'  => ['example.com', 'test.com'],
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'test.com'];
+        $result  = $this->client->backlinksBulkNewLostBacklinksLive($targets);
+
+        $responseData = $result['response']->json();
+
+        $this->assertEquals(20000, $responseData['status_code']);
+        $this->assertEquals('Ok.', $responseData['status_message']);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $this->assertStringContainsString('backlinks/bulk_new_lost_backlinks/live', $request->url());
+            $this->assertEquals('POST', $request->method());
+
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertNotEmpty($requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals(['example.com', 'test.com'], $taskData['targets']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    public function test_backlinks_bulk_new_lost_backlinks_live_validates_empty_targets()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Targets array cannot be empty');
+        $this->client->backlinksBulkNewLostBacklinksLive([]);
+    }
+
+    public function test_backlinks_bulk_new_lost_backlinks_live_validates_targets_limit()
+    {
+        $targets = array_fill(0, 1001, 'example.com');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum number of targets is 1000');
+        $this->client->backlinksBulkNewLostBacklinksLive($targets);
+    }
+
+    public function test_backlinks_bulk_new_lost_backlinks_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+        $this->client->backlinksBulkNewLostBacklinksLive(['example.com', '']);
+    }
+
+    public function test_backlinks_bulk_new_lost_backlinks_live_validates_date_from_format()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Date from must be in yyyy-mm-dd format');
+        $this->client->backlinksBulkNewLostBacklinksLive(['example.com'], '2024-1-1');
+    }
+
+    public function test_backlinks_bulk_new_lost_backlinks_live_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+        $this->client->backlinksBulkNewLostBacklinksLive(['example.com'], tag: str_repeat('a', 256));
+    }
+
+    public function test_backlinks_bulk_new_lost_backlinks_live_with_parameters()
+    {
+        $id           = 'test-id';
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => $id, 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'https://test.com/page'];
+        $result  = $this->client->backlinksBulkNewLostBacklinksLive($targets, '2024-01-01', 'test-tag');
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals(['example.com', 'https://test.com/page'], $taskData['targets']);
+            $this->assertEquals('2024-01-01', $taskData['date_from']);
+            $this->assertEquals('test-tag', $taskData['tag']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    /**
+     * Test backlinks bulk new lost referring domains live successful request
+     */
+    public function test_backlinks_bulk_new_lost_referring_domains_live_successful_request()
+    {
+        $id           = 'test-id-' . uniqid();
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'bulk_new_lost_referring_domains', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'bulk_new_lost_referring_domains',
+                        'targets'  => ['example.com', 'test.com'],
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'test.com'];
+        $result  = $this->client->backlinksBulkNewLostReferringDomainsLive($targets);
+
+        $responseData = $result['response']->json();
+
+        $this->assertEquals(20000, $responseData['status_code']);
+        $this->assertEquals('Ok.', $responseData['status_message']);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $this->assertStringContainsString('backlinks/bulk_new_lost_referring_domains/live', $request->url());
+            $this->assertEquals('POST', $request->method());
+
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertNotEmpty($requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals(['example.com', 'test.com'], $taskData['targets']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    public function test_backlinks_bulk_new_lost_referring_domains_live_validates_empty_targets()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Targets array cannot be empty');
+        $this->client->backlinksBulkNewLostReferringDomainsLive([]);
+    }
+
+    public function test_backlinks_bulk_new_lost_referring_domains_live_validates_targets_limit()
+    {
+        $targets = array_fill(0, 1001, 'example.com');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum number of targets is 1000');
+        $this->client->backlinksBulkNewLostReferringDomainsLive($targets);
+    }
+
+    public function test_backlinks_bulk_new_lost_referring_domains_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+        $this->client->backlinksBulkNewLostReferringDomainsLive(['example.com', '']);
+    }
+
+    public function test_backlinks_bulk_new_lost_referring_domains_live_validates_date_from_format()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Date from must be in yyyy-mm-dd format');
+        $this->client->backlinksBulkNewLostReferringDomainsLive(['example.com'], '2024/01/01');
+    }
+
+    public function test_backlinks_bulk_new_lost_referring_domains_live_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+        $this->client->backlinksBulkNewLostReferringDomainsLive(['example.com'], tag: str_repeat('a', 256));
+    }
+
+    public function test_backlinks_bulk_new_lost_referring_domains_live_with_parameters()
+    {
+        $id           = 'test-id';
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => $id, 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'https://test.com/page'];
+        $result  = $this->client->backlinksBulkNewLostReferringDomainsLive($targets, '2024-01-01', 'test-tag');
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals(['example.com', 'https://test.com/page'], $taskData['targets']);
+            $this->assertEquals('2024-01-01', $taskData['date_from']);
+            $this->assertEquals('test-tag', $taskData['tag']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
+    }
+
+    /**
+     * Test backlinks bulk pages summary live successful request
+     */
+    public function test_backlinks_bulk_pages_summary_live_successful_request()
+    {
+        $id           = 'test-id-' . uniqid();
+        $fakeResponse = [
+            'version'        => '0.1.20241101',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.5678 sec.',
+            'cost'           => 0.025,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $id,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.4567 sec.',
+                    'cost'           => 0.025,
+                    'result_count'   => 1,
+                    'path'           => ['v3', 'backlinks', 'bulk_pages_summary', 'live'],
+                    'data'           => [
+                        'api'      => 'backlinks',
+                        'function' => 'bulk_pages_summary',
+                        'targets'  => ['example.com', 'test.com'],
+                    ],
+                    'result' => [[]],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            '*' => Http::response($fakeResponse, 200),
+        ]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'test.com'];
+        $result  = $this->client->backlinksBulkPagesSummaryLive($targets);
+
+        $responseData = $result['response']->json();
+
+        $this->assertEquals(20000, $responseData['status_code']);
+        $this->assertEquals('Ok.', $responseData['status_message']);
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        // Verify request structure
+        Http::assertSent(function ($request) {
+            $this->assertStringContainsString('backlinks/bulk_pages_summary/live', $request->url());
+            $this->assertEquals('POST', $request->method());
+
+            $requestData = $request->data();
+            $this->assertIsArray($requestData);
+            $this->assertNotEmpty($requestData);
+
+            $taskData = $requestData[0];
+            $this->assertEquals(['example.com', 'test.com'], $taskData['targets']);
+
+            return true;
+        });
+
+        // Verify response structure
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('params', $result);
+    }
+
+    public function test_backlinks_bulk_pages_summary_live_validates_empty_targets()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Targets array cannot be empty');
+        $this->client->backlinksBulkPagesSummaryLive([]);
+    }
+
+    public function test_backlinks_bulk_pages_summary_live_validates_targets_limit()
+    {
+        $targets = array_fill(0, 1001, 'example.com');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum number of targets is 1000');
+        $this->client->backlinksBulkPagesSummaryLive($targets);
+    }
+
+    public function test_backlinks_bulk_pages_summary_live_validates_empty_target()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target cannot be empty');
+        $this->client->backlinksBulkPagesSummaryLive(['example.com', '']);
+    }
+
+    public function test_backlinks_bulk_pages_summary_live_validates_rank_scale()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Rank scale must be either "one_hundred" or "one_thousand"');
+        $this->client->backlinksBulkPagesSummaryLive(['example.com'], rankScale: 'invalid');
+    }
+
+    public function test_backlinks_bulk_pages_summary_live_validates_tag_length()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Tag must be 255 characters or less');
+        $this->client->backlinksBulkPagesSummaryLive(['example.com'], tag: str_repeat('a', 256));
+    }
+
+    public function test_backlinks_bulk_pages_summary_live_with_parameters()
+    {
+        $id           = 'test-id';
+        $fakeResponse = ['status_code' => 20000, 'tasks' => [['id' => $id, 'result' => []]]];
+        Http::fake(['*' => Http::response($fakeResponse, 200)]);
+
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $targets = ['example.com', 'https://test.com/page'];
+        $result  = $this->client->backlinksBulkPagesSummaryLive($targets, true, 'one_hundred', 'test-tag');
+
+        $responseData = $result['response']->json();
+        $this->assertEquals($id, $responseData['tasks'][0]['id']);
+
+        Http::assertSent(function ($request) {
+            $taskData = $request->data()[0];
+            $this->assertEquals(['example.com', 'https://test.com/page'], $taskData['targets']);
+            $this->assertEquals(true, $taskData['include_subdomains']);
+            $this->assertEquals('one_hundred', $taskData['rank_scale']);
+            $this->assertEquals('test-tag', $taskData['tag']);
+
+            return true;
+        });
+
+        $this->assertArrayHasKey('response', $result);
+    }
 }

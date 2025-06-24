@@ -244,6 +244,30 @@ foreach ($urlArrays as $urlSet) {
     $body     = $response->body();
     echo "Response Body:\n";
     print_r($body);
+
+    $result   = $dfs->backlinksBulkReferringDomainsLive($urlSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->backlinksBulkNewLostBacklinksLive($urlSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->backlinksBulkNewLostReferringDomainsLive($urlSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->backlinksBulkPagesSummaryLive($urlSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
 }
 
 $end = microtime(true);

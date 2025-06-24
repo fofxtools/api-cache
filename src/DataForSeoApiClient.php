@@ -2679,7 +2679,7 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        // Extract args but without keywords, and add keywords_count
+        // Log array count + all method params (excludes actual array to keep logs readable)
         $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
 
         Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Keywords Task POST request', $args);
@@ -2818,7 +2818,7 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        // Extract args but without keywords, and add keywords_count
+        // Log array count + all method params (excludes actual array to keep logs readable)
         $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
 
         Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Keywords Live request', $args);
@@ -3247,7 +3247,7 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        // Extract args but without keywords, and add keywords_count
+        // Log array count + all method params (excludes actual array to keep logs readable)
         $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
 
         Log::debug('Making DataForSEO Keywords Data Google Ads Ad Traffic By Keywords Live request', $args);
@@ -3431,7 +3431,7 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
         }
 
-        // Extract args but without keywords, and add keywords_count
+        // Log array count + all method params (excludes actual array to keep logs readable)
         $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
 
         Log::debug('Making DataForSEO Labs Google Bulk Keyword Difficulty request', $args);
@@ -6572,6 +6572,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Ranks Live request',
+            // Log array count + all method params (excludes actual array to keep logs readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6640,6 +6641,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Backlinks Live request',
+            // Log array count + all method params (excludes actual array to keep logs readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6708,6 +6710,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Spam Score Live request',
+            // Log array count + all method params (excludes actual array to keep logs readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6725,6 +6728,321 @@ class DataForSeoApiClient extends BaseApiClient
         // Make the API request to the backlinks bulk spam score live endpoint
         return $this->sendCachedRequest(
             'backlinks/bulk_spam_score/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get bulk referring domains data from DataForSEO Backlinks API
+     *
+     * Returns the number of referring domains and referring main domains for a list of targets.
+     * You can get data on up to 1,000 domains in this API.
+     *
+     * @param array       $targets          Domains, subdomains or webpages to get referring domains for (max 1000)
+     * @param string|null $tag              User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBulkReferringDomainsLive(
+        array $targets,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate targets array is not empty
+        if (empty($targets)) {
+            throw new \InvalidArgumentException('Targets array cannot be empty');
+        }
+
+        // Validate targets array length is within limits
+        if (count($targets) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of targets is 1000');
+        }
+
+        // Validate each target format
+        foreach ($targets as $target) {
+            if (empty($target)) {
+                throw new \InvalidArgumentException('Target cannot be empty');
+            }
+            $this->validateDomainOrPageTarget($target);
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Bulk Referring Domains Live request',
+            // Log array count + all method params (excludes actual array to keep logs readable)
+            ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of targets as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $targets);
+        }
+
+        // Make the API request to the backlinks bulk referring domains live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/bulk_referring_domains/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get bulk new and lost backlinks data from DataForSEO Backlinks API
+     *
+     * Returns new and lost backlinks data for a list of targets within a specified date range.
+     * You can get data on up to 1,000 domains in this API.
+     *
+     * @param array       $targets          Domains, subdomains or webpages to get new/lost backlinks for (max 1000)
+     * @param string|null $dateFrom         Starting date of time range (yyyy-mm-dd, default: today minus one month)
+     * @param string|null $tag              User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBulkNewLostBacklinksLive(
+        array $targets,
+        ?string $dateFrom = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate targets array is not empty
+        if (empty($targets)) {
+            throw new \InvalidArgumentException('Targets array cannot be empty');
+        }
+
+        // Validate targets array length is within limits
+        if (count($targets) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of targets is 1000');
+        }
+
+        // Validate each target format
+        foreach ($targets as $target) {
+            if (empty($target)) {
+                throw new \InvalidArgumentException('Target cannot be empty');
+            }
+            $this->validateDomainOrPageTarget($target);
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('Date from must be in yyyy-mm-dd format');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Bulk New Lost Backlinks Live request',
+            // Log array count + all method params (excludes actual array to keep logs readable)
+            ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of targets as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $targets);
+        }
+
+        // Make the API request to the backlinks bulk new lost backlinks live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/bulk_new_lost_backlinks/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get bulk new and lost referring domains data from DataForSEO Backlinks API
+     *
+     * Returns new and lost referring domains data for a list of targets within a specified date range.
+     * You can get data on up to 1,000 domains in this API.
+     *
+     * @param array       $targets          Domains, subdomains or webpages to get new/lost referring domains for (max 1000)
+     * @param string|null $dateFrom         Starting date of time range (yyyy-mm-dd, default: today minus one month)
+     * @param string|null $tag              User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBulkNewLostReferringDomainsLive(
+        array $targets,
+        ?string $dateFrom = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate targets array is not empty
+        if (empty($targets)) {
+            throw new \InvalidArgumentException('Targets array cannot be empty');
+        }
+
+        // Validate targets array length is within limits
+        if (count($targets) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of targets is 1000');
+        }
+
+        // Validate each target format
+        foreach ($targets as $target) {
+            if (empty($target)) {
+                throw new \InvalidArgumentException('Target cannot be empty');
+            }
+            $this->validateDomainOrPageTarget($target);
+        }
+
+        // Validate date format if provided
+        if ($dateFrom !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+            throw new \InvalidArgumentException('Date from must be in yyyy-mm-dd format');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Bulk New Lost Referring Domains Live request',
+            // Log array count + all method params (excludes actual array to keep logs readable)
+            ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of targets as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $targets);
+        }
+
+        // Make the API request to the backlinks bulk new lost referring domains live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/bulk_new_lost_referring_domains/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get bulk pages summary data from DataForSEO Backlinks API
+     *
+     * Returns summary backlink data for a list of pages, domains, or subdomains.
+     * You can get data on up to 1,000 pages in this API, but they cannot belong to more than 100 different domains.
+     *
+     * @param array       $targets           Pages, domains or subdomains to get summary data for (max 1000, max 100 domains)
+     * @param bool|null   $includeSubdomains Indicates if subdomains of the target will be included (default: true)
+     * @param string|null $rankScale         Scale for calculating rank values: 'one_hundred' or 'one_thousand' (default: 'one_thousand')
+     * @param string|null $tag               User-defined task identifier (max 255 characters)
+     * @param array       $additionalParams  Additional parameters
+     * @param string|null $attributes        Optional attributes to store with cache entry
+     * @param int         $amount            Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     *
+     * @return array The API response data
+     */
+    public function backlinksBulkPagesSummaryLive(
+        array $targets,
+        ?bool $includeSubdomains = null,
+        ?string $rankScale = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate targets array is not empty
+        if (empty($targets)) {
+            throw new \InvalidArgumentException('Targets array cannot be empty');
+        }
+
+        // Validate targets array length is within limits
+        if (count($targets) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of targets is 1000');
+        }
+
+        // Validate each target format
+        foreach ($targets as $target) {
+            if (empty($target)) {
+                throw new \InvalidArgumentException('Target cannot be empty');
+            }
+            $this->validateDomainOrPageTarget($target);
+        }
+
+        // Validate rank_scale parameter
+        if ($rankScale !== null && !in_array($rankScale, ['one_hundred', 'one_thousand'], true)) {
+            throw new \InvalidArgumentException('Rank scale must be either "one_hundred" or "one_thousand"');
+        }
+
+        // Validate tag parameter length
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Backlinks Bulk Pages Summary Live request',
+            // Log array count + all method params (excludes actual array to keep logs readable)
+            ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
+        );
+
+        // Build API parameters, excluding additionalParams and other framework-specific args
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of targets as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $targets);
+        }
+
+        // Make the API request to the backlinks bulk pages summary live endpoint
+        return $this->sendCachedRequest(
+            'backlinks/bulk_pages_summary/live',
             $tasks,
             'POST',
             $attributes,

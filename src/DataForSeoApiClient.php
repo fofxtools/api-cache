@@ -459,11 +459,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Task ID cannot be empty');
         }
 
-        // Add the caller method, if any, to the extracted arguments
-        $callerMethod = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'] ?? null;
-        $args         = ['caller_method' => $callerMethod] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
-
-        Log::debug('Making DataForSEO task_get request', $args);
+        Log::debug(
+            'Making DataForSEO task_get request',
+            // Add the caller method, if any, to the extracted arguments
+            ['caller_method' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'] ?? null] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
         // Pass the task ID as attributes if attributes is not provided
         if ($attributes === null) {
@@ -1966,10 +1966,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
         }
 
-        // Extract args but without keywords, and add keywords_count
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Search Volume Task POST request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Search Volume Task POST request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -2104,10 +2105,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('sortBy must be one of: ' . implode(', ', $validSortOptions));
         }
 
-        // Extract args but without keywords, and add keywords_count
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Search Volume Live request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Search Volume Live request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -2322,9 +2324,10 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        $args = ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Site Task POST request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Keywords For Site Task POST request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -2456,9 +2459,10 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        $args = ReflectionUtils::extractArgs(__METHOD__, get_defined_vars());
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Site Live request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Keywords For Site Live request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -2679,10 +2683,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        // Log array count + all method params (excludes actual array to keep logs readable)
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Keywords Task POST request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Keywords For Keywords Task POST request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -2818,10 +2823,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        // Log array count + all method params (excludes actual array to keep logs readable)
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Keywords For Keywords Live request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Keywords For Keywords Live request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -3074,10 +3080,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        // Extract args but without keywords, and add keywords_count
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Ad Traffic By Keywords Task POST request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Ad Traffic By Keywords Task POST request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -3247,10 +3254,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Tag cannot exceed 255 characters');
         }
 
-        // Log array count + all method params (excludes actual array to keep logs readable)
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Keywords Data Google Ads Ad Traffic By Keywords Live request', $args);
+        Log::debug(
+            'Making DataForSEO Keywords Data Google Ads Ad Traffic By Keywords Live request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -3431,10 +3439,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
         }
 
-        // Log array count + all method params (excludes actual array to keep logs readable)
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Labs Google Bulk Keyword Difficulty request', $args);
+        Log::debug(
+            'Making DataForSEO Labs Google Bulk Keyword Difficulty request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -3502,10 +3511,11 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
         }
 
-        // Extract args but without keywords, and add keywords_count
-        $args = ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords']);
-
-        Log::debug('Making DataForSEO Labs Amazon Bulk Search Volume request', $args);
+        Log::debug(
+            'Making DataForSEO Labs Amazon Bulk Search Volume request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 
@@ -6572,7 +6582,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Ranks Live request',
-            // Log array count + all method params (excludes actual array to keep logs readable)
+            // Extract array count + all method params (excludes actual array to keep output readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6641,7 +6651,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Backlinks Live request',
-            // Log array count + all method params (excludes actual array to keep logs readable)
+            // Extract array count + all method params (excludes actual array to keep output readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6710,7 +6720,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Spam Score Live request',
-            // Log array count + all method params (excludes actual array to keep logs readable)
+            // Extract array count + all method params (excludes actual array to keep output readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6783,7 +6793,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Referring Domains Live request',
-            // Log array count + all method params (excludes actual array to keep logs readable)
+            // Extract array count + all method params (excludes actual array to keep output readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6863,7 +6873,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk New Lost Backlinks Live request',
-            // Log array count + all method params (excludes actual array to keep logs readable)
+            // Extract array count + all method params (excludes actual array to keep output readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -6943,7 +6953,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk New Lost Referring Domains Live request',
-            // Log array count + all method params (excludes actual array to keep logs readable)
+            // Extract array count + all method params (excludes actual array to keep output readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 
@@ -7025,7 +7035,7 @@ class DataForSeoApiClient extends BaseApiClient
 
         Log::debug(
             'Making DataForSEO Backlinks Bulk Pages Summary Live request',
-            // Log array count + all method params (excludes actual array to keep logs readable)
+            // Extract array count + all method params (excludes actual array to keep output readable)
             ['targets_count' => count($targets)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['targets'])
         );
 

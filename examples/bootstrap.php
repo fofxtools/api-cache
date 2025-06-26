@@ -68,6 +68,9 @@ function createProcessedResponseTables(Builder $schema, bool $dropExisting = fal
 
     // Create create_dataforseo_keywords_data_google_ads_keywords_items_table
     create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, dropExisting: $dropExisting, verify: $verify);
+
+    // Create dataforseo_backlinks_bulk_items table
+    create_dataforseo_backlinks_bulk_items_table($schema, dropExisting: $dropExisting, verify: $verify);
 }
 
 // Bootstrap Laravel

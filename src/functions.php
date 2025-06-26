@@ -814,7 +814,7 @@ function create_dataforseo_serp_google_organic_items_table(
             'table' => $table,
         ]);
 
-        $schema->create($table, function (Blueprint $table) {
+        $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable()->index();
             $table->unsignedBigInteger('task_id')->nullable()->index();
@@ -847,6 +847,15 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->timestamps();
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
+
+            // Add unique index for location_code, language_code, keyword
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->unique(['location_code', 'language_code', 'keyword'], 'dsgoi_location_language_keyword_unique');
+            } else {
+                $table->unique(['location_code', 'language_code', 'keyword']);
+            }
         });
 
         Log::debug('DataForSEO SERP Google Organic Items table created successfully', [
@@ -911,7 +920,7 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             'table' => $table,
         ]);
 
-        $schema->create($table, function (Blueprint $table) {
+        $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable()->index();
             $table->unsignedBigInteger('task_id')->nullable()->index();
@@ -946,6 +955,15 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->timestamps();
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
+
+            // Add unique index for location_code, language_code, keyword
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->unique(['location_code', 'language_code', 'keyword'], 'dsgopi_location_language_keyword_unique');
+            } else {
+                $table->unique(['location_code', 'language_code', 'keyword']);
+            }
         });
 
         Log::debug('DataForSEO SERP Google Organic PAA Items table created successfully', [
@@ -1010,7 +1028,7 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             'table' => $table,
         ]);
 
-        $schema->create($table, function (Blueprint $table) {
+        $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable()->index();
             $table->unsignedBigInteger('task_id')->nullable()->index();
@@ -1035,6 +1053,15 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->timestamps();
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
+
+            // Add unique index for location_code, language_code, keyword
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->unique(['location_code', 'language_code', 'keyword'], 'dsgai_location_language_keyword_unique');
+            } else {
+                $table->unique(['location_code', 'language_code', 'keyword']);
+            }
         });
 
         Log::debug('DataForSEO SERP Google Autocomplete Items table created successfully', [
@@ -1137,31 +1164,33 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->index('response_id', 'kdga_response_id_idx');
-                $table->index('task_id', 'kdga_task_id_idx');
+                $table->index('response_id', 'dkdgaki_response_id_idx');
+                $table->index('task_id', 'dkdgaki_task_id_idx');
 
-                $table->index('keyword', 'kdga_keyword_idx');
-                $table->index('se', 'kdga_se_idx');
-                $table->index('location_code', 'kdga_location_code_idx');
-                $table->index('language_code', 'kdga_language_code_idx');
+                $table->index('keyword', 'dkdgaki_keyword_idx');
+                $table->index('se', 'dkdgaki_se_idx');
+                $table->index('location_code', 'dkdgaki_location_code_idx');
+                $table->index('language_code', 'dkdgaki_language_code_idx');
 
-                $table->index('search_partners', 'kdga_search_partners_idx');
-                $table->index('competition', 'kdga_competition_idx');
-                $table->index('competition_index', 'kdga_competition_index_idx');
-                $table->index('search_volume', 'kdga_search_volume_idx');
-                $table->index('low_top_of_page_bid', 'kdga_low_top_of_page_bid_idx');
-                $table->index('high_top_of_page_bid', 'kdga_high_top_of_page_bid_idx');
-                $table->index('cpc', 'kdga_cpc_idx');
+                $table->index('search_partners', 'dkdgaki_search_partners_idx');
+                $table->index('competition', 'dkdgaki_competition_idx');
+                $table->index('competition_index', 'dkdgaki_competition_index_idx');
+                $table->index('search_volume', 'dkdgaki_search_volume_idx');
+                $table->index('low_top_of_page_bid', 'dkdgaki_low_top_of_page_bid_idx');
+                $table->index('high_top_of_page_bid', 'dkdgaki_high_top_of_page_bid_idx');
+                $table->index('cpc', 'dkdgaki_cpc_idx');
 
-                $table->index('bid', 'kdga_bid_idx');
-                $table->index('match', 'kdga_match_idx');
-                $table->index('impressions', 'kdga_impressions_idx');
-                $table->index('ctr', 'kdga_ctr_idx');
-                $table->index('average_cpc', 'kdga_average_cpc_idx');
-                $table->index('cost', 'kdga_cost_idx');
-                $table->index('clicks', 'kdga_clicks_idx');
+                $table->index('bid', 'dkdgaki_bid_idx');
+                $table->index('match', 'dkdgaki_match_idx');
+                $table->index('impressions', 'dkdgaki_impressions_idx');
+                $table->index('ctr', 'dkdgaki_ctr_idx');
+                $table->index('average_cpc', 'dkdgaki_average_cpc_idx');
+                $table->index('cost', 'dkdgaki_cost_idx');
+                $table->index('clicks', 'dkdgaki_clicks_idx');
 
-                $table->index('processed_at', 'kdga_processed_at_idx');
+                $table->index('processed_at', 'dkdgaki_processed_at_idx');
+
+                $table->unique(['location_code', 'language_code', 'keyword'], 'dkdgaki_location_language_keyword_unique');
             } else {
                 $table->index('response_id');
                 $table->index('task_id');
@@ -1188,10 +1217,150 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
                 $table->index('clicks');
 
                 $table->index('processed_at');
+
+                $table->unique(['location_code', 'language_code', 'keyword']);
             }
         });
 
         Log::debug('DataForSEO Keywords Data Google Ads Keywords Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create DataForSEO Backlinks Bulk Items table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_backlinks_bulk_items_table(
+    Builder $schema,
+    string $table = 'dataforseo_backlinks_bulk_items',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO Backlinks Bulk Items table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO Backlinks Bulk Items table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable();
+            $table->unsignedBigInteger('task_id')->nullable();
+
+            // Primary identifier field (target/url)
+            $table->string('target')->nullable();
+
+            // Endpoint type to differentiate between bulk endpoints
+            $table->string('endpoint_type')->nullable();
+
+            // Ranking metrics
+            $table->integer('rank')->nullable();
+            $table->integer('main_domain_rank')->nullable();
+
+            // Backlink counts
+            $table->unsignedBigInteger('backlinks')->nullable();
+            $table->unsignedBigInteger('new_backlinks')->nullable();
+            $table->unsignedBigInteger('lost_backlinks')->nullable();
+            $table->unsignedBigInteger('broken_backlinks')->nullable();
+            $table->unsignedBigInteger('broken_pages')->nullable();
+
+            // Quality metrics
+            $table->integer('spam_score')->nullable();
+            $table->integer('backlinks_spam_score')->nullable();
+
+            // Domain metrics (shared across multiple endpoints)
+            $table->unsignedBigInteger('referring_domains')->nullable();
+            $table->unsignedBigInteger('referring_domains_nofollow')->nullable();
+            $table->unsignedBigInteger('referring_main_domains')->nullable();
+            $table->unsignedBigInteger('referring_main_domains_nofollow')->nullable();
+
+            // New/Lost domain metrics
+            $table->unsignedBigInteger('new_referring_domains')->nullable();
+            $table->unsignedBigInteger('lost_referring_domains')->nullable();
+            $table->unsignedBigInteger('new_referring_main_domains')->nullable();
+            $table->unsignedBigInteger('lost_referring_main_domains')->nullable();
+
+            // Pages Summary specific metrics
+            $table->string('first_seen')->nullable();
+            $table->string('lost_date')->nullable();
+            $table->unsignedBigInteger('referring_ips')->nullable();
+            $table->unsignedBigInteger('referring_subnets')->nullable();
+            $table->unsignedBigInteger('referring_pages')->nullable();
+            $table->unsignedBigInteger('referring_pages_nofollow')->nullable();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable();
+            $table->text('processed_status')->nullable();
+
+            // Add indexes for better performance
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->index('response_id', 'dbbi_response_id_idx');
+                $table->index('task_id', 'dbbi_task_id_idx');
+                $table->index('endpoint_type', 'dbbi_endpoint_type_idx');
+                $table->index('rank', 'dbbi_rank_idx');
+                $table->index('backlinks', 'dbbi_backlinks_idx');
+                $table->index('spam_score', 'dbbi_spam_score_idx');
+                $table->index('referring_domains', 'dbbi_referring_domains_idx');
+                $table->index('processed_at', 'dbbi_processed_at_idx');
+                $table->unique('target', 'dbbi_target_unique');
+            } else {
+                $table->index('response_id');
+                $table->index('task_id');
+                $table->index('endpoint_type');
+                $table->index('rank');
+                $table->index('backlinks');
+                $table->index('spam_score');
+                $table->index('referring_domains');
+                $table->index('processed_at');
+                $table->unique('target');
+            }
+        });
+
+        Log::debug('DataForSEO Backlinks Bulk Items table created successfully', [
             'table' => $table,
         ]);
     }

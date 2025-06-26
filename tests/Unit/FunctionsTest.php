@@ -26,14 +26,23 @@ use function FOfX\ApiCache\extract_registrable_domain;
 use function FOfX\ApiCache\create_errors_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_items_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_paa_items_table;
+use function FOfX\ApiCache\create_dataforseo_serp_google_autocomplete_items_table;
 use function FOfX\ApiCache\create_dataforseo_keywords_data_google_ads_keywords_items_table;
+use function FOfX\ApiCache\create_dataforseo_backlinks_bulk_items_table;
 
 class FunctionsTest extends TestCase
 {
     protected string $testResponsesTable = 'api_cache_responses_test';
     protected string $testErrorsTable    = 'api_cache_errors_test';
     protected string $testImagesTable    = 'pixabay_images_test';
-    protected string $clientName         = 'demo';
+
+    protected string $testGoogleOrganicTable      = 'dataforseo_serp_google_organic_items_test';
+    protected string $testGoogleOrganicPaaTable   = 'dataforseo_serp_google_organic_paa_items_test';
+    protected string $testGoogleAutocompleteTable = 'dataforseo_serp_google_autocomplete_items_test';
+    protected string $testGoogleAdsKeywordsTable  = 'dataforseo_keywords_data_google_ads_keywords_items_test';
+    protected string $testBacklinksBulkTable      = 'dataforseo_backlinks_bulk_items_test';
+
+    protected string $clientName = 'demo';
     protected string $apiBaseUrl;
     protected array $mockApiResponse;
 
@@ -46,6 +55,12 @@ class FunctionsTest extends TestCase
         $this->testResponsesTable .= '_' . uniqid();
         $this->testErrorsTable .= '_' . uniqid();
         $this->testImagesTable .= '_' . uniqid();
+
+        $this->testGoogleOrganicTable .= '_' . uniqid();
+        $this->testGoogleOrganicPaaTable .= '_' . uniqid();
+        $this->testGoogleAutocompleteTable .= '_' . uniqid();
+        $this->testGoogleAdsKeywordsTable .= '_' . uniqid();
+        $this->testBacklinksBulkTable .= '_' . uniqid();
 
         // Get base URL from config
         $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
@@ -879,7 +894,7 @@ class FunctionsTest extends TestCase
     public function test_create_dataforseo_serp_google_organic_items_table_creates_table(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = 'test_serp_google_organic_items_' . uniqid();
+        $table  = $this->testGoogleOrganicTable;
         create_dataforseo_serp_google_organic_items_table($schema, $table, true, true);
         $this->assertTrue($schema->hasTable($table));
         $columns = $schema->getColumnListing($table);
@@ -894,7 +909,7 @@ class FunctionsTest extends TestCase
     public function test_create_dataforseo_serp_google_organic_items_table_respects_drop_existing_parameter(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = 'test_serp_google_organic_items_' . uniqid();
+        $table  = $this->testGoogleOrganicTable;
         create_dataforseo_serp_google_organic_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'keyword'    => 'test-keyword',
@@ -911,7 +926,7 @@ class FunctionsTest extends TestCase
     public function test_create_dataforseo_serp_google_organic_paa_items_table_creates_table(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = 'test_serp_google_organic_paa_items_' . uniqid();
+        $table  = $this->testGoogleOrganicPaaTable;
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, true);
         $this->assertTrue($schema->hasTable($table));
         $columns = $schema->getColumnListing($table);
@@ -929,7 +944,7 @@ class FunctionsTest extends TestCase
     public function test_create_dataforseo_serp_google_organic_paa_items_table_respects_drop_existing_parameter(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = 'test_serp_google_organic_paa_items_' . uniqid();
+        $table  = $this->testGoogleOrganicPaaTable;
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'keyword'    => 'test-keyword',
@@ -943,10 +958,107 @@ class FunctionsTest extends TestCase
         $schema->dropIfExists($table);
     }
 
+    public function test_create_dataforseo_serp_google_autocomplete_items_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testGoogleAutocompleteTable;
+
+        create_dataforseo_serp_google_autocomplete_items_table($schema, $table, false, true);
+
+        $this->assertTrue($schema->hasTable($table));
+
+        // Verify essential columns exist
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('keyword', $columns);
+        $this->assertContains('se_domain', $columns);
+        $this->assertContains('location_code', $columns);
+        $this->assertContains('language_code', $columns);
+        $this->assertContains('device', $columns);
+        $this->assertContains('os', $columns);
+        $this->assertContains('type', $columns);
+        $this->assertContains('rank_group', $columns);
+        $this->assertContains('rank_absolute', $columns);
+        $this->assertContains('relevance', $columns);
+        $this->assertContains('suggestion', $columns);
+        $this->assertContains('suggestion_type', $columns);
+        $this->assertContains('highlighted', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
+
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_serp_google_autocomplete_items_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testGoogleAutocompleteTable;
+
+        // Create table first time
+        create_dataforseo_serp_google_autocomplete_items_table($schema, $table, false, false);
+
+        // Insert a test record
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'       => 'test keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        // Create table again without drop - record should still exist
+        create_dataforseo_serp_google_autocomplete_items_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+
+        // Create table again with drop - table should be empty
+        create_dataforseo_serp_google_autocomplete_items_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_serp_google_autocomplete_items_table_with_verify_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testGoogleAutocompleteTable;
+
+        // Test with verify = true, should not throw an exception
+        create_dataforseo_serp_google_autocomplete_items_table($schema, $table, false, true);
+
+        $this->assertTrue($schema->hasTable($table));
+
+        // Insert a record to verify table is functional
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'         => 'test autocomplete',
+            'se_domain'       => 'google.com',
+            'location_code'   => 2840,
+            'language_code'   => 'en',
+            'device'          => 'desktop',
+            'os'              => 'windows',
+            'type'            => 'autocomplete',
+            'rank_group'      => 1,
+            'rank_absolute'   => 1,
+            'relevance'       => 100,
+            'suggestion'      => 'test autocomplete suggestion',
+            'suggestion_type' => 'query',
+            'highlighted'     => '<b>test</b> autocomplete suggestion',
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ]);
+
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+
+        $schema->dropIfExists($table);
+    }
+
     public function test_create_dataforseo_keywords_data_google_ads_keywords_items_table_creates_table(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = 'test_keywords_data_google_ads_keywords_items_' . uniqid();
+        $table  = $this->testGoogleAdsKeywordsTable;
         create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, true);
         $this->assertTrue($schema->hasTable($table));
         $columns = $schema->getColumnListing($table);
@@ -980,7 +1092,7 @@ class FunctionsTest extends TestCase
     public function test_create_dataforseo_keywords_data_google_ads_keywords_items_table_respects_drop_existing_parameter(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = 'test_keywords_data_google_ads_keywords_items_' . uniqid();
+        $table  = $this->testGoogleAdsKeywordsTable;
         create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'keyword'    => 'test-keyword',
@@ -991,6 +1103,175 @@ class FunctionsTest extends TestCase
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
         create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, false);
         $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_backlinks_bulk_items_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testBacklinksBulkTable;
+
+        create_dataforseo_backlinks_bulk_items_table($schema, $table, false, true);
+
+        $this->assertTrue($schema->hasTable($table));
+
+        // Verify essential columns exist
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('target', $columns);
+        $this->assertContains('endpoint_type', $columns);
+        $this->assertContains('rank', $columns);
+        $this->assertContains('main_domain_rank', $columns);
+        $this->assertContains('backlinks', $columns);
+        $this->assertContains('new_backlinks', $columns);
+        $this->assertContains('lost_backlinks', $columns);
+        $this->assertContains('broken_backlinks', $columns);
+        $this->assertContains('broken_pages', $columns);
+        $this->assertContains('spam_score', $columns);
+        $this->assertContains('backlinks_spam_score', $columns);
+        $this->assertContains('referring_domains', $columns);
+        $this->assertContains('referring_domains_nofollow', $columns);
+        $this->assertContains('referring_main_domains', $columns);
+        $this->assertContains('referring_main_domains_nofollow', $columns);
+        $this->assertContains('new_referring_domains', $columns);
+        $this->assertContains('lost_referring_domains', $columns);
+        $this->assertContains('new_referring_main_domains', $columns);
+        $this->assertContains('lost_referring_main_domains', $columns);
+        $this->assertContains('first_seen', $columns);
+        $this->assertContains('lost_date', $columns);
+        $this->assertContains('referring_ips', $columns);
+        $this->assertContains('referring_subnets', $columns);
+        $this->assertContains('referring_pages', $columns);
+        $this->assertContains('referring_pages_nofollow', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
+
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_backlinks_bulk_items_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testBacklinksBulkTable;
+
+        // Create table first time
+        create_dataforseo_backlinks_bulk_items_table($schema, $table, false, false);
+
+        // Insert a test record
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'target'     => 'example.com',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Create table again without drop - record should still exist
+        create_dataforseo_backlinks_bulk_items_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+
+        // Create table again with drop - table should be empty
+        create_dataforseo_backlinks_bulk_items_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_backlinks_bulk_items_table_with_verify_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testBacklinksBulkTable;
+
+        // Test with verify = true, should not throw an exception
+        create_dataforseo_backlinks_bulk_items_table($schema, $table, false, true);
+
+        $this->assertTrue($schema->hasTable($table));
+
+        // Insert a record to verify table is functional
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'target'            => 'test-domain.com',
+            'endpoint_type'     => 'bulk_backlinks',
+            'rank'              => 100,
+            'backlinks'         => 500,
+            'referring_domains' => 50,
+            'created_at'        => now(),
+            'updated_at'        => now(),
+        ]);
+
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_backlinks_bulk_items_table_with_custom_table_name(): void
+    {
+        $schema          = \Illuminate\Support\Facades\Schema::connection(null);
+        $customTableName = 'custom_backlinks_table_' . uniqid();
+
+        create_dataforseo_backlinks_bulk_items_table($schema, $customTableName, false, false);
+
+        $this->assertTrue($schema->hasTable($customTableName));
+
+        // Verify it's the correct table by checking columns
+        $columns = $schema->getColumnListing($customTableName);
+        $this->assertContains('target', $columns);
+        $this->assertContains('endpoint_type', $columns);
+        $this->assertContains('backlinks', $columns);
+
+        $schema->dropIfExists($customTableName);
+    }
+
+    public function test_create_dataforseo_backlinks_bulk_items_table_handles_different_database_drivers(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testBacklinksBulkTable;
+
+        // Create table - should work regardless of driver (sqlite, mysql, pgsql)
+        create_dataforseo_backlinks_bulk_items_table($schema, $table, false, false);
+
+        $this->assertTrue($schema->hasTable($table));
+
+        // Test that we can insert data regardless of driver
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'target'                          => 'driver-test.com',
+            'endpoint_type'                   => 'bulk_test',
+            'rank'                            => 1,
+            'main_domain_rank'                => 2,
+            'backlinks'                       => 1000,
+            'new_backlinks'                   => 50,
+            'lost_backlinks'                  => 10,
+            'broken_backlinks'                => 5,
+            'broken_pages'                    => 2,
+            'spam_score'                      => 15,
+            'backlinks_spam_score'            => 20,
+            'referring_domains'               => 100,
+            'referring_domains_nofollow'      => 25,
+            'referring_main_domains'          => 80,
+            'referring_main_domains_nofollow' => 20,
+            'new_referring_domains'           => 10,
+            'lost_referring_domains'          => 5,
+            'new_referring_main_domains'      => 8,
+            'lost_referring_main_domains'     => 3,
+            'first_seen'                      => '2023-01-01',
+            'lost_date'                       => '2023-12-31',
+            'referring_ips'                   => 75,
+            'referring_subnets'               => 60,
+            'referring_pages'                 => 150,
+            'referring_pages_nofollow'        => 40,
+            'created_at'                      => now(),
+            'updated_at'                      => now(),
+        ]);
+
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+
+        // Verify the inserted data
+        $record = \Illuminate\Support\Facades\DB::table($table)->first();
+        $this->assertEquals('driver-test.com', $record->target);
+        $this->assertEquals('bulk_test', $record->endpoint_type);
+        $this->assertEquals(1000, $record->backlinks);
+
         $schema->dropIfExists($table);
     }
 }

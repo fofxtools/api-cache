@@ -912,9 +912,14 @@ class FunctionsTest extends TestCase
         $table  = $this->testGoogleOrganicTable;
         create_dataforseo_serp_google_organic_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
-            'keyword'    => 'test-keyword',
-            'created_at' => now(),
-            'updated_at' => now(),
+            'keyword'       => 'test-keyword',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'os'            => 'windows',
+            'created_at'    => now(),
+            'updated_at'    => now(),
         ]);
         create_dataforseo_serp_google_organic_items_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
@@ -935,9 +940,29 @@ class FunctionsTest extends TestCase
         $this->assertContains('task_id', $columns);
         $this->assertContains('organic_items_id', $columns);
         $this->assertContains('keyword', $columns);
+        $this->assertContains('se_domain', $columns);
+        $this->assertContains('location_code', $columns);
+        $this->assertContains('language_code', $columns);
+        $this->assertContains('device', $columns);
+        $this->assertContains('os', $columns);
+        $this->assertContains('item_position', $columns);
+        $this->assertContains('type', $columns);
+        $this->assertContains('title', $columns);
+        $this->assertContains('seed_question', $columns);
+        $this->assertContains('xpath', $columns);
         $this->assertContains('answer_type', $columns);
+        $this->assertContains('answer_featured_title', $columns);
+        $this->assertContains('answer_url', $columns);
+        $this->assertContains('answer_domain', $columns);
+        $this->assertContains('answer_title', $columns);
+        $this->assertContains('answer_description', $columns);
         $this->assertContains('answer_images', $columns);
+        $this->assertContains('answer_timestamp', $columns);
         $this->assertContains('answer_table', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
         $schema->dropIfExists($table);
     }
 
@@ -947,9 +972,15 @@ class FunctionsTest extends TestCase
         $table  = $this->testGoogleOrganicPaaTable;
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
-            'keyword'    => 'test-keyword',
-            'created_at' => now(),
-            'updated_at' => now(),
+            'keyword'       => 'test-keyword',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'os'            => 'windows',
+            'item_position' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
         ]);
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
@@ -1004,8 +1035,11 @@ class FunctionsTest extends TestCase
         // Insert a test record
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'keyword'       => 'test keyword',
+            'se_domain'     => 'google.com',
             'location_code' => 2840,
             'language_code' => 'en',
+            'device'        => 'desktop',
+            'os'            => 'windows',
             'created_at'    => now(),
             'updated_at'    => now(),
         ]);
@@ -1095,9 +1129,12 @@ class FunctionsTest extends TestCase
         $table  = $this->testGoogleAdsKeywordsTable;
         create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
-            'keyword'    => 'test-keyword',
-            'created_at' => now(),
-            'updated_at' => now(),
+            'keyword'       => 'test-keyword',
+            'se'            => 'google',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'created_at'    => now(),
+            'updated_at'    => now(),
         ]);
         create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());

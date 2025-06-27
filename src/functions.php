@@ -820,12 +820,12 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->string('task_id')->nullable()->index();
 
             // Fields passed
-            $table->string('keyword')->nullable()->index();
-            $table->string('se_domain')->nullable()->index();
-            $table->integer('location_code')->nullable()->index();
-            $table->string('language_code')->nullable()->index();
-            $table->string('device')->nullable()->index();
-            $table->string('os')->nullable()->index();
+            $table->string('keyword')->index();
+            $table->string('se_domain')->index();
+            $table->integer('location_code')->index();
+            $table->string('language_code')->index();
+            $table->string('device')->index();
+            $table->string('os')->index();
 
             // Fields returned
             $table->string('type')->nullable()->index();
@@ -927,12 +927,15 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->unsignedBigInteger('organic_items_id')->nullable()->index();
 
             // Fields passed
-            $table->string('keyword')->nullable()->index();
-            $table->string('se_domain')->nullable()->index();
-            $table->integer('location_code')->nullable()->index();
-            $table->string('language_code')->nullable()->index();
-            $table->string('device')->nullable()->index();
-            $table->string('os')->nullable()->index();
+            $table->string('keyword')->index();
+            $table->string('se_domain')->index();
+            $table->integer('location_code')->index();
+            $table->string('language_code')->index();
+            $table->string('device')->index();
+            $table->string('os')->index();
+
+            // Added (not from API)
+            $table->integer('item_position')->index();
 
             // Fields returned
             // From people_also_ask_element
@@ -956,13 +959,13 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for keyword, location_code, language_code, device, rank_absolute
+            // Add unique index for keyword, location_code, language_code, device, item_position
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute'], 'dsgopi_keyword_location_language_device_rankabs_unique');
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'item_position'], 'dsgopi_keyword_location_language_device_rankabs_unique');
             } else {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute']);
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'item_position']);
             }
         });
 
@@ -1034,12 +1037,12 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->string('task_id')->nullable()->index();
 
             // Fields passed
-            $table->string('keyword')->nullable()->index();
-            $table->string('se_domain')->nullable()->index();
-            $table->integer('location_code')->nullable()->index();
-            $table->string('language_code')->nullable()->index();
-            $table->string('device')->nullable()->index();
-            $table->string('os')->nullable()->index();
+            $table->string('keyword')->index();
+            $table->string('se_domain')->index();
+            $table->integer('location_code')->index();
+            $table->string('language_code')->index();
+            $table->string('device')->index();
+            $table->string('os')->index();
 
             // Fields returned
             $table->string('type')->nullable()->index();
@@ -1132,10 +1135,10 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
             $table->string('task_id')->nullable();
 
             // Fields passed
-            $table->string('keyword')->nullable();
-            $table->string('se')->nullable();
-            $table->integer('location_code')->nullable();
-            $table->string('language_code')->nullable();
+            $table->string('keyword');
+            $table->string('se');
+            $table->integer('location_code');
+            $table->string('language_code');
 
             // Fields returned
             $table->boolean('search_partners')->nullable();
@@ -1290,7 +1293,7 @@ function create_dataforseo_backlinks_bulk_items_table(
             $table->string('task_id')->nullable();
 
             // Primary identifier field (target/url)
-            $table->string('target')->nullable();
+            $table->string('target');
 
             // Endpoint type to differentiate between bulk endpoints
             $table->string('endpoint_type')->nullable();

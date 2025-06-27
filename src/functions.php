@@ -817,7 +817,7 @@ function create_dataforseo_serp_google_organic_items_table(
         $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable()->index();
-            $table->unsignedBigInteger('task_id')->nullable()->index();
+            $table->string('task_id')->nullable()->index();
 
             // Fields passed
             $table->string('keyword')->nullable()->index();
@@ -848,13 +848,13 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for location_code, language_code, keyword
+            // Add unique index for keyword, location_code, language_code, device, rank_absolute
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['location_code', 'language_code', 'keyword'], 'dsgoi_location_language_keyword_unique');
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute'], 'dsgoi_keyword_location_language_device_rankabs_unique');
             } else {
-                $table->unique(['location_code', 'language_code', 'keyword']);
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute']);
             }
         });
 
@@ -923,7 +923,7 @@ function create_dataforseo_serp_google_organic_paa_items_table(
         $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable()->index();
-            $table->unsignedBigInteger('task_id')->nullable()->index();
+            $table->string('task_id')->nullable()->index();
             $table->unsignedBigInteger('organic_items_id')->nullable()->index();
 
             // Fields passed
@@ -956,13 +956,13 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for location_code, language_code, keyword
+            // Add unique index for keyword, location_code, language_code, device, rank_absolute
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['location_code', 'language_code', 'keyword'], 'dsgopi_location_language_keyword_unique');
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute'], 'dsgopi_keyword_location_language_device_rankabs_unique');
             } else {
-                $table->unique(['location_code', 'language_code', 'keyword']);
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute']);
             }
         });
 
@@ -1031,7 +1031,7 @@ function create_dataforseo_serp_google_autocomplete_items_table(
         $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable()->index();
-            $table->unsignedBigInteger('task_id')->nullable()->index();
+            $table->string('task_id')->nullable()->index();
 
             // Fields passed
             $table->string('keyword')->nullable()->index();
@@ -1054,13 +1054,13 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for location_code, language_code, keyword
+            // Add unique index for keyword, location_code, language_code, device, rank_absolute
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['location_code', 'language_code', 'keyword'], 'dsgai_location_language_keyword_unique');
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute'], 'dsgai_keyword_location_language_device_rankabs_unique');
             } else {
-                $table->unique(['location_code', 'language_code', 'keyword']);
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute']);
             }
         });
 
@@ -1129,7 +1129,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
         $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable();
-            $table->unsignedBigInteger('task_id')->nullable();
+            $table->string('task_id')->nullable();
 
             // Fields passed
             $table->string('keyword')->nullable();
@@ -1190,7 +1190,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
 
                 $table->index('processed_at', 'dkdgaki_processed_at_idx');
 
-                $table->unique(['location_code', 'language_code', 'keyword'], 'dkdgaki_location_language_keyword_unique');
+                $table->unique(['keyword', 'location_code', 'language_code'], 'dkdgaki_keyword_location_language_unique');
             } else {
                 $table->index('response_id');
                 $table->index('task_id');
@@ -1218,7 +1218,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
 
                 $table->index('processed_at');
 
-                $table->unique(['location_code', 'language_code', 'keyword']);
+                $table->unique(['keyword', 'location_code', 'language_code']);
             }
         });
 
@@ -1287,7 +1287,7 @@ function create_dataforseo_backlinks_bulk_items_table(
         $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
             $table->unsignedBigInteger('response_id')->nullable();
-            $table->unsignedBigInteger('task_id')->nullable();
+            $table->string('task_id')->nullable();
 
             // Primary identifier field (target/url)
             $table->string('target')->nullable();

@@ -57,6 +57,23 @@ function check_server_status(string $baseUrl, int $timeout = 2): bool
 }
 
 /**
+ * Resolve the cache manager instance
+ *
+ * @param ApiCacheManager|null $cacheManager Optional cache manager instance
+ *
+ * @return ApiCacheManager The resolved cache manager
+ */
+function resolve_cache_manager(?ApiCacheManager $cacheManager): ApiCacheManager
+{
+    if ($cacheManager !== null) {
+        return $cacheManager;
+    }
+
+    // Instead of using factory, resolve from container
+    return app(ApiCacheManager::class);
+}
+
+/**
  * Create responses table for testing
  *
  * @param Builder $schema       Schema builder instance

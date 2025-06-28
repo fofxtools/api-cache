@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace FOfX\ApiCache\Tests\Unit;
 
+use FOfX\ApiCache\ApiCacheManager;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\Tests\TestCase;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use FOfX\Helper;
+use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 use function FOfX\ApiCache\check_server_status;
+use function FOfX\ApiCache\resolve_cache_manager;
 use function FOfX\ApiCache\create_responses_table;
 use function FOfX\ApiCache\format_api_response;
 use function FOfX\ApiCache\get_tables;
@@ -32,6 +35,9 @@ use function FOfX\ApiCache\create_dataforseo_backlinks_bulk_items_table;
 
 class FunctionsTest extends TestCase
 {
+    /** @var ApiCacheManager&Mockery\MockInterface */
+    protected ApiCacheManager $cacheManager;
+
     protected string $testResponsesTable = 'api_cache_responses_test';
     protected string $testErrorsTable    = 'api_cache_errors_test';
     protected string $testImagesTable    = 'pixabay_images_test';
@@ -50,6 +56,9 @@ class FunctionsTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+
+        // Set up cache manager mock
+        $this->cacheManager = Mockery::mock(ApiCacheManager::class);
 
         // Append unique ID to test table names
         $this->testResponsesTable .= '_' . uniqid();
@@ -154,6 +163,26 @@ class FunctionsTest extends TestCase
     {
         $url = $this->apiBaseUrl . '/404';
         $this->assertFalse(check_server_status($url));
+    }
+
+    /**
+     * Tests for resolve_cache_manager function
+     */
+    public function test_resolve_cache_manager_returns_injected_manager(): void
+    {
+        $resolvedManager = resolve_cache_manager($this->cacheManager);
+
+        $this->assertSame($this->cacheManager, $resolvedManager);
+    }
+
+    public function test_resolve_cache_manager_returns_singleton_when_not_injected(): void
+    {
+        $this->app->instance(ApiCacheManager::class, $this->cacheManager);
+
+        // Test with null to simulate no injection
+        $resolvedManager = resolve_cache_manager(null);
+
+        $this->assertSame($this->cacheManager, $resolvedManager);
     }
 
     /**

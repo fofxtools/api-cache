@@ -52,7 +52,7 @@ class BaseApiClient
         $this->apiKey     = $apiKey ?? config("api-cache.apis.{$this->clientName}.api_key");
         $this->version    = $version ?? config("api-cache.apis.{$this->clientName}.version");
 
-        $this->cacheManager = $this->resolveCacheManager($cacheManager);
+        $this->cacheManager = resolve_cache_manager($cacheManager);
 
         // Set the auth headers with cookies disabled
         // Cookies may cause issues with the cache key being unique each time
@@ -731,22 +731,5 @@ class BaseApiClient
     public function getHealth(): array
     {
         return $this->sendRequest('health');
-    }
-
-    /**
-     * Resolve the cache manager
-     *
-     * @param ApiCacheManager|null $cacheManager Optional cache manager instance
-     *
-     * @return ApiCacheManager|null The resolved cache manager
-     */
-    protected function resolveCacheManager(?ApiCacheManager $cacheManager): ?ApiCacheManager
-    {
-        if ($cacheManager !== null) {
-            return $cacheManager;
-        }
-
-        // Instead of using factory, resolve from container
-        return app(ApiCacheManager::class);
     }
 }

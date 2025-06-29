@@ -1512,4 +1512,58 @@ class DataForSeoApiClientTest extends TestCase
             $this->addToAssertionCount(1);
         }
     }
+
+    /**
+     * Data provider for validateAbsoluteUrl tests
+     */
+    public static function absoluteUrlDataProvider(): array
+    {
+        return [
+            // Valid absolute URLs
+            'https URL'               => ['https://example.com', true],
+            'http URL'                => ['http://example.com', true],
+            'https URL with path'     => ['https://example.com/page', true],
+            'https URL with query'    => ['https://example.com/page?param=value', true],
+            'https URL with fragment' => ['https://example.com/page#section', true],
+            'https URL with www'      => ['https://www.example.com', true],
+            'http URL with www'       => ['http://www.example.com', true],
+            'https URL with port'     => ['https://example.com:8080', true],
+            'http URL with port'      => ['http://example.com:8080/path', true],
+
+            // Invalid inputs - no protocol
+            'domain only'     => ['example.com', false, 'URL must be an absolute URL starting with http:// or https://'],
+            'www domain only' => ['www.example.com', false, 'URL must be an absolute URL starting with http:// or https://'],
+            'subdomain only'  => ['sub.example.com', false, 'URL must be an absolute URL starting with http:// or https://'],
+
+            // Invalid inputs - wrong protocol
+            'ftp protocol'  => ['ftp://example.com', false, 'URL must be an absolute URL starting with http:// or https://'],
+            'file protocol' => ['file:///path/to/file', false, 'URL must be an absolute URL starting with http:// or https://'],
+
+            // Invalid inputs - malformed URLs
+            'invalid URL format' => ['https://invalid..url', false, 'URL must be a valid absolute URL'],
+            'protocol only'      => ['https:///', false, 'URL must be a valid absolute URL'],
+            'empty string'       => ['', false, 'URL must be an absolute URL starting with http:// or https://'],
+        ];
+    }
+
+    /**
+     * Test validateAbsoluteUrl with valid and invalid inputs
+     */
+    #[DataProvider('absoluteUrlDataProvider')]
+    public function test_validateAbsoluteUrl(string $url, bool $shouldPass, ?string $expectedMessage = null)
+    {
+        if (!$shouldPass) {
+            $this->expectException(\InvalidArgumentException::class);
+            if ($expectedMessage) {
+                $this->expectExceptionMessage($expectedMessage);
+            }
+        }
+
+        $this->client->validateAbsoluteUrl($url);
+
+        if ($shouldPass) {
+            // If we get here without exception, the test passed
+            $this->addToAssertionCount(1);
+        }
+    }
 }

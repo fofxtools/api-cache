@@ -316,6 +316,78 @@ class DataForSeoApiClientOnPageTest extends TestCase
         });
     }
 
+    public function test_onPageInstantPages_validates_absolute_url()
+    {
+        // Test that domain-only input is rejected
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('URL must be an absolute URL starting with http:// or https://');
+
+        $this->client->onPageInstantPages('fiverr.com');
+    }
+
+    public function test_onPageInstantPages_accepts_valid_absolute_urls()
+    {
+        // Mock successful API response
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response([
+                'version'        => '0.1.20241217',
+                'status_code'    => 20000,
+                'status_message' => 'Ok.',
+                'time'           => '0.123 sec.',
+                'cost'           => 0.001,
+                'tasks_count'    => 1,
+                'tasks_error'    => 0,
+                'tasks'          => [
+                    [
+                        'id'             => 'test-task-id',
+                        'status_code'    => 20000,
+                        'status_message' => 'Ok.',
+                        'time'           => '0.123 sec.',
+                        'cost'           => 0.001,
+                        'result_count'   => 1,
+                        'path'           => ['on_page', 'instant_pages'],
+                        'data'           => ['api' => 'on_page', 'function' => 'instant_pages'],
+                        'result'         => [
+                            [
+                                'crawl_progress' => 'finished',
+                                'crawl_status'   => [
+                                    'max_crawl_pages' => 1,
+                                    'pages_in_queue'  => 0,
+                                    'pages_crawled'   => 1,
+                                ],
+                                'total_items_count' => 1,
+                                'items_count'       => 1,
+                                'items'             => [
+                                    [
+                                        'type'        => 'page',
+                                        'url'         => 'https://www.example.com',
+                                        'status_code' => 200,
+                                        'page_timing' => [
+                                            'time_to_interactive' => 1.234,
+                                            'dom_complete'        => 2.345,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Test valid HTTPS URL
+        $result = $this->client->onPageInstantPages('https://www.example.com');
+        $this->assertArrayHasKey('response', $result);
+
+        // Test valid HTTP URL
+        $result = $this->client->onPageInstantPages('http://example.com');
+        $this->assertArrayHasKey('response', $result);
+    }
+
     public function test_onpage_task_post_successful_request()
     {
         $responseJson = json_encode([

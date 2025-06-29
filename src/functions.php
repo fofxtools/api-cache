@@ -63,7 +63,7 @@ function check_server_status(string $baseUrl, int $timeout = 2): bool
  *
  * @return ApiCacheManager The resolved cache manager
  */
-function resolve_cache_manager(?ApiCacheManager $cacheManager): ApiCacheManager
+function resolve_cache_manager(?ApiCacheManager $cacheManager = null): ApiCacheManager
 {
     if ($cacheManager !== null) {
         return $cacheManager;

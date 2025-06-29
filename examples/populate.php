@@ -64,6 +64,24 @@ $matchType = 'exact';
 
 // Test single keyword endpoints
 foreach ($keywordsSetA as $keyword) {
+    $result   = $dfs->serpGoogleOrganicLiveRegular($keyword);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->serpGoogleOrganicLiveAdvanced($keyword);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->serpGoogleAutocompleteLiveAdvanced($keyword);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->serpGoogleOrganicStandardRegular($keyword, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
@@ -78,7 +96,6 @@ foreach ($keywordsSetA as $keyword) {
 
     // With people_also_ask_click_depth 4 and load_async_ai_overview true and expand_ai_overview true
     // people_also_ask_click_depth and load_async_ai_overview incur extra charges
-
     $result   = $dfs->serpGoogleOrganicStandardAdvanced($keyword, peopleAlsoAskClickDepth: 4, loadAsyncAiOverview: true, expandAiOverview: true, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
@@ -112,13 +129,31 @@ foreach ($keywordsArrays as $keywordSet) {
     echo "Response Body:\n";
     print_r($body);
 
+    $result   = $dfs->keywordsDataGoogleAdsSearchVolumeLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->keywordsDataGoogleAdsKeywordsForKeywordsStandard($keywordSet, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";
     print_r($body);
 
+    $result   = $dfs->keywordsDataGoogleAdsKeywordsForKeywordsLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->keywordsDataGoogleAdsAdTrafficByKeywordsStandard($keywordSet, $maxBid, $matchType, usePingback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->keywordsDataGoogleAdsAdTrafficByKeywordsLive($keywordSet, bid: $maxBid, match: $matchType);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";
@@ -140,6 +175,19 @@ foreach ($keywordsArrays as $keywordSet) {
 // Test single domain endpoints
 foreach ($domainArray as $domain) {
     $result   = $dfs->keywordsDataGoogleAdsKeywordsForSiteStandard($domain, usePingback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->keywordsDataGoogleAdsKeywordsForSiteLive($domain);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    // Use absolute URL for Instant Pages
+    $result   = $dfs->onPageInstantPages("https://www.{$domain}");
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";

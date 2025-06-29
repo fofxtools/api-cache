@@ -184,9 +184,15 @@ return [
             'apiVersion'               => env('DATAFORSEO_API_VERSION', '/v3/'),
             'url'                      => env('DATAFORSEO_BASE_URL', 'https://api.dataforseo.com'),
             'extraEntitiesPaths'       => array_filter(explode(',', env('DATAFORSEO_EXTRA_ENTITIES_PATHS', ''))),
-            'pingback_url'             => env('DATAFORSEO_PINGBACK_URL', null),
-            'postback_url'             => env('DATAFORSEO_POSTBACK_URL', null),
-            'whitelisted_ips'          => array_filter(array_map('trim', explode(',', env('DATAFORSEO_WHITELISTED_IPS', '88.99.215.15,94.130.93.29,94.130.155.89,144.76.153.106,144.76.153.113,144.76.154.130,178.63.193.217,195.201.63.107')))),
+            // Concatenate webhook base URL and pingback/postback paths
+            // Use rtrim/ltrim to remove trailing/leading slashes respectively
+            'pingback_url' => env('DATAFORSEO_WEBHOOK_BASE_URL') && env('DATAFORSEO_PINGBACK_PATH')
+                ? rtrim(env('DATAFORSEO_WEBHOOK_BASE_URL'), '/') . '/' . ltrim(env('DATAFORSEO_PINGBACK_PATH'), '/')
+                : null,
+            'postback_url' => env('DATAFORSEO_WEBHOOK_BASE_URL') && env('DATAFORSEO_POSTBACK_PATH')
+                ? rtrim(env('DATAFORSEO_WEBHOOK_BASE_URL'), '/') . '/' . ltrim(env('DATAFORSEO_POSTBACK_PATH'), '/')
+                : null,
+            'whitelisted_ips' => array_filter(array_map('trim', explode(',', env('DATAFORSEO_WHITELISTED_IPS', '88.99.215.15,94.130.93.29,94.130.155.89,144.76.153.106,144.76.153.113,144.76.154.130,178.63.193.217,195.201.63.107')))),
         ],
     ],
 

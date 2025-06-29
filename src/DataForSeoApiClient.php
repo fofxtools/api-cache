@@ -774,6 +774,24 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Validate target parameter for absolute URL endpoints (must be http:// or https://)
+     *
+     * @param string $url The URL to validate
+     *
+     * @throws \InvalidArgumentException If validation fails
+     */
+    public function validateAbsoluteUrl(string $url): void
+    {
+        if (!preg_match('/^https?:\/\//', $url)) {
+            throw new \InvalidArgumentException('URL must be an absolute URL starting with http:// or https://');
+        }
+
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            throw new \InvalidArgumentException('URL must be a valid absolute URL');
+        }
+    }
+
+    /**
      * Get Google Organic SERP results using DataForSEO's Live API with Regular endpoints
      *
      * @param string      $keyword             The search query
@@ -4987,6 +5005,9 @@ class DataForSeoApiClient extends BaseApiClient
             'Making DataForSEO OnPage Instant Pages Live request',
             ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
         );
+
+        // Validate target format (absolute URL)
+        $this->validateAbsoluteUrl($url);
 
         $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
 

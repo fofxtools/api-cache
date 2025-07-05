@@ -842,7 +842,7 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->integer('location_code')->index();
             $table->string('language_code')->index();
             $table->string('device')->index();
-            $table->string('os')->index();
+            $table->string('os')->index()->nullable();
 
             // Fields returned
             $table->string('type')->nullable()->index();
@@ -949,7 +949,7 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->integer('location_code')->index();
             $table->string('language_code')->index();
             $table->string('device')->index();
-            $table->string('os')->index();
+            $table->string('os')->index()->nullable();
 
             // Added (not from API)
             $table->integer('item_position')->index();
@@ -1059,7 +1059,7 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->integer('location_code')->index();
             $table->string('language_code')->index();
             $table->string('device')->index();
-            $table->string('os')->index();
+            $table->string('os')->index()->nullable();
 
             // Fields returned
             $table->string('type')->nullable()->index();

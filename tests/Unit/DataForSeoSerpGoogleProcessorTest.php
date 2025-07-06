@@ -46,6 +46,13 @@ class DataForSeoSerpGoogleProcessorTest extends TestCase
         $this->assertInstanceOf(DataForSeoSerpGoogleProcessor::class, $processor);
     }
 
+    public function test_set_skip_sandbox_changes_value(): void
+    {
+        $original = $this->processor->getSkipSandbox();
+        $this->processor->setSkipSandbox(!$original);
+        $this->assertEquals(!$original, $this->processor->getSkipSandbox());
+    }
+
     public function test_set_update_if_newer_changes_value(): void
     {
         $original = $this->processor->getUpdateIfNewer();
@@ -53,11 +60,969 @@ class DataForSeoSerpGoogleProcessorTest extends TestCase
         $this->assertEquals(!$original, $this->processor->getUpdateIfNewer());
     }
 
-    public function test_set_skip_sandbox_changes_value(): void
+    public function test_get_responses_table_name(): void
     {
-        $original = $this->processor->getSkipSandbox();
-        $this->processor->setSkipSandbox(!$original);
-        $this->assertEquals(!$original, $this->processor->getSkipSandbox());
+        $tableName = $this->processor->getResponsesTableName();
+        $this->assertEquals($this->responsesTable, $tableName);
+    }
+
+    public function test_reset_processed(): void
+    {
+        // Insert processed responses
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'processed-key-1',
+                'endpoint'             => 'serp/google/organic/task_get/advanced',
+                'response_body'        => json_encode(['tasks' => []]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => now(),
+                'processed_status'     => json_encode(['status' => 'OK']),
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'processed-key-2',
+                'endpoint'             => 'serp/google/organic/live/advanced',
+                'response_body'        => json_encode(['tasks' => []]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => now(),
+                'processed_status'     => json_encode(['status' => 'OK']),
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'other-endpoint-key',
+                'endpoint'             => 'other/endpoint',
+                'response_body'        => json_encode(['tasks' => []]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => now(),
+                'processed_status'     => json_encode(['status' => 'OK']),
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $this->processor->resetProcessed();
+
+        // Verify only SERP Google responses were reset
+        $resetCount = DB::table($this->responsesTable)
+            ->whereNull('processed_at')
+            ->whereNull('processed_status')
+            ->count();
+        $this->assertEquals(2, $resetCount);
+
+        // Verify other endpoint was not reset
+        $otherResponse = DB::table($this->responsesTable)
+            ->where('key', 'other-endpoint-key')
+            ->first();
+        $this->assertNotNull($otherResponse->processed_at);
+    }
+
+    public function test_clear_processed_tables(): void
+    {
+        // Insert test data into both tables
+        DB::table($this->organicItemsTable)->insert([
+            'keyword'       => 'test',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->paaItemsTable)->insert([
+            'keyword'       => 'test',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables();
+
+        $this->assertEquals(1, $stats['organic_cleared']);
+        $this->assertEquals(1, $stats['paa_cleared']);
+
+        // Verify tables are empty
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_exclude_paa(): void
+    {
+        // Insert test data into both tables
+        DB::table($this->organicItemsTable)->insert([
+            'keyword'       => 'test',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->paaItemsTable)->insert([
+            'keyword'       => 'test',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(false);
+
+        $this->assertEquals(1, $stats['organic_cleared']);
+        $this->assertEquals(0, $stats['paa_cleared']);
+
+        // Verify only organic table is empty
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+    }
+
+    /**
+     * Data provider for extractMetadata test
+     */
+    public static function extractMetadataDataProvider(): array
+    {
+        return [
+            'complete_data' => [
+                [
+                    'keyword'       => 'test keyword',
+                    'se_domain'     => 'google.com',
+                    'location_code' => 2840,
+                    'language_code' => 'en',
+                    'device'        => 'desktop',
+                    'os'            => 'windows',
+                    'extra_field'   => 'ignored',
+                ],
+                [
+                    'keyword'       => 'test keyword',
+                    'se_domain'     => 'google.com',
+                    'location_code' => 2840,
+                    'language_code' => 'en',
+                    'device'        => 'desktop',
+                    'os'            => 'windows',
+                ],
+            ],
+            'partial_data' => [
+                [
+                    'keyword'   => 'partial keyword',
+                    'se_domain' => 'google.co.uk',
+                ],
+                [
+                    'keyword'       => 'partial keyword',
+                    'se_domain'     => 'google.co.uk',
+                    'location_code' => null,
+                    'language_code' => null,
+                    'device'        => null,
+                    'os'            => null,
+                ],
+            ],
+            'empty_data' => [
+                [],
+                [
+                    'keyword'       => null,
+                    'se_domain'     => null,
+                    'location_code' => null,
+                    'language_code' => null,
+                    'device'        => null,
+                    'os'            => null,
+                ],
+            ],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractMetadataDataProvider')]
+    public function test_extract_metadata(array $input, array $expected): void
+    {
+        $result = $this->processor->extractMetadata($input);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Data provider for ensureDefaults test
+     */
+    public static function ensureDefaultsDataProvider(): array
+    {
+        return [
+            'no_device_specified' => [
+                [
+                    'keyword'       => 'test',
+                    'se_domain'     => 'google.com',
+                    'location_code' => 2840,
+                ],
+                [
+                    'keyword'       => 'test',
+                    'se_domain'     => 'google.com',
+                    'location_code' => 2840,
+                    'device'        => 'desktop',
+                ],
+            ],
+            'device_already_specified' => [
+                [
+                    'keyword' => 'test',
+                    'device'  => 'mobile',
+                ],
+                [
+                    'keyword' => 'test',
+                    'device'  => 'mobile',
+                ],
+            ],
+            'empty_data' => [
+                [],
+                [
+                    'device' => 'desktop',
+                ],
+            ],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('ensureDefaultsDataProvider')]
+    public function test_ensure_defaults(array $input, array $expected): void
+    {
+        $result = $this->processor->ensureDefaults($input);
+        $this->assertEquals($expected, $result);
+    }
+
+    public function test_batch_insert_or_update_organic_items(): void
+    {
+        $now          = now();
+        $organicItems = [
+            [
+                'keyword'             => 'test keyword 1',
+                'location_code'       => 2840,
+                'language_code'       => 'en',
+                'device'              => 'desktop',
+                'rank_absolute'       => 1,
+                'se_domain'           => 'google.com',
+                'task_id'             => 'task-123',
+                'response_id'         => 456,
+                'type'                => 'organic',
+                'rank_group'          => 1,
+                'domain'              => 'example.com',
+                'title'               => 'Test Title 1',
+                'description'         => 'Test Description 1',
+                'url'                 => 'https://example.com/test1',
+                'is_featured_snippet' => false,
+                'created_at'          => $now,
+                'updated_at'          => $now,
+            ],
+            [
+                'keyword'             => 'test keyword 2',
+                'location_code'       => 2840,
+                'language_code'       => 'en',
+                'device'              => 'desktop',
+                'rank_absolute'       => 2,
+                'se_domain'           => 'google.com',
+                'task_id'             => 'task-123',
+                'response_id'         => 456,
+                'type'                => 'organic',
+                'rank_group'          => 2,
+                'domain'              => 'example2.com',
+                'title'               => 'Test Title 2',
+                'description'         => 'Test Description 2',
+                'url'                 => 'https://example2.com/test2',
+                'is_featured_snippet' => true,
+                'created_at'          => $now,
+                'updated_at'          => $now,
+            ],
+        ];
+
+        $this->processor->batchInsertOrUpdateOrganicItems($organicItems);
+
+        // Verify items were inserted
+        $insertedItems = DB::table($this->organicItemsTable)->orderBy('rank_absolute')->get();
+        $this->assertCount(2, $insertedItems);
+
+        $firstItem = $insertedItems[0];
+        $this->assertEquals('test keyword 1', $firstItem->keyword);
+        $this->assertEquals(1, $firstItem->rank_absolute);
+        $this->assertEquals('example.com', $firstItem->domain);
+        $this->assertEquals('Test Title 1', $firstItem->title);
+
+        $secondItem = $insertedItems[1];
+        $this->assertEquals('test keyword 2', $secondItem->keyword);
+        $this->assertEquals(2, $secondItem->rank_absolute);
+        $this->assertEquals('example2.com', $secondItem->domain);
+        $this->assertEquals('Test Title 2', $secondItem->title);
+    }
+
+    public function test_batch_insert_or_update_organic_items_with_duplicates(): void
+    {
+        $now          = now();
+        $originalItem = [
+            'keyword'       => 'duplicate keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-original',
+            'response_id'   => 100,
+            'type'          => 'organic',
+            'domain'        => 'original.com',
+            'title'         => 'Original Title',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ];
+
+        // Insert original item
+        $this->processor->batchInsertOrUpdateOrganicItems([$originalItem]);
+
+        // Verify original was inserted
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+        $original = DB::table($this->organicItemsTable)->first();
+        $this->assertEquals('Original Title', $original->title);
+        $this->assertEquals('original.com', $original->domain);
+
+        // Insert updated item with same unique constraints
+        $updatedItem = [
+            'keyword'       => 'duplicate keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1, // Same unique constraint
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-updated',
+            'response_id'   => 200,
+            'type'          => 'organic',
+            'domain'        => 'updated.com',
+            'title'         => 'Updated Title',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ];
+
+        $this->processor->batchInsertOrUpdateOrganicItems([$updatedItem]);
+
+        // Verify item was updated, not duplicated
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+        $updated = DB::table($this->organicItemsTable)->first();
+        $this->assertEquals('Updated Title', $updated->title);
+        $this->assertEquals('updated.com', $updated->domain);
+        $this->assertEquals('task-updated', $updated->task_id);
+    }
+
+    public function test_batch_insert_or_update_paa_items(): void
+    {
+        $now      = now();
+        $paaItems = [
+            [
+                'keyword'               => 'test paa keyword 1',
+                'location_code'         => 2840,
+                'language_code'         => 'en',
+                'device'                => 'desktop',
+                'item_position'         => 1,
+                'se_domain'             => 'google.com',
+                'task_id'               => 'task-paa-123',
+                'response_id'           => 789,
+                'type'                  => 'people_also_ask_element',
+                'title'                 => 'What is test 1?',
+                'seed_question'         => 'What is test 1?',
+                'xpath'                 => '//*[@id="test1"]',
+                'answer_type'           => 'people_also_ask_expanded_element',
+                'answer_featured_title' => 'Test Answer 1',
+                'answer_url'            => 'https://example.com/answer1',
+                'answer_domain'         => 'example.com',
+                'answer_title'          => 'Answer Title 1',
+                'answer_description'    => 'Answer Description 1',
+                'created_at'            => $now,
+                'updated_at'            => $now,
+            ],
+            [
+                'keyword'               => 'test paa keyword 2',
+                'location_code'         => 2840,
+                'language_code'         => 'en',
+                'device'                => 'desktop',
+                'item_position'         => 2,
+                'se_domain'             => 'google.com',
+                'task_id'               => 'task-paa-123',
+                'response_id'           => 789,
+                'type'                  => 'people_also_ask_element',
+                'title'                 => 'What is test 2?',
+                'seed_question'         => 'What is test 2?',
+                'xpath'                 => '//*[@id="test2"]',
+                'answer_type'           => 'people_also_ask_expanded_element',
+                'answer_featured_title' => 'Test Answer 2',
+                'answer_url'            => 'https://example2.com/answer2',
+                'answer_domain'         => 'example2.com',
+                'answer_title'          => 'Answer Title 2',
+                'answer_description'    => 'Answer Description 2',
+                'created_at'            => $now,
+                'updated_at'            => $now,
+            ],
+        ];
+
+        $this->processor->batchInsertOrUpdatePaaItems($paaItems);
+
+        // Verify items were inserted
+        $insertedItems = DB::table($this->paaItemsTable)->orderBy('item_position')->get();
+        $this->assertCount(2, $insertedItems);
+
+        $firstItem = $insertedItems[0];
+        $this->assertEquals('test paa keyword 1', $firstItem->keyword);
+        $this->assertEquals(1, $firstItem->item_position);
+        $this->assertEquals('What is test 1?', $firstItem->title);
+        $this->assertEquals('example.com', $firstItem->answer_domain);
+
+        $secondItem = $insertedItems[1];
+        $this->assertEquals('test paa keyword 2', $secondItem->keyword);
+        $this->assertEquals(2, $secondItem->item_position);
+        $this->assertEquals('What is test 2?', $secondItem->title);
+        $this->assertEquals('example2.com', $secondItem->answer_domain);
+    }
+
+    public function test_batch_insert_or_update_paa_items_with_duplicates(): void
+    {
+        $now          = now();
+        $originalItem = [
+            'keyword'       => 'duplicate paa keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-paa-original',
+            'response_id'   => 100,
+            'type'          => 'people_also_ask_element',
+            'title'         => 'Original PAA Question?',
+            'answer_domain' => 'original.com',
+            'answer_title'  => 'Original Answer Title',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ];
+
+        // Insert original item
+        $this->processor->batchInsertOrUpdatePaaItems([$originalItem]);
+
+        // Verify original was inserted
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+        $original = DB::table($this->paaItemsTable)->first();
+        $this->assertEquals('Original PAA Question?', $original->title);
+        $this->assertEquals('original.com', $original->answer_domain);
+
+        // Insert updated item with same unique constraints
+        $updatedItem = [
+            'keyword'       => 'duplicate paa keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1, // Same unique constraint
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-paa-updated',
+            'response_id'   => 200,
+            'type'          => 'people_also_ask_element',
+            'title'         => 'Updated PAA Question?',
+            'answer_domain' => 'updated.com',
+            'answer_title'  => 'Updated Answer Title',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ];
+
+        $this->processor->batchInsertOrUpdatePaaItems([$updatedItem]);
+
+        // Verify item was updated, not duplicated
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+        $updated = DB::table($this->paaItemsTable)->first();
+        $this->assertEquals('Updated PAA Question?', $updated->title);
+        $this->assertEquals('updated.com', $updated->answer_domain);
+        $this->assertEquals('task-paa-updated', $updated->task_id);
+    }
+
+    public function test_batch_insert_or_update_organic_items_with_empty_array(): void
+    {
+        // Test with empty array - should not cause errors
+        $this->processor->batchInsertOrUpdateOrganicItems([]);
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+    }
+
+    public function test_batch_insert_or_update_paa_items_with_empty_array(): void
+    {
+        // Test with empty array - should not cause errors
+        $this->processor->batchInsertOrUpdatePaaItems([]);
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_process_organic_items(): void
+    {
+        $taskData = [
+            'keyword'       => 'test organic keyword',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'task_id'       => 'task-organic-123',
+            'response_id'   => 456,
+        ];
+
+        $items = [
+            [
+                'type'                => 'organic',
+                'rank_group'          => 1,
+                'rank_absolute'       => 1,
+                'domain'              => 'example.com',
+                'title'               => 'Test Organic Title 1',
+                'description'         => 'Test Organic Description 1',
+                'url'                 => 'https://example.com/test1',
+                'breadcrumb'          => 'Home > Test',
+                'is_image'            => false,
+                'is_video'            => false,
+                'is_featured_snippet' => false,
+                'is_malicious'        => false,
+                'is_web_story'        => false,
+            ],
+            [
+                'type'                => 'organic',
+                'rank_group'          => 2,
+                'rank_absolute'       => 2,
+                'domain'              => 'example2.com',
+                'title'               => 'Test Organic Title 2',
+                'description'         => 'Test Organic Description 2',
+                'url'                 => 'https://example2.com/test2',
+                'is_featured_snippet' => true,
+            ],
+            [
+                'type'  => 'paid', // Should be ignored
+                'title' => 'Paid Ad',
+            ],
+        ];
+
+        $count = $this->processor->processOrganicItems($items, $taskData);
+
+        // Should return count of organic items processed (2)
+        $this->assertEquals(2, $count);
+
+        // Verify items were inserted into database
+        $insertedItems = DB::table($this->organicItemsTable)->orderBy('rank_absolute')->get();
+        $this->assertCount(2, $insertedItems);
+
+        $firstItem = $insertedItems[0];
+        $this->assertEquals('test organic keyword', $firstItem->keyword);
+        $this->assertEquals(1, $firstItem->rank_absolute);
+        $this->assertEquals('example.com', $firstItem->domain);
+        $this->assertEquals('Test Organic Title 1', $firstItem->title);
+        $this->assertEquals('Home > Test', $firstItem->breadcrumb);
+        $this->assertEquals(0, $firstItem->is_featured_snippet);
+
+        $secondItem = $insertedItems[1];
+        $this->assertEquals('test organic keyword', $secondItem->keyword);
+        $this->assertEquals(2, $secondItem->rank_absolute);
+        $this->assertEquals('example2.com', $secondItem->domain);
+        $this->assertEquals('Test Organic Title 2', $secondItem->title);
+        $this->assertEquals(1, $secondItem->is_featured_snippet);
+    }
+
+    public function test_process_organic_items_with_no_organic_items(): void
+    {
+        $taskData = [
+            'keyword'       => 'test keyword',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+        ];
+
+        $items = [
+            ['type' => 'paid'],
+            ['type' => 'people_also_ask'],
+            ['type' => 'featured_snippet'],
+        ];
+
+        $count = $this->processor->processOrganicItems($items, $taskData);
+
+        $this->assertEquals(0, $count);
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+    }
+
+    public function test_process_organic_items_with_empty_array(): void
+    {
+        $taskData = ['keyword' => 'test'];
+        $count    = $this->processor->processOrganicItems([], $taskData);
+
+        $this->assertEquals(0, $count);
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+    }
+
+    public function test_process_paa_items(): void
+    {
+        $taskData = [
+            'keyword'       => 'test paa keyword',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'task_id'       => 'task-paa-123',
+            'response_id'   => 789,
+        ];
+
+        $items = [
+            [
+                'type'  => 'people_also_ask',
+                'items' => [
+                    [
+                        'type'             => 'people_also_ask_element',
+                        'title'            => 'What is test question 1?',
+                        'seed_question'    => 'What is test question 1?',
+                        'xpath'            => '//*[@id="test1"]',
+                        'expanded_element' => [
+                            [
+                                'type'           => 'people_also_ask_expanded_element',
+                                'featured_title' => 'Test Answer 1',
+                                'url'            => 'https://example.com/answer1',
+                                'domain'         => 'example.com',
+                                'title'          => 'Answer Title 1',
+                                'description'    => 'Answer Description 1',
+                                'images'         => [['url' => 'https://example.com/image1.jpg']],
+                                'timestamp'      => '2023-01-01',
+                                'table'          => [['header' => 'value']],
+                            ],
+                        ],
+                    ],
+                    [
+                        'type'             => 'people_also_ask_element',
+                        'title'            => 'What is test question 2?',
+                        'seed_question'    => 'What is test question 2?',
+                        'xpath'            => '//*[@id="test2"]',
+                        'expanded_element' => [
+                            [
+                                'type'           => 'people_also_ask_expanded_element',
+                                'featured_title' => 'Test Answer 2',
+                                'url'            => 'https://example2.com/answer2',
+                                'domain'         => 'example2.com',
+                                'title'          => 'Answer Title 2',
+                                'description'    => 'Answer Description 2',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'type'  => 'organic', // Should be ignored
+                'title' => 'Organic Result',
+            ],
+        ];
+
+        $count = $this->processor->processPaaItems($items, $taskData);
+
+        // Should return count of PAA items processed (2)
+        $this->assertEquals(2, $count);
+
+        // Verify items were inserted into database
+        $insertedItems = DB::table($this->paaItemsTable)->orderBy('item_position')->get();
+        $this->assertCount(2, $insertedItems);
+
+        $firstItem = $insertedItems[0];
+        $this->assertEquals('test paa keyword', $firstItem->keyword);
+        $this->assertEquals(1, $firstItem->item_position);
+        $this->assertEquals('What is test question 1?', $firstItem->title);
+        $this->assertEquals('example.com', $firstItem->answer_domain);
+        $this->assertEquals('Test Answer 1', $firstItem->answer_featured_title);
+        $this->assertStringContainsString('image1.jpg', $firstItem->answer_images);
+        $this->assertStringContainsString('header', $firstItem->answer_table);
+
+        $secondItem = $insertedItems[1];
+        $this->assertEquals('test paa keyword', $secondItem->keyword);
+        $this->assertEquals(2, $secondItem->item_position);
+        $this->assertEquals('What is test question 2?', $secondItem->title);
+        $this->assertEquals('example2.com', $secondItem->answer_domain);
+        $this->assertEquals('Test Answer 2', $secondItem->answer_featured_title);
+        $this->assertNull($secondItem->answer_images);
+        $this->assertNull($secondItem->answer_table);
+    }
+
+    public function test_process_paa_items_with_no_paa_items(): void
+    {
+        $taskData = [
+            'keyword'       => 'test keyword',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+        ];
+
+        $items = [
+            ['type' => 'organic'],
+            ['type' => 'paid'],
+            ['type' => 'featured_snippet'],
+        ];
+
+        $count = $this->processor->processPaaItems($items, $taskData);
+
+        $this->assertEquals(0, $count);
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_process_paa_items_with_invalid_structure(): void
+    {
+        $taskData = ['keyword' => 'test'];
+
+        $items = [
+            [
+                'type' => 'people_also_ask',
+                // Missing 'items' key
+            ],
+            [
+                'type'  => 'people_also_ask',
+                'items' => [
+                    [
+                        'type' => 'people_also_ask_element',
+                        // Missing 'expanded_element' key
+                    ],
+                ],
+            ],
+            [
+                'type'  => 'people_also_ask',
+                'items' => [
+                    [
+                        'type'             => 'people_also_ask_element',
+                        'expanded_element' => [
+                            [
+                                'type' => 'wrong_type', // Wrong type
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $count = $this->processor->processPaaItems($items, $taskData);
+
+        $this->assertEquals(0, $count);
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_process_paa_items_with_empty_array(): void
+    {
+        $taskData = ['keyword' => 'test'];
+        $count    = $this->processor->processPaaItems([], $taskData);
+
+        $this->assertEquals(0, $count);
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_process_response(): void
+    {
+        $responseData = [
+            'tasks' => [
+                [
+                    'id'   => 'test-task-123',
+                    'data' => [
+                        'keyword'       => 'test response keyword',
+                        'se_domain'     => 'google.com',
+                        'location_code' => 2840,
+                        'language_code' => 'en',
+                        'device'        => 'desktop',
+                    ],
+                    'result' => [
+                        [
+                            'keyword'       => 'test response keyword',
+                            'se_domain'     => 'google.com',
+                            'location_code' => 2840,
+                            'language_code' => 'en',
+                            'device'        => 'desktop',
+                            'items'         => [
+                                [
+                                    'type'                => 'organic',
+                                    'rank_group'          => 1,
+                                    'rank_absolute'       => 1,
+                                    'domain'              => 'example.com',
+                                    'title'               => 'Test Response Title',
+                                    'description'         => 'Test Response Description',
+                                    'url'                 => 'https://example.com/test',
+                                    'is_featured_snippet' => false,
+                                ],
+                                [
+                                    'type'  => 'people_also_ask',
+                                    'items' => [
+                                        [
+                                            'type'             => 'people_also_ask_element',
+                                            'title'            => 'What is test response?',
+                                            'seed_question'    => 'What is test response?',
+                                            'xpath'            => '//*[@id="test"]',
+                                            'expanded_element' => [
+                                                [
+                                                    'type'           => 'people_also_ask_expanded_element',
+                                                    'featured_title' => 'Test Response Answer',
+                                                    'url'            => 'https://example.com/answer',
+                                                    'domain'         => 'example.com',
+                                                    'title'          => 'Answer Title',
+                                                    'description'    => 'Answer Description',
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $response = (object) [
+            'id'            => 123,
+            'response_body' => json_encode($responseData),
+        ];
+
+        $stats = $this->processor->processResponse($response, true);
+
+        $this->assertEquals(1, $stats['organic_items']);
+        $this->assertEquals(1, $stats['paa_items']);
+        $this->assertEquals(2, $stats['total_items']);
+
+        // Verify items were inserted
+        $organicItem = DB::table($this->organicItemsTable)->first();
+        $this->assertNotNull($organicItem);
+        $this->assertEquals('test response keyword', $organicItem->keyword);
+        $this->assertEquals('Test Response Title', $organicItem->title);
+
+        $paaItem = DB::table($this->paaItemsTable)->first();
+        $this->assertNotNull($paaItem);
+        $this->assertEquals('test response keyword', $paaItem->keyword);
+        $this->assertEquals('What is test response?', $paaItem->title);
+    }
+
+    public function test_process_response_without_paa_processing(): void
+    {
+        $responseData = [
+            'tasks' => [
+                [
+                    'id'   => 'test-task-456',
+                    'data' => [
+                        'keyword'       => 'test no paa keyword',
+                        'se_domain'     => 'google.com',
+                        'location_code' => 2840,
+                        'language_code' => 'en',
+                        'device'        => 'desktop',
+                    ],
+                    'result' => [
+                        [
+                            'keyword'       => 'test no paa keyword',
+                            'se_domain'     => 'google.com',
+                            'location_code' => 2840,
+                            'language_code' => 'en',
+                            'device'        => 'desktop',
+                            'items'         => [
+                                [
+                                    'type'          => 'organic',
+                                    'rank_absolute' => 1,
+                                    'domain'        => 'example.com',
+                                    'title'         => 'Test Title',
+                                ],
+                                [
+                                    'type'  => 'people_also_ask',
+                                    'items' => [
+                                        [
+                                            'type'             => 'people_also_ask_element',
+                                            'title'            => 'What is test?',
+                                            'expanded_element' => [
+                                                [
+                                                    'type'           => 'people_also_ask_expanded_element',
+                                                    'featured_title' => 'Test Answer',
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $response = (object) [
+            'id'            => 456,
+            'response_body' => json_encode($responseData),
+        ];
+
+        $stats = $this->processor->processResponse($response, false);
+
+        $this->assertEquals(1, $stats['organic_items']);
+        $this->assertEquals(0, $stats['paa_items']); // PAA processing disabled
+        $this->assertEquals(2, $stats['total_items']);
+
+        // Verify only organic item was inserted
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_process_response_with_invalid_json(): void
+    {
+        $response = (object) [
+            'id'            => 789,
+            'response_body' => 'invalid json',
+        ];
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Invalid JSON response or missing tasks array');
+
+        $this->processor->processResponse($response, true);
+    }
+
+    public function test_process_response_with_missing_tasks(): void
+    {
+        $response = (object) [
+            'id'            => 101112,
+            'response_body' => json_encode(['status' => 'ok']),
+        ];
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Invalid JSON response or missing tasks array');
+
+        $this->processor->processResponse($response, true);
+    }
+
+    public function test_process_response_with_empty_tasks(): void
+    {
+        $response = (object) [
+            'id'            => 131415,
+            'response_body' => json_encode(['tasks' => []]),
+        ];
+
+        $stats = $this->processor->processResponse($response, true);
+
+        $this->assertEquals(0, $stats['organic_items']);
+        $this->assertEquals(0, $stats['paa_items']);
+        $this->assertEquals(0, $stats['total_items']);
+    }
+
+    public function test_process_response_with_task_without_result(): void
+    {
+        $responseData = [
+            'tasks' => [
+                [
+                    'id'   => 'test-task-no-result',
+                    'data' => ['keyword' => 'test'],
+                    // Missing 'result' key
+                ],
+            ],
+        ];
+
+        $response = (object) [
+            'id'            => 161718,
+            'response_body' => json_encode($responseData),
+        ];
+
+        $stats = $this->processor->processResponse($response, true);
+
+        $this->assertEquals(0, $stats['organic_items']);
+        $this->assertEquals(0, $stats['paa_items']);
+        $this->assertEquals(0, $stats['total_items']);
     }
 
     public function test_process_responses_with_no_responses(): void
@@ -415,134 +1380,6 @@ class DataForSeoSerpGoogleProcessorTest extends TestCase
         // Verify device default was applied
         $organicItem = DB::table($this->organicItemsTable)->first();
         $this->assertEquals('desktop', $organicItem->device);
-    }
-
-    public function test_reset_processed(): void
-    {
-        // Insert processed responses
-        DB::table($this->responsesTable)->insert([
-            [
-                'client'               => 'dataforseo',
-                'key'                  => 'processed-key-1',
-                'endpoint'             => 'serp/google/organic/task_get/advanced',
-                'response_body'        => json_encode(['tasks' => []]),
-                'response_status_code' => 200,
-                'base_url'             => 'https://api.dataforseo.com',
-                'processed_at'         => now(),
-                'processed_status'     => json_encode(['status' => 'OK']),
-                'created_at'           => now(),
-                'updated_at'           => now(),
-            ],
-            [
-                'client'               => 'dataforseo',
-                'key'                  => 'processed-key-2',
-                'endpoint'             => 'serp/google/organic/live/advanced',
-                'response_body'        => json_encode(['tasks' => []]),
-                'response_status_code' => 200,
-                'base_url'             => 'https://api.dataforseo.com',
-                'processed_at'         => now(),
-                'processed_status'     => json_encode(['status' => 'OK']),
-                'created_at'           => now(),
-                'updated_at'           => now(),
-            ],
-            [
-                'client'               => 'dataforseo',
-                'key'                  => 'other-endpoint-key',
-                'endpoint'             => 'other/endpoint',
-                'response_body'        => json_encode(['tasks' => []]),
-                'response_status_code' => 200,
-                'base_url'             => 'https://api.dataforseo.com',
-                'processed_at'         => now(),
-                'processed_status'     => json_encode(['status' => 'OK']),
-                'created_at'           => now(),
-                'updated_at'           => now(),
-            ],
-        ]);
-
-        $this->processor->resetProcessed();
-
-        // Verify only SERP Google responses were reset
-        $resetCount = DB::table($this->responsesTable)
-            ->whereNull('processed_at')
-            ->whereNull('processed_status')
-            ->count();
-        $this->assertEquals(2, $resetCount);
-
-        // Verify other endpoint was not reset
-        $otherResponse = DB::table($this->responsesTable)
-            ->where('key', 'other-endpoint-key')
-            ->first();
-        $this->assertNotNull($otherResponse->processed_at);
-    }
-
-    public function test_clear_processed_tables(): void
-    {
-        // Insert test data into both tables
-        DB::table($this->organicItemsTable)->insert([
-            'keyword'       => 'test',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 1,
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
-
-        DB::table($this->paaItemsTable)->insert([
-            'keyword'       => 'test',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'item_position' => 1,
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
-
-        $stats = $this->processor->clearProcessedTables();
-
-        $this->assertEquals(1, $stats['organic_cleared']);
-        $this->assertEquals(1, $stats['paa_cleared']);
-
-        // Verify tables are empty
-        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
-        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
-    }
-
-    public function test_clear_processed_tables_exclude_paa(): void
-    {
-        // Insert test data into both tables
-        DB::table($this->organicItemsTable)->insert([
-            'keyword'       => 'test',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 1,
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
-
-        DB::table($this->paaItemsTable)->insert([
-            'keyword'       => 'test',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'item_position' => 1,
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
-
-        $stats = $this->processor->clearProcessedTables(false);
-
-        $this->assertEquals(1, $stats['organic_cleared']);
-        $this->assertEquals(0, $stats['paa_cleared']);
-
-        // Verify only organic table is empty
-        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
-        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
     }
 
     public function test_process_responses_filters_by_endpoint_patterns(): void

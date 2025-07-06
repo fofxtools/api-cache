@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Log;
 class DataForSeoSerpGoogleProcessor
 {
     private ApiCacheManager $cacheManager;
-    private bool $updateIfNewer       = true;
     private bool $skipSandbox         = true;
+    private bool $updateIfNewer       = true;
     private array $endpointsToProcess = [
         'serp/google/organic/task_get/%',
         'serp/google/organic/live/%',
@@ -33,28 +33,6 @@ class DataForSeoSerpGoogleProcessor
     public function __construct(?ApiCacheManager $cacheManager = null)
     {
         $this->cacheManager = resolve_cache_manager($cacheManager);
-    }
-
-    /**
-     * Get updateIfNewer setting
-     *
-     * @return bool The updateIfNewer setting
-     */
-    public function getUpdateIfNewer(): bool
-    {
-        return $this->updateIfNewer;
-    }
-
-    /**
-     * Set updateIfNewer setting
-     *
-     * @param bool $value The updateIfNewer setting
-     *
-     * @return void
-     */
-    public function setUpdateIfNewer(bool $value): void
-    {
-        $this->updateIfNewer = $value;
     }
 
     /**
@@ -80,104 +58,35 @@ class DataForSeoSerpGoogleProcessor
     }
 
     /**
-     * Process unprocessed DataForSEO SERP Google organic responses
+     * Get updateIfNewer setting
      *
-     * @param int  $limit       Maximum number of responses to process (default: 100)
-     * @param bool $processPaas Whether to process People Also Ask items (default: true)
-     *
-     * @return array Statistics about processing
+     * @return bool The updateIfNewer setting
      */
-    public function processResponses(int $limit = 100, bool $processPaas = true): array
+    public function getUpdateIfNewer(): bool
     {
-        $tableName = $this->getResponsesTableName();
+        return $this->updateIfNewer;
+    }
 
-        // Build query for unprocessed responses
-        $query = DB::table($tableName)
-            ->whereNull('processed_at')
-            ->where('response_status_code', 200)
-            ->select('id', 'key', 'endpoint', 'response_body', 'base_url', 'created_at');
+    /**
+     * Set updateIfNewer setting
+     *
+     * @param bool $value The updateIfNewer setting
+     *
+     * @return void
+     */
+    public function setUpdateIfNewer(bool $value): void
+    {
+        $this->updateIfNewer = $value;
+    }
 
-        // Filter by endpoints
-        $query->where(function ($q) {
-            foreach ($this->endpointsToProcess as $endpoint) {
-                $q->orWhere('endpoint', 'like', $endpoint);
-            }
-        });
-
-        // Skip sandbox if configured
-        if ($this->skipSandbox) {
-            $query->where('base_url', 'not like', 'https://sandbox.%')
-                  ->where('base_url', 'not like', 'http://sandbox.%');
-        }
-
-        $query->limit($limit);
-        $responses = $query->get();
-
-        Log::debug('Processing DataForSEO SERP Google responses', [
-            'count'        => $responses->count(),
-            'limit'        => $limit,
-            'process_paas' => $processPaas,
-        ]);
-
-        $stats = [
-            'processed_responses' => 0,
-            'organic_items'       => 0,
-            'paa_items'           => 0,
-            'total_items'         => 0,
-            'errors'              => 0,
-        ];
-
-        foreach ($responses as $response) {
-            try {
-                // Wrap each response processing in a transaction
-                DB::transaction(function () use ($response, $processPaas, &$stats, $tableName) {
-                    $responseStats = $this->processResponse($response, $processPaas);
-                    $stats['organic_items'] += $responseStats['organic_items'];
-                    $stats['paa_items'] += $responseStats['paa_items'];
-                    $stats['total_items'] += $responseStats['total_items'];
-                    $stats['processed_responses']++;
-
-                    // Mark response as processed
-                    DB::table($tableName)
-                        ->where('id', $response->id)
-                        ->update([
-                            'processed_at'     => now(),
-                            'processed_status' => json_encode([
-                                'status'        => 'OK',
-                                'error'         => null,
-                                'organic_items' => $responseStats['organic_items'],
-                                'paa_items'     => $responseStats['paa_items'],
-                                'total_items'   => $responseStats['total_items'],
-                            ], JSON_PRETTY_PRINT),
-                        ]);
-                });
-            } catch (\Exception $e) {
-                Log::error('Failed to process DataForSEO response', [
-                    'response_id' => $response->id,
-                    'error'       => $e->getMessage(),
-                ]);
-
-                $stats['errors']++;
-
-                // Mark response with error (outside transaction since it failed)
-                DB::table($tableName)
-                    ->where('id', $response->id)
-                    ->update([
-                        'processed_at'     => now(),
-                        'processed_status' => json_encode([
-                            'status'        => 'ERROR',
-                            'error'         => $e->getMessage(),
-                            'organic_items' => 0,
-                            'paa_items'     => 0,
-                            'total_items'   => 0,
-                        ], JSON_PRETTY_PRINT),
-                    ]);
-            }
-        }
-
-        Log::debug('DataForSEO SERP Google processing completed', $stats);
-
-        return $stats;
+    /**
+     * Get the responses table name (handles compression)
+     *
+     * @return string The table name
+     */
+    public function getResponsesTableName(): string
+    {
+        return $this->cacheManager->getTableName('dataforseo');
     }
 
     /**
@@ -235,87 +144,13 @@ class DataForSeoSerpGoogleProcessor
     }
 
     /**
-     * Process a single response
-     *
-     * @param object $response    The response to process
-     * @param bool   $processPaas Whether to process People Also Ask items
-     *
-     * @return array Statistics about processing
-     */
-    public function processResponse($response, bool $processPaas): array
-    {
-        $responseBody = json_decode($response->response_body, true);
-        if (!$responseBody || !isset($responseBody['tasks'])) {
-            throw new \Exception('Invalid JSON response or missing tasks array');
-        }
-
-        $stats = ['organic_items' => 0, 'paa_items' => 0, 'total_items' => 0];
-
-        foreach ($responseBody['tasks'] as $task) {
-            if (!isset($task['result'])) {
-                continue;
-            }
-
-            $taskData                = $this->extractTaskData($task);
-            $taskData['task_id']     = $task['id'] ?? null;
-            $taskData['response_id'] = $response->id;
-
-            foreach ($task['result'] as $result) {
-                if (!isset($result['items'])) {
-                    continue;
-                }
-
-                // Count total items available for processing
-                $stats['total_items'] += count($result['items']);
-
-                // Merge task data with result data (result data takes precedence)
-                $mergedTaskData = array_merge($taskData, $this->extractResultData($result));
-                $mergedTaskData = $this->ensureDefaults($mergedTaskData);
-
-                // Process organic items
-                $organicCount = $this->processOrganicItems($result['items'], $mergedTaskData);
-                $stats['organic_items'] += $organicCount;
-
-                // Process PAA items if enabled
-                if ($processPaas) {
-                    $paaCount = $this->processPaaItems($result['items'], $mergedTaskData);
-                    $stats['paa_items'] += $paaCount;
-                }
-            }
-        }
-
-        return $stats;
-    }
-
-    /**
-     * Extract common task data
-     *
-     * @param array $task The task data
-     *
-     * @return array The extracted task data
-     */
-    public function extractTaskData(array $task): array
-    {
-        $data = $task['data'] ?? [];
-
-        return [
-            'keyword'       => $data['keyword'] ?? null,
-            'se_domain'     => $data['se_domain'] ?? null,
-            'location_code' => $data['location_code'] ?? null,
-            'language_code' => $data['language_code'] ?? null,
-            'device'        => $data['device'] ?? null,
-            'os'            => $data['os'] ?? null,
-        ];
-    }
-
-    /**
-     * Extract data from result level (for task_get responses)
+     * Extract metadata from result level (for task_get responses)
      *
      * @param array $result The result data
      *
-     * @return array The extracted result data
+     * @return array The extracted result metadata
      */
-    public function extractResultData(array $result): array
+    public function extractMetadata(array $result): array
     {
         return [
             'keyword'       => $result['keyword'] ?? null,
@@ -343,13 +178,49 @@ class DataForSeoSerpGoogleProcessor
     }
 
     /**
-     * Get the responses table name (handles compression)
+     * Batch insert or update organic items using updateOrInsert
      *
-     * @return string The table name
+     * @param array $organicItems The organic items to process
+     *
+     * @return void
      */
-    public function getResponsesTableName(): string
+    public function batchInsertOrUpdateOrganicItems(array $organicItems): void
     {
-        return $this->cacheManager->getTableName('dataforseo');
+        foreach ($organicItems as $data) {
+            $uniqueConstraints = [
+                'keyword'       => $data['keyword'],
+                'location_code' => $data['location_code'],
+                'language_code' => $data['language_code'],
+                'device'        => $data['device'],
+                'rank_absolute' => $data['rank_absolute'],
+            ];
+
+            // Use updateOrInsert for atomic upsert operation
+            DB::table($this->organicItemsTable)->updateOrInsert($uniqueConstraints, $data);
+        }
+    }
+
+    /**
+     * Batch insert or update PAA items using updateOrInsert
+     *
+     * @param array $paaItems The PAA items to process
+     *
+     * @return void
+     */
+    public function batchInsertOrUpdatePaaItems(array $paaItems): void
+    {
+        foreach ($paaItems as $data) {
+            $uniqueConstraints = [
+                'keyword'       => $data['keyword'],
+                'location_code' => $data['location_code'],
+                'language_code' => $data['language_code'],
+                'device'        => $data['device'],
+                'item_position' => $data['item_position'],
+            ];
+
+            // Use updateOrInsert for atomic upsert operation
+            DB::table($this->paaItemsTable)->updateOrInsert($uniqueConstraints, $data);
+        }
     }
 
     /**
@@ -463,48 +334,158 @@ class DataForSeoSerpGoogleProcessor
     }
 
     /**
-     * Batch insert or update organic items using updateOrInsert
+     * Process a single response
      *
-     * @param array $organicItems The organic items to process
+     * @param object $response    The response to process
+     * @param bool   $processPaas Whether to process People Also Ask items
      *
-     * @return void
+     * @throws \Exception If response is invalid
+     *
+     * @return array Statistics about processing
      */
-    public function batchInsertOrUpdateOrganicItems(array $organicItems): void
+    public function processResponse($response, bool $processPaas): array
     {
-        foreach ($organicItems as $data) {
-            $uniqueConstraints = [
-                'keyword'       => $data['keyword'],
-                'location_code' => $data['location_code'],
-                'language_code' => $data['language_code'],
-                'device'        => $data['device'],
-                'rank_absolute' => $data['rank_absolute'],
-            ];
-
-            // Use updateOrInsert for atomic upsert operation
-            DB::table($this->organicItemsTable)->updateOrInsert($uniqueConstraints, $data);
+        $responseBody = json_decode($response->response_body, true);
+        if (!$responseBody || !isset($responseBody['tasks'])) {
+            throw new \Exception('Invalid JSON response or missing tasks array');
         }
+
+        $stats = ['organic_items' => 0, 'paa_items' => 0, 'total_items' => 0];
+
+        foreach ($responseBody['tasks'] as $task) {
+            if (!isset($task['result'])) {
+                continue;
+            }
+
+            $taskData                = $this->extractMetadata($task['data'] ?? []);
+            $taskData['task_id']     = $task['id'] ?? null;
+            $taskData['response_id'] = $response->id;
+
+            foreach ($task['result'] as $result) {
+                if (!isset($result['items'])) {
+                    continue;
+                }
+
+                // Count total items available for processing
+                $stats['total_items'] += count($result['items']);
+
+                // Merge task data with result data (result data takes precedence)
+                $mergedTaskData = array_merge($taskData, $this->extractMetadata($result));
+                $mergedTaskData = $this->ensureDefaults($mergedTaskData);
+
+                // Process organic items
+                $organicCount = $this->processOrganicItems($result['items'], $mergedTaskData);
+                $stats['organic_items'] += $organicCount;
+
+                // Process PAA items if enabled
+                if ($processPaas) {
+                    $paaCount = $this->processPaaItems($result['items'], $mergedTaskData);
+                    $stats['paa_items'] += $paaCount;
+                }
+            }
+        }
+
+        return $stats;
     }
 
     /**
-     * Batch insert or update PAA items using updateOrInsert
+     * Process unprocessed DataForSEO SERP Google organic responses
      *
-     * @param array $paaItems The PAA items to process
+     * @param int  $limit       Maximum number of responses to process (default: 100)
+     * @param bool $processPaas Whether to process People Also Ask items (default: true)
      *
-     * @return void
+     * @return array Statistics about processing
      */
-    public function batchInsertOrUpdatePaaItems(array $paaItems): void
+    public function processResponses(int $limit = 100, bool $processPaas = true): array
     {
-        foreach ($paaItems as $data) {
-            $uniqueConstraints = [
-                'keyword'       => $data['keyword'],
-                'location_code' => $data['location_code'],
-                'language_code' => $data['language_code'],
-                'device'        => $data['device'],
-                'item_position' => $data['item_position'],
-            ];
+        $tableName = $this->getResponsesTableName();
 
-            // Use updateOrInsert for atomic upsert operation
-            DB::table($this->paaItemsTable)->updateOrInsert($uniqueConstraints, $data);
+        // Build query for unprocessed responses
+        $query = DB::table($tableName)
+            ->whereNull('processed_at')
+            ->where('response_status_code', 200)
+            ->select('id', 'key', 'endpoint', 'response_body', 'base_url', 'created_at');
+
+        // Filter by endpoints
+        $query->where(function ($q) {
+            foreach ($this->endpointsToProcess as $endpoint) {
+                $q->orWhere('endpoint', 'like', $endpoint);
+            }
+        });
+
+        // Skip sandbox if configured
+        if ($this->skipSandbox) {
+            $query->where('base_url', 'not like', 'https://sandbox.%')
+                  ->where('base_url', 'not like', 'http://sandbox.%');
         }
+
+        $query->limit($limit);
+        $responses = $query->get();
+
+        Log::debug('Processing DataForSEO SERP Google responses', [
+            'count'        => $responses->count(),
+            'limit'        => $limit,
+            'process_paas' => $processPaas,
+        ]);
+
+        $stats = [
+            'processed_responses' => 0,
+            'organic_items'       => 0,
+            'paa_items'           => 0,
+            'total_items'         => 0,
+            'errors'              => 0,
+        ];
+
+        foreach ($responses as $response) {
+            try {
+                // Wrap each response processing in a transaction
+                DB::transaction(function () use ($response, $processPaas, &$stats, $tableName) {
+                    $responseStats = $this->processResponse($response, $processPaas);
+                    $stats['organic_items'] += $responseStats['organic_items'];
+                    $stats['paa_items'] += $responseStats['paa_items'];
+                    $stats['total_items'] += $responseStats['total_items'];
+                    $stats['processed_responses']++;
+
+                    // Mark response as processed
+                    DB::table($tableName)
+                        ->where('id', $response->id)
+                        ->update([
+                            'processed_at'     => now(),
+                            'processed_status' => json_encode([
+                                'status'        => 'OK',
+                                'error'         => null,
+                                'organic_items' => $responseStats['organic_items'],
+                                'paa_items'     => $responseStats['paa_items'],
+                                'total_items'   => $responseStats['total_items'],
+                            ], JSON_PRETTY_PRINT),
+                        ]);
+                });
+            } catch (\Exception $e) {
+                Log::error('Failed to process DataForSEO response', [
+                    'response_id' => $response->id,
+                    'error'       => $e->getMessage(),
+                ]);
+
+                $stats['errors']++;
+
+                // Mark response with error (outside transaction since it failed)
+                DB::table($tableName)
+                    ->where('id', $response->id)
+                    ->update([
+                        'processed_at'     => now(),
+                        'processed_status' => json_encode([
+                            'status'        => 'ERROR',
+                            'error'         => $e->getMessage(),
+                            'organic_items' => 0,
+                            'paa_items'     => 0,
+                            'total_items'   => 0,
+                        ], JSON_PRETTY_PRINT),
+                    ]);
+            }
+        }
+
+        Log::debug('DataForSEO SERP Google processing completed', $stats);
+
+        return $stats;
     }
 }

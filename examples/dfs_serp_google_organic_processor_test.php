@@ -19,7 +19,7 @@ $capsule->addConnection(
 createClientTables('dataforseo', false);
 createProcessedResponseTables($capsule->schema(), true);
 
-$processor = new DataForSeoSerpGoogleProcessor();
+$processor = new DataForSeoSerpGoogleOrganicProcessor();
 
 // Include sandbox responses for testing
 $processor->setSkipSandbox(false);

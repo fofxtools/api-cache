@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace FOfX\ApiCache\Tests\Unit;
 
 use FOfX\ApiCache\Tests\TestCase;
-use FOfX\ApiCache\DataForSeoSerpGoogleProcessor;
+use FOfX\ApiCache\DataForSeoSerpGoogleOrganicProcessor;
 use FOfX\ApiCache\ApiCacheManager;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\DB;
 
-class DataForSeoSerpGoogleProcessorTest extends TestCase
+class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 {
-    protected DataForSeoSerpGoogleProcessor $processor;
+    protected DataForSeoSerpGoogleOrganicProcessor $processor;
     protected ApiCacheManager $cacheManager;
     protected string $responsesTable    = 'api_cache_dataforseo_responses';
     protected string $organicItemsTable = 'dataforseo_serp_google_organic_items';
@@ -23,7 +23,7 @@ class DataForSeoSerpGoogleProcessorTest extends TestCase
         parent::setUp();
 
         $this->cacheManager = app(ApiCacheManager::class);
-        $this->processor    = new DataForSeoSerpGoogleProcessor($this->cacheManager);
+        $this->processor    = new DataForSeoSerpGoogleOrganicProcessor($this->cacheManager);
     }
 
     /**
@@ -36,14 +36,14 @@ class DataForSeoSerpGoogleProcessorTest extends TestCase
 
     public function test_constructor_with_cache_manager(): void
     {
-        $processor = new DataForSeoSerpGoogleProcessor($this->cacheManager);
-        $this->assertInstanceOf(DataForSeoSerpGoogleProcessor::class, $processor);
+        $processor = new DataForSeoSerpGoogleOrganicProcessor($this->cacheManager);
+        $this->assertInstanceOf(DataForSeoSerpGoogleOrganicProcessor::class, $processor);
     }
 
     public function test_constructor_without_cache_manager(): void
     {
-        $processor = new DataForSeoSerpGoogleProcessor();
-        $this->assertInstanceOf(DataForSeoSerpGoogleProcessor::class, $processor);
+        $processor = new DataForSeoSerpGoogleOrganicProcessor();
+        $this->assertInstanceOf(DataForSeoSerpGoogleOrganicProcessor::class, $processor);
     }
 
     public function test_set_skip_sandbox_changes_value(): void

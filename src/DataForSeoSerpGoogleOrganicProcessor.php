@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
  * Processes unprocessed DataForSEO responses and extracts organic search results
  * and People Also Ask (PAA) items into dedicated tables.
  */
-class DataForSeoSerpGoogleProcessor
+class DataForSeoSerpGoogleOrganicProcessor
 {
     private ApiCacheManager $cacheManager;
     private bool $skipSandbox         = true;

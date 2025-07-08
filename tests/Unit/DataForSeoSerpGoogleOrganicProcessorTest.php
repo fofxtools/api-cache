@@ -364,9 +364,76 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_batch_insert_or_update_organic_items_with_duplicates(): void
     {
-        $now          = now();
+        $originalTime = now()->subMinutes(10);
+        $newerTime    = now();
+
         $originalItem = [
             'keyword'       => 'duplicate keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-original',
+            'response_id'   => 100,
+            'type'          => 'organic',
+            'domain'        => 'original.com',
+            'title'         => 'Original Title',
+            'created_at'    => $originalTime,
+            'updated_at'    => $originalTime,
+        ];
+
+        // Insert original item
+        $this->processor->batchInsertOrUpdateOrganicItems([$originalItem]);
+
+        // Verify original was inserted
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+        $original = DB::table($this->organicItemsTable)->first();
+        $this->assertEquals('Original Title', $original->title);
+        $this->assertEquals('original.com', $original->domain);
+
+        // Insert updated item with same unique constraints but newer timestamp
+        $updatedItem = [
+            'keyword'       => 'duplicate keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1, // Same unique constraint
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-updated',
+            'response_id'   => 200,
+            'type'          => 'organic',
+            'domain'        => 'updated.com',
+            'title'         => 'Updated Title',
+            'created_at'    => $newerTime,
+            'updated_at'    => $newerTime,
+        ];
+
+        $this->processor->batchInsertOrUpdateOrganicItems([$updatedItem]);
+
+        // Verify item was updated, not duplicated
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+        $updated = DB::table($this->organicItemsTable)->first();
+        $this->assertEquals('Updated Title', $updated->title);
+        $this->assertEquals('updated.com', $updated->domain);
+        $this->assertEquals('task-updated', $updated->task_id);
+    }
+
+    public function test_batch_insert_or_update_organic_items_with_empty_array(): void
+    {
+        // Test with empty array - should not cause errors
+        $this->processor->batchInsertOrUpdateOrganicItems([]);
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+    }
+
+    public function test_batch_insert_or_update_organic_items_with_update_if_newer_false(): void
+    {
+        // Set updateIfNewer to false
+        $this->processor->setUpdateIfNewer(false);
+
+        $now          = now();
+        $originalItem = [
+            'keyword'       => 'test keyword',
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
@@ -383,38 +450,85 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         // Insert original item
         $this->processor->batchInsertOrUpdateOrganicItems([$originalItem]);
-
-        // Verify original was inserted
         $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
-        $original = DB::table($this->organicItemsTable)->first();
-        $this->assertEquals('Original Title', $original->title);
-        $this->assertEquals('original.com', $original->domain);
 
-        // Insert updated item with same unique constraints
-        $updatedItem = [
-            'keyword'       => 'duplicate keyword',
+        // Try to insert duplicate - should be ignored
+        $duplicateItem = [
+            'keyword'       => 'test keyword',
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
             'rank_absolute' => 1, // Same unique constraint
             'se_domain'     => 'google.com',
-            'task_id'       => 'task-updated',
+            'task_id'       => 'task-duplicate',
             'response_id'   => 200,
             'type'          => 'organic',
-            'domain'        => 'updated.com',
-            'title'         => 'Updated Title',
+            'domain'        => 'duplicate.com',
+            'title'         => 'Duplicate Title',
             'created_at'    => $now,
             'updated_at'    => $now,
         ];
 
-        $this->processor->batchInsertOrUpdateOrganicItems([$updatedItem]);
+        $this->processor->batchInsertOrUpdateOrganicItems([$duplicateItem]);
 
-        // Verify item was updated, not duplicated
+        // Should still have only 1 record with original data
         $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
-        $updated = DB::table($this->organicItemsTable)->first();
-        $this->assertEquals('Updated Title', $updated->title);
-        $this->assertEquals('updated.com', $updated->domain);
-        $this->assertEquals('task-updated', $updated->task_id);
+        $record = DB::table($this->organicItemsTable)->first();
+        $this->assertEquals('Original Title', $record->title);
+        $this->assertEquals('original.com', $record->domain);
+        $this->assertEquals('task-original', $record->task_id);
+    }
+
+    public function test_batch_insert_or_update_organic_items_with_older_timestamp(): void
+    {
+        $newerTime = now();
+        $olderTime = now()->subMinutes(10);
+
+        // Insert newer item first
+        $newerItem = [
+            'keyword'       => 'timestamp test',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-newer',
+            'response_id'   => 100,
+            'type'          => 'organic',
+            'domain'        => 'newer.com',
+            'title'         => 'Newer Title',
+            'created_at'    => $newerTime,
+            'updated_at'    => $newerTime,
+        ];
+
+        $this->processor->batchInsertOrUpdateOrganicItems([$newerItem]);
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+
+        // Try to insert older item - should NOT update
+        $olderItem = [
+            'keyword'       => 'timestamp test',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1, // Same unique constraint
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-older',
+            'response_id'   => 200,
+            'type'          => 'organic',
+            'domain'        => 'older.com',
+            'title'         => 'Older Title',
+            'created_at'    => $olderTime,
+            'updated_at'    => $olderTime,
+        ];
+
+        $this->processor->batchInsertOrUpdateOrganicItems([$olderItem]);
+
+        // Should still have only 1 record with newer data (not updated)
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+        $record = DB::table($this->organicItemsTable)->first();
+        $this->assertEquals('Newer Title', $record->title);
+        $this->assertEquals('newer.com', $record->domain);
+        $this->assertEquals('task-newer', $record->task_id);
     }
 
     public function test_batch_insert_or_update_paa_items(): void
@@ -488,9 +602,78 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_batch_insert_or_update_paa_items_with_duplicates(): void
     {
-        $now          = now();
+        $originalTime = now()->subMinutes(10);
+        $newerTime    = now();
+
         $originalItem = [
             'keyword'       => 'duplicate paa keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-paa-original',
+            'response_id'   => 100,
+            'type'          => 'people_also_ask_element',
+            'title'         => 'Original PAA Question?',
+            'answer_domain' => 'original.com',
+            'answer_title'  => 'Original Answer Title',
+            'created_at'    => $originalTime,
+            'updated_at'    => $originalTime,
+        ];
+
+        // Insert original item
+        $this->processor->batchInsertOrUpdatePaaItems([$originalItem]);
+
+        // Verify original was inserted
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+        $original = DB::table($this->paaItemsTable)->first();
+        $this->assertEquals('Original PAA Question?', $original->title);
+        $this->assertEquals('original.com', $original->answer_domain);
+
+        // Insert updated item with same unique constraints but newer timestamp
+        $updatedItem = [
+            'keyword'       => 'duplicate paa keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1, // Same unique constraint
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-paa-updated',
+            'response_id'   => 200,
+            'type'          => 'people_also_ask_element',
+            'title'         => 'Updated PAA Question?',
+            'answer_domain' => 'updated.com',
+            'answer_title'  => 'Updated Answer Title',
+            'created_at'    => $newerTime,
+            'updated_at'    => $newerTime,
+        ];
+
+        $this->processor->batchInsertOrUpdatePaaItems([$updatedItem]);
+
+        // Verify item was updated, not duplicated
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+        $updated = DB::table($this->paaItemsTable)->first();
+        $this->assertEquals('Updated PAA Question?', $updated->title);
+        $this->assertEquals('updated.com', $updated->answer_domain);
+        $this->assertEquals('task-paa-updated', $updated->task_id);
+    }
+
+    public function test_batch_insert_or_update_paa_items_with_empty_array(): void
+    {
+        // Test with empty array - should not cause errors
+        $this->processor->batchInsertOrUpdatePaaItems([]);
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_batch_insert_or_update_paa_items_with_update_if_newer_false(): void
+    {
+        // Set updateIfNewer to false
+        $this->processor->setUpdateIfNewer(false);
+
+        $now          = now();
+        $originalItem = [
+            'keyword'       => 'test paa keyword',
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
@@ -508,53 +691,88 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         // Insert original item
         $this->processor->batchInsertOrUpdatePaaItems([$originalItem]);
-
-        // Verify original was inserted
         $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
-        $original = DB::table($this->paaItemsTable)->first();
-        $this->assertEquals('Original PAA Question?', $original->title);
-        $this->assertEquals('original.com', $original->answer_domain);
 
-        // Insert updated item with same unique constraints
-        $updatedItem = [
-            'keyword'       => 'duplicate paa keyword',
+        // Try to insert duplicate - should be ignored
+        $duplicateItem = [
+            'keyword'       => 'test paa keyword',
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
             'item_position' => 1, // Same unique constraint
             'se_domain'     => 'google.com',
-            'task_id'       => 'task-paa-updated',
+            'task_id'       => 'task-paa-duplicate',
             'response_id'   => 200,
             'type'          => 'people_also_ask_element',
-            'title'         => 'Updated PAA Question?',
-            'answer_domain' => 'updated.com',
-            'answer_title'  => 'Updated Answer Title',
+            'title'         => 'Duplicate PAA Question?',
+            'answer_domain' => 'duplicate.com',
+            'answer_title'  => 'Duplicate Answer Title',
             'created_at'    => $now,
             'updated_at'    => $now,
         ];
 
-        $this->processor->batchInsertOrUpdatePaaItems([$updatedItem]);
+        $this->processor->batchInsertOrUpdatePaaItems([$duplicateItem]);
 
-        // Verify item was updated, not duplicated
+        // Should still have only 1 record with original data
         $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
-        $updated = DB::table($this->paaItemsTable)->first();
-        $this->assertEquals('Updated PAA Question?', $updated->title);
-        $this->assertEquals('updated.com', $updated->answer_domain);
-        $this->assertEquals('task-paa-updated', $updated->task_id);
+        $record = DB::table($this->paaItemsTable)->first();
+        $this->assertEquals('Original PAA Question?', $record->title);
+        $this->assertEquals('original.com', $record->answer_domain);
+        $this->assertEquals('task-paa-original', $record->task_id);
     }
 
-    public function test_batch_insert_or_update_organic_items_with_empty_array(): void
+    public function test_batch_insert_or_update_paa_items_with_older_timestamp(): void
     {
-        // Test with empty array - should not cause errors
-        $this->processor->batchInsertOrUpdateOrganicItems([]);
-        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
-    }
+        $newerTime = now();
+        $olderTime = now()->subMinutes(10);
 
-    public function test_batch_insert_or_update_paa_items_with_empty_array(): void
-    {
-        // Test with empty array - should not cause errors
-        $this->processor->batchInsertOrUpdatePaaItems([]);
-        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+        // Insert newer item first
+        $newerItem = [
+            'keyword'       => 'paa timestamp test',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-paa-newer',
+            'response_id'   => 100,
+            'type'          => 'people_also_ask_element',
+            'title'         => 'Newer PAA Question?',
+            'answer_domain' => 'newer.com',
+            'answer_title'  => 'Newer Answer Title',
+            'created_at'    => $newerTime,
+            'updated_at'    => $newerTime,
+        ];
+
+        $this->processor->batchInsertOrUpdatePaaItems([$newerItem]);
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+
+        // Try to insert older item - should NOT update
+        $olderItem = [
+            'keyword'       => 'paa timestamp test',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1, // Same unique constraint
+            'se_domain'     => 'google.com',
+            'task_id'       => 'task-paa-older',
+            'response_id'   => 200,
+            'type'          => 'people_also_ask_element',
+            'title'         => 'Older PAA Question?',
+            'answer_domain' => 'older.com',
+            'answer_title'  => 'Older Answer Title',
+            'created_at'    => $olderTime,
+            'updated_at'    => $olderTime,
+        ];
+
+        $this->processor->batchInsertOrUpdatePaaItems([$olderItem]);
+
+        // Should still have only 1 record with newer data (not updated)
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+        $record = DB::table($this->paaItemsTable)->first();
+        $this->assertEquals('Newer PAA Question?', $record->title);
+        $this->assertEquals('newer.com', $record->answer_domain);
+        $this->assertEquals('task-paa-newer', $record->task_id);
     }
 
     public function test_process_organic_items(): void

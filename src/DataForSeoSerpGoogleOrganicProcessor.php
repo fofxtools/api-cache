@@ -6,6 +6,7 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 
 /**
  * Processor for DataForSEO SERP Google organic responses
@@ -178,7 +179,7 @@ class DataForSeoSerpGoogleOrganicProcessor
     }
 
     /**
-     * Batch insert or update organic items using updateOrInsert
+     * Batch insert or update organic items.
      *
      * @param array $organicItems The organic items to process
      *
@@ -186,22 +187,47 @@ class DataForSeoSerpGoogleOrganicProcessor
      */
     public function batchInsertOrUpdateOrganicItems(array $organicItems): void
     {
-        foreach ($organicItems as $data) {
-            $uniqueConstraints = [
-                'keyword'       => $data['keyword'],
-                'location_code' => $data['location_code'],
-                'language_code' => $data['language_code'],
-                'device'        => $data['device'],
-                'rank_absolute' => $data['rank_absolute'],
+        if (!$this->updateIfNewer) {
+            // Fast path: accept only brand-new rows, silently skip duplicates
+            foreach (array_chunk($organicItems, 100) as $chunk) {
+                DB::table($this->organicItemsTable)->insertOrIgnore($chunk);
+            }
+
+            return;
+        }
+
+        foreach ($organicItems as $row) {
+            $where = [
+                'keyword'       => $row['keyword'],
+                'location_code' => $row['location_code'],
+                'language_code' => $row['language_code'],
+                'device'        => $row['device'],
+                'rank_absolute' => $row['rank_absolute'],
             ];
 
-            // Use updateOrInsert for atomic upsert operation
-            DB::table($this->organicItemsTable)->updateOrInsert($uniqueConstraints, $data);
+            $existingCreatedAt = DB::table($this->organicItemsTable)
+                ->where($where)
+                ->value('created_at');
+
+            if ($existingCreatedAt === null) {
+                // No clash – insert fresh
+                DB::table($this->organicItemsTable)->insert($row);
+
+                continue;
+            }
+
+            // Only update if the new row is more recent
+            if (Carbon::parse($row['created_at'])
+                ->gte(Carbon::parse($existingCreatedAt))) {
+                DB::table($this->organicItemsTable)
+                    ->where($where)
+                    ->update($row);
+            }
         }
     }
 
     /**
-     * Batch insert or update PAA items using updateOrInsert
+     * Batch insert or update PAA items.
      *
      * @param array $paaItems The PAA items to process
      *
@@ -209,17 +235,42 @@ class DataForSeoSerpGoogleOrganicProcessor
      */
     public function batchInsertOrUpdatePaaItems(array $paaItems): void
     {
-        foreach ($paaItems as $data) {
-            $uniqueConstraints = [
-                'keyword'       => $data['keyword'],
-                'location_code' => $data['location_code'],
-                'language_code' => $data['language_code'],
-                'device'        => $data['device'],
-                'item_position' => $data['item_position'],
+        if (!$this->updateIfNewer) {
+            // Fast path: accept only brand-new rows, silently skip duplicates
+            foreach (array_chunk($paaItems, 100) as $chunk) {
+                DB::table($this->paaItemsTable)->insertOrIgnore($chunk);
+            }
+
+            return;
+        }
+
+        foreach ($paaItems as $row) {
+            $where = [
+                'keyword'       => $row['keyword'],
+                'location_code' => $row['location_code'],
+                'language_code' => $row['language_code'],
+                'device'        => $row['device'],
+                'item_position' => $row['item_position'],
             ];
 
-            // Use updateOrInsert for atomic upsert operation
-            DB::table($this->paaItemsTable)->updateOrInsert($uniqueConstraints, $data);
+            $existingCreatedAt = DB::table($this->paaItemsTable)
+                ->where($where)
+                ->value('created_at');
+
+            if ($existingCreatedAt === null) {
+                // No clash – insert fresh
+                DB::table($this->paaItemsTable)->insert($row);
+
+                continue;
+            }
+
+            // Only update if the new row is more recent
+            if (Carbon::parse($row['created_at'])
+                ->gte(Carbon::parse($existingCreatedAt))) {
+                DB::table($this->paaItemsTable)
+                    ->where($where)
+                    ->update($row);
+            }
         }
     }
 

@@ -19,11 +19,10 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing organic and PAA tables
-create_dataforseo_serp_google_organic_items_table($capsule->schema(), dropExisting: true);
-create_dataforseo_serp_google_organic_paa_items_table($capsule->schema(), dropExisting: true);
+// Drop existing autocomplete table
+create_dataforseo_serp_google_autocomplete_items_table($capsule->schema(), dropExisting: true);
 
-$processor = new DataForSeoSerpGoogleOrganicProcessor();
+$processor = new DataForSeoSerpGoogleAutocompleteProcessor();
 
 // Include sandbox responses for testing
 $processor->setSkipSandbox(false);
@@ -36,5 +35,5 @@ $processor->resetProcessed();
 $clearedStats = $processor->clearProcessedTables();
 print_r($clearedStats);
 
-$stats = $processor->processResponses(100, true);
+$stats = $processor->processResponses(100);
 print_r($stats);

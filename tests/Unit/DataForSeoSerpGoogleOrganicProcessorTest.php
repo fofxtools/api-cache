@@ -819,10 +819,13 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ],
         ];
 
-        $count = $this->processor->processOrganicItems($items, $taskData);
+        $result = $this->processor->processOrganicItems($items, $taskData);
 
-        // Should return count of organic items processed (2)
-        $this->assertEquals(2, $count);
+        // Should return detailed stats with count of organic items processed (2)
+        $this->assertEquals(2, $result['organic_items']);
+        $this->assertEquals(2, $result['items_inserted']);
+        $this->assertEquals(0, $result['items_updated']);
+        $this->assertEquals(0, $result['items_skipped']);
 
         // Verify items were inserted into database
         $insertedItems = DB::table($this->organicItemsTable)->orderBy('rank_absolute')->get();
@@ -860,18 +863,24 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ['type' => 'featured_snippet'],
         ];
 
-        $count = $this->processor->processOrganicItems($items, $taskData);
+        $result = $this->processor->processOrganicItems($items, $taskData);
 
-        $this->assertEquals(0, $count);
+        $this->assertEquals(0, $result['organic_items']);
+        $this->assertEquals(0, $result['items_inserted']);
+        $this->assertEquals(0, $result['items_updated']);
+        $this->assertEquals(0, $result['items_skipped']);
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
     }
 
     public function test_process_organic_items_with_empty_array(): void
     {
         $taskData = ['keyword' => 'test'];
-        $count    = $this->processor->processOrganicItems([], $taskData);
+        $result   = $this->processor->processOrganicItems([], $taskData);
 
-        $this->assertEquals(0, $count);
+        $this->assertEquals(0, $result['organic_items']);
+        $this->assertEquals(0, $result['items_inserted']);
+        $this->assertEquals(0, $result['items_updated']);
+        $this->assertEquals(0, $result['items_skipped']);
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
     }
 
@@ -934,10 +943,13 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ],
         ];
 
-        $count = $this->processor->processPaaItems($items, $taskData);
+        $result = $this->processor->processPaaItems($items, $taskData);
 
-        // Should return count of PAA items processed (2)
-        $this->assertEquals(2, $count);
+        // Should return detailed stats with count of PAA items processed (2)
+        $this->assertEquals(2, $result['paa_items']);
+        $this->assertEquals(2, $result['items_inserted']);
+        $this->assertEquals(0, $result['items_updated']);
+        $this->assertEquals(0, $result['items_skipped']);
 
         // Verify items were inserted into database
         $insertedItems = DB::table($this->paaItemsTable)->orderBy('item_position')->get();
@@ -978,9 +990,12 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ['type' => 'featured_snippet'],
         ];
 
-        $count = $this->processor->processPaaItems($items, $taskData);
+        $result = $this->processor->processPaaItems($items, $taskData);
 
-        $this->assertEquals(0, $count);
+        $this->assertEquals(0, $result['paa_items']);
+        $this->assertEquals(0, $result['items_inserted']);
+        $this->assertEquals(0, $result['items_updated']);
+        $this->assertEquals(0, $result['items_skipped']);
         $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
     }
 
@@ -1017,18 +1032,24 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ],
         ];
 
-        $count = $this->processor->processPaaItems($items, $taskData);
+        $result = $this->processor->processPaaItems($items, $taskData);
 
-        $this->assertEquals(0, $count);
+        $this->assertEquals(0, $result['paa_items']);
+        $this->assertEquals(0, $result['items_inserted']);
+        $this->assertEquals(0, $result['items_updated']);
+        $this->assertEquals(0, $result['items_skipped']);
         $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
     }
 
     public function test_process_paa_items_with_empty_array(): void
     {
         $taskData = ['keyword' => 'test'];
-        $count    = $this->processor->processPaaItems([], $taskData);
+        $result   = $this->processor->processPaaItems([], $taskData);
 
-        $this->assertEquals(0, $count);
+        $this->assertEquals(0, $result['paa_items']);
+        $this->assertEquals(0, $result['items_inserted']);
+        $this->assertEquals(0, $result['items_updated']);
+        $this->assertEquals(0, $result['items_skipped']);
         $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
     }
 

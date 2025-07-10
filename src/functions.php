@@ -840,8 +840,8 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->string('keyword')->index();
             $table->string('se_domain')->index();
             $table->integer('location_code')->index();
-            $table->string('language_code')->index();
-            $table->string('device')->index();
+            $table->string('language_code', 20)->index();
+            $table->string('device', 20)->index();
             $table->string('os')->index()->nullable();
 
             // Fields returned
@@ -947,8 +947,8 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->string('keyword')->index();
             $table->string('se_domain')->index();
             $table->integer('location_code')->index();
-            $table->string('language_code')->index();
-            $table->string('device')->index();
+            $table->string('language_code', 20)->index();
+            $table->string('device', 20)->index();
             $table->string('os')->index()->nullable();
 
             // Added (not from API)
@@ -1057,8 +1057,8 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->string('keyword')->index();
             $table->string('se_domain')->index();
             $table->integer('location_code')->index();
-            $table->string('language_code')->index();
-            $table->string('device')->index();
+            $table->string('language_code', 20)->index();
+            $table->string('device', 20)->index();
             $table->string('os')->index()->nullable();
 
             // Fields returned
@@ -1066,21 +1066,23 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->integer('rank_group')->nullable()->index();
             $table->integer('rank_absolute')->nullable()->index();
             $table->integer('relevance')->nullable();
-            $table->text('suggestion')->nullable();
+            $table->string('suggestion')->nullable();
             $table->string('suggestion_type')->nullable();
+            $table->text('search_query_url')->nullable();
+            $table->text('thumbnail_url')->nullable();
             $table->text('highlighted')->nullable();
 
             $table->timestamps();
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for keyword, location_code, language_code, device, rank_absolute
+            // Add unique index for keyword, suggestion, location_code, language_code, device
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute'], 'dsgai_keyword_location_language_device_rankabs_unique');
+                $table->unique(['keyword', 'suggestion', 'location_code', 'language_code', 'device'], 'dsgai_keyword_suggestion_location_language_device_unique');
             } else {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute']);
+                $table->unique(['keyword', 'suggestion', 'location_code', 'language_code', 'device']);
             }
         });
 

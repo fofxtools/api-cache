@@ -1314,9 +1314,6 @@ function create_dataforseo_backlinks_bulk_items_table(
             // Primary identifier field (target/url)
             $table->string('target');
 
-            // Endpoint type to differentiate between bulk endpoints
-            $table->string('endpoint_type')->nullable();
-
             // Ranking metrics
             $table->integer('rank')->nullable();
             $table->integer('main_domain_rank')->nullable();
@@ -1362,7 +1359,6 @@ function create_dataforseo_backlinks_bulk_items_table(
             if ($driver === 'mysql' || $driver === 'pgsql') {
                 $table->index('response_id', 'dbbi_response_id_idx');
                 $table->index('task_id', 'dbbi_task_id_idx');
-                $table->index('endpoint_type', 'dbbi_endpoint_type_idx');
                 $table->index('rank', 'dbbi_rank_idx');
                 $table->index('backlinks', 'dbbi_backlinks_idx');
                 $table->index('spam_score', 'dbbi_spam_score_idx');
@@ -1372,7 +1368,6 @@ function create_dataforseo_backlinks_bulk_items_table(
             } else {
                 $table->index('response_id');
                 $table->index('task_id');
-                $table->index('endpoint_type');
                 $table->index('rank');
                 $table->index('backlinks');
                 $table->index('spam_score');

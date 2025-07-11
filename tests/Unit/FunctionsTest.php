@@ -1187,7 +1187,6 @@ class FunctionsTest extends TestCase
         $this->assertContains('response_id', $columns);
         $this->assertContains('task_id', $columns);
         $this->assertContains('target', $columns);
-        $this->assertContains('endpoint_type', $columns);
         $this->assertContains('rank', $columns);
         $this->assertContains('main_domain_rank', $columns);
         $this->assertContains('backlinks', $columns);
@@ -1258,7 +1257,6 @@ class FunctionsTest extends TestCase
         // Insert a record to verify table is functional
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'target'            => 'test-domain.com',
-            'endpoint_type'     => 'bulk_backlinks',
             'rank'              => 100,
             'backlinks'         => 500,
             'referring_domains' => 50,
@@ -1283,7 +1281,6 @@ class FunctionsTest extends TestCase
         // Verify it's the correct table by checking columns
         $columns = $schema->getColumnListing($customTableName);
         $this->assertContains('target', $columns);
-        $this->assertContains('endpoint_type', $columns);
         $this->assertContains('backlinks', $columns);
 
         $schema->dropIfExists($customTableName);
@@ -1302,7 +1299,6 @@ class FunctionsTest extends TestCase
         // Test that we can insert data regardless of driver
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'target'                          => 'driver-test.com',
-            'endpoint_type'                   => 'bulk_test',
             'rank'                            => 1,
             'main_domain_rank'                => 2,
             'backlinks'                       => 1000,
@@ -1335,7 +1331,6 @@ class FunctionsTest extends TestCase
         // Verify the inserted data
         $record = \Illuminate\Support\Facades\DB::table($table)->first();
         $this->assertEquals('driver-test.com', $record->target);
-        $this->assertEquals('bulk_test', $record->endpoint_type);
         $this->assertEquals(1000, $record->backlinks);
 
         $schema->dropIfExists($table);

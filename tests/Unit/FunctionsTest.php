@@ -30,7 +30,7 @@ use function FOfX\ApiCache\create_errors_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_items_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_paa_items_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_autocomplete_items_table;
-use function FOfX\ApiCache\create_dataforseo_keywords_data_google_ads_keywords_items_table;
+use function FOfX\ApiCache\create_dataforseo_keywords_data_google_ads_items_table;
 use function FOfX\ApiCache\create_dataforseo_backlinks_bulk_items_table;
 
 class FunctionsTest extends TestCase
@@ -45,7 +45,7 @@ class FunctionsTest extends TestCase
     protected string $testGoogleOrganicTable      = 'dataforseo_serp_google_organic_items_test';
     protected string $testGoogleOrganicPaaTable   = 'dataforseo_serp_google_organic_paa_items_test';
     protected string $testGoogleAutocompleteTable = 'dataforseo_serp_google_autocomplete_items_test';
-    protected string $testGoogleAdsKeywordsTable  = 'dataforseo_keywords_data_google_ads_keywords_items_test';
+    protected string $testGoogleAdsTable          = 'dataforseo_keywords_data_google_ads_items_test';
     protected string $testBacklinksBulkTable      = 'dataforseo_backlinks_bulk_items_test';
 
     protected string $clientName = 'demo';
@@ -68,7 +68,7 @@ class FunctionsTest extends TestCase
         $this->testGoogleOrganicTable .= '_' . uniqid();
         $this->testGoogleOrganicPaaTable .= '_' . uniqid();
         $this->testGoogleAutocompleteTable .= '_' . uniqid();
-        $this->testGoogleAdsKeywordsTable .= '_' . uniqid();
+        $this->testGoogleAdsTable .= '_' . uniqid();
         $this->testBacklinksBulkTable .= '_' . uniqid();
 
         // Get base URL from config
@@ -1118,11 +1118,11 @@ class FunctionsTest extends TestCase
         $schema->dropIfExists($table);
     }
 
-    public function test_create_dataforseo_keywords_data_google_ads_keywords_items_table_creates_table(): void
+    public function test_create_dataforseo_keywords_data_google_ads_items_table_creates_table(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = $this->testGoogleAdsKeywordsTable;
-        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, true);
+        $table  = $this->testGoogleAdsTable;
+        create_dataforseo_keywords_data_google_ads_items_table($schema, $table, true, true);
         $this->assertTrue($schema->hasTable($table));
         $columns = $schema->getColumnListing($table);
         $this->assertContains('id', $columns);
@@ -1152,11 +1152,11 @@ class FunctionsTest extends TestCase
         $schema->dropIfExists($table);
     }
 
-    public function test_create_dataforseo_keywords_data_google_ads_keywords_items_table_respects_drop_existing_parameter(): void
+    public function test_create_dataforseo_keywords_data_google_ads_items_table_respects_drop_existing_parameter(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = $this->testGoogleAdsKeywordsTable;
-        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, false);
+        $table  = $this->testGoogleAdsTable;
+        create_dataforseo_keywords_data_google_ads_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'keyword'       => 'test-keyword',
             'se'            => 'google',
@@ -1165,9 +1165,9 @@ class FunctionsTest extends TestCase
             'created_at'    => now(),
             'updated_at'    => now(),
         ]);
-        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, false, false);
+        create_dataforseo_keywords_data_google_ads_items_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
-        create_dataforseo_keywords_data_google_ads_keywords_items_table($schema, $table, true, false);
+        create_dataforseo_keywords_data_google_ads_items_table($schema, $table, true, false);
         $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
         $schema->dropIfExists($table);
     }

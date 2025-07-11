@@ -1119,7 +1119,7 @@ function create_dataforseo_serp_google_autocomplete_items_table(
 }
 
 /**
- * Create DataForSEO Keywords Data Google Ads Keywords Items table
+ * Create DataForSEO Keywords Data Google Ads Items table
  *
  * @param Builder $schema       Schema builder instance
  * @param string  $table        Table name
@@ -1128,14 +1128,14 @@ function create_dataforseo_serp_google_autocomplete_items_table(
  *
  * @throws \RuntimeException When table creation fails
  */
-function create_dataforseo_keywords_data_google_ads_keywords_items_table(
+function create_dataforseo_keywords_data_google_ads_items_table(
     Builder $schema,
-    string $table = 'dataforseo_keywords_data_google_ads_keywords_items',
+    string $table = 'dataforseo_keywords_data_google_ads_items',
     bool $dropExisting = false,
     bool $verify = false
 ): void {
     if ($dropExisting && $schema->hasTable($table)) {
-        Log::debug('Dropping existing DataForSEO Keywords Data Google Ads Keywords Items table', [
+        Log::debug('Dropping existing DataForSEO Keywords Data Google Ads Items table', [
             'table' => $table,
         ]);
         $schema->dropIfExists($table);
@@ -1144,7 +1144,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
     $driver = $schema->getConnection()->getDriverName();
 
     if (!$schema->hasTable($table)) {
-        Log::debug('Creating DataForSEO Keywords Data Google Ads Keywords Items table', [
+        Log::debug('Creating DataForSEO Keywords Data Google Ads Items table', [
             'table' => $table,
         ]);
 
@@ -1160,6 +1160,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
             $table->string('language_code');
 
             // Fields returned
+            $table->string('spell')->nullable();
             $table->boolean('search_partners')->nullable();
             $table->string('competition')->nullable();
             $table->integer('competition_index')->nullable();
@@ -1170,6 +1171,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
             $table->text('monthly_searches')->nullable();
 
             // From Ad Traffic By Keywords
+            $table->string('date_interval')->nullable();
             $table->float('bid')->nullable();
             $table->string('match')->nullable();
             $table->float('impressions')->nullable();
@@ -1186,33 +1188,35 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->index('response_id', 'dkdgaki_response_id_idx');
-                $table->index('task_id', 'dkdgaki_task_id_idx');
+                $table->index('response_id', 'dkdgai_response_id_idx');
+                $table->index('task_id', 'dkdgai_task_id_idx');
 
-                $table->index('keyword', 'dkdgaki_keyword_idx');
-                $table->index('se', 'dkdgaki_se_idx');
-                $table->index('location_code', 'dkdgaki_location_code_idx');
-                $table->index('language_code', 'dkdgaki_language_code_idx');
+                $table->index('keyword', 'dkdgai_keyword_idx');
+                $table->index('se', 'dkdgai_se_idx');
+                $table->index('location_code', 'dkdgai_location_code_idx');
+                $table->index('language_code', 'dkdgai_language_code_idx');
 
-                $table->index('search_partners', 'dkdgaki_search_partners_idx');
-                $table->index('competition', 'dkdgaki_competition_idx');
-                $table->index('competition_index', 'dkdgaki_competition_index_idx');
-                $table->index('search_volume', 'dkdgaki_search_volume_idx');
-                $table->index('low_top_of_page_bid', 'dkdgaki_low_top_of_page_bid_idx');
-                $table->index('high_top_of_page_bid', 'dkdgaki_high_top_of_page_bid_idx');
-                $table->index('cpc', 'dkdgaki_cpc_idx');
+                $table->index('spell', 'dkdgai_spell_idx');
+                $table->index('search_partners', 'dkdgai_search_partners_idx');
+                $table->index('competition', 'dkdgai_competition_idx');
+                $table->index('competition_index', 'dkdgai_competition_index_idx');
+                $table->index('search_volume', 'dkdgai_search_volume_idx');
+                $table->index('low_top_of_page_bid', 'dkdgai_low_top_of_page_bid_idx');
+                $table->index('high_top_of_page_bid', 'dkdgai_high_top_of_page_bid_idx');
+                $table->index('cpc', 'dkdgai_cpc_idx');
 
-                $table->index('bid', 'dkdgaki_bid_idx');
-                $table->index('match', 'dkdgaki_match_idx');
-                $table->index('impressions', 'dkdgaki_impressions_idx');
-                $table->index('ctr', 'dkdgaki_ctr_idx');
-                $table->index('average_cpc', 'dkdgaki_average_cpc_idx');
-                $table->index('cost', 'dkdgaki_cost_idx');
-                $table->index('clicks', 'dkdgaki_clicks_idx');
+                $table->index('date_interval', 'dkdgai_date_interval_idx');
+                $table->index('bid', 'dkdgai_bid_idx');
+                $table->index('match', 'dkdgai_match_idx');
+                $table->index('impressions', 'dkdgai_impressions_idx');
+                $table->index('ctr', 'dkdgai_ctr_idx');
+                $table->index('average_cpc', 'dkdgai_average_cpc_idx');
+                $table->index('cost', 'dkdgai_cost_idx');
+                $table->index('clicks', 'dkdgai_clicks_idx');
 
-                $table->index('processed_at', 'dkdgaki_processed_at_idx');
+                $table->index('processed_at', 'dkdgai_processed_at_idx');
 
-                $table->unique(['keyword', 'location_code', 'language_code'], 'dkdgaki_keyword_location_language_unique');
+                $table->unique(['keyword', 'location_code', 'language_code'], 'dkdgai_keyword_location_language_unique');
             } else {
                 $table->index('response_id');
                 $table->index('task_id');
@@ -1222,6 +1226,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
                 $table->index('location_code');
                 $table->index('language_code');
 
+                $table->index('spell');
                 $table->index('search_partners');
                 $table->index('competition');
                 $table->index('competition_index');
@@ -1230,6 +1235,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
                 $table->index('high_top_of_page_bid');
                 $table->index('cpc');
 
+                $table->index('date_interval');
                 $table->index('bid');
                 $table->index('match');
                 $table->index('impressions');
@@ -1244,7 +1250,7 @@ function create_dataforseo_keywords_data_google_ads_keywords_items_table(
             }
         });
 
-        Log::debug('DataForSEO Keywords Data Google Ads Keywords Items table created successfully', [
+        Log::debug('DataForSEO Keywords Data Google Ads Items table created successfully', [
             'table' => $table,
         ]);
     }

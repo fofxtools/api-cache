@@ -1156,8 +1156,8 @@ function create_dataforseo_keywords_data_google_ads_items_table(
             // Fields passed
             $table->string('keyword');
             $table->string('se');
-            $table->integer('location_code');
-            $table->string('language_code');
+            $table->integer('location_code')->default(0); // 0 = worldwide/all locations
+            $table->string('language_code')->default('none'); // 'none' = no specific language (worldwide)
 
             // Fields returned
             $table->string('spell')->nullable();
@@ -1169,16 +1169,6 @@ function create_dataforseo_keywords_data_google_ads_items_table(
             $table->float('high_top_of_page_bid')->nullable();
             $table->float('cpc')->nullable();
             $table->text('monthly_searches')->nullable();
-
-            // From Ad Traffic By Keywords
-            $table->string('date_interval')->nullable();
-            $table->float('bid')->nullable();
-            $table->string('match')->nullable();
-            $table->float('impressions')->nullable();
-            $table->float('ctr')->nullable();
-            $table->float('average_cpc')->nullable();
-            $table->float('cost')->nullable();
-            $table->float('clicks')->nullable();
 
             $table->timestamps();
             $table->timestamp('processed_at')->nullable();
@@ -1205,15 +1195,6 @@ function create_dataforseo_keywords_data_google_ads_items_table(
                 $table->index('high_top_of_page_bid', 'dkdgai_high_top_of_page_bid_idx');
                 $table->index('cpc', 'dkdgai_cpc_idx');
 
-                $table->index('date_interval', 'dkdgai_date_interval_idx');
-                $table->index('bid', 'dkdgai_bid_idx');
-                $table->index('match', 'dkdgai_match_idx');
-                $table->index('impressions', 'dkdgai_impressions_idx');
-                $table->index('ctr', 'dkdgai_ctr_idx');
-                $table->index('average_cpc', 'dkdgai_average_cpc_idx');
-                $table->index('cost', 'dkdgai_cost_idx');
-                $table->index('clicks', 'dkdgai_clicks_idx');
-
                 $table->index('processed_at', 'dkdgai_processed_at_idx');
 
                 $table->unique(['keyword', 'location_code', 'language_code'], 'dkdgai_keyword_location_language_unique');
@@ -1234,15 +1215,6 @@ function create_dataforseo_keywords_data_google_ads_items_table(
                 $table->index('low_top_of_page_bid');
                 $table->index('high_top_of_page_bid');
                 $table->index('cpc');
-
-                $table->index('date_interval');
-                $table->index('bid');
-                $table->index('match');
-                $table->index('impressions');
-                $table->index('ctr');
-                $table->index('average_cpc');
-                $table->index('cost');
-                $table->index('clicks');
 
                 $table->index('processed_at');
 

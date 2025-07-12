@@ -1132,6 +1132,7 @@ class FunctionsTest extends TestCase
         $this->assertContains('se', $columns);
         $this->assertContains('location_code', $columns);
         $this->assertContains('language_code', $columns);
+        $this->assertContains('spell', $columns);
         $this->assertContains('search_partners', $columns);
         $this->assertContains('competition', $columns);
         $this->assertContains('competition_index', $columns);
@@ -1140,13 +1141,6 @@ class FunctionsTest extends TestCase
         $this->assertContains('high_top_of_page_bid', $columns);
         $this->assertContains('cpc', $columns);
         $this->assertContains('monthly_searches', $columns);
-        $this->assertContains('bid', $columns);
-        $this->assertContains('match', $columns);
-        $this->assertContains('impressions', $columns);
-        $this->assertContains('ctr', $columns);
-        $this->assertContains('average_cpc', $columns);
-        $this->assertContains('cost', $columns);
-        $this->assertContains('clicks', $columns);
         $this->assertContains('processed_at', $columns);
         $this->assertContains('processed_status', $columns);
         $schema->dropIfExists($table);

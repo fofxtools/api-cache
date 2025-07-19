@@ -124,16 +124,21 @@ class DataForSeoBacklinksBulkProcessor
     /**
      * Clear processed items from database table
      *
-     * @return array Statistics about cleared records
+     * @param bool $withCount Whether to count rows before clearing (default: false)
+     *
+     * @return array Statistics about cleared records, with null values if counting was skipped
      */
-    public function clearProcessedTables(): array
+    public function clearProcessedTables(bool $withCount = false): array
     {
-        $stats = ['bulk_items_cleared' => 0];
+        $stats = [
+            'bulk_items_cleared' => $withCount ? DB::table($this->bulkItemsTable)->count() : null,
+        ];
 
-        $stats['bulk_items_cleared'] = DB::table($this->bulkItemsTable)->delete();
+        DB::table($this->bulkItemsTable)->truncate();
 
         Log::info('Cleared DataForSEO backlinks bulk processed table', [
-            'bulk_items_cleared' => $stats['bulk_items_cleared'],
+            'bulk_items_cleared' => $withCount ? $stats['bulk_items_cleared'] : 'not counted',
+            'with_count'         => $withCount,
         ]);
 
         return $stats;

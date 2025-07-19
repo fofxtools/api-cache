@@ -8,8 +8,6 @@ use Illuminate\Support\Facades\Log;
 
 class OpenRouterApiClient extends BaseApiClient
 {
-    public const FALLBACK_MODEL = 'deepseek/deepseek-chat-v3-0324:free';
-
     /**
      * Constructor for OpenRouterApiClient
      *
@@ -43,6 +41,8 @@ class OpenRouterApiClient extends BaseApiClient
      * @param string|null $attributes       Optional attributes to store with the cache entry
      * @param int         $amount           Amount to pass to incrementAttempts
      *
+     * @throws \InvalidArgumentException When model is not provided
+     *
      * @return array The API response data
      */
     public function completions(
@@ -56,7 +56,13 @@ class OpenRouterApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        $model = $model ?? config('api-cache.apis.openrouter.default_model') ?? self::FALLBACK_MODEL;
+        $model = $model ?? config('api-cache.apis.openrouter.default_model');
+
+        if (!$model) {
+            throw new \InvalidArgumentException(
+                'Model required. Either pass $model parameter or set OPENROUTER_DEFAULT_MODEL in your .env file.'
+            );
+        }
 
         Log::debug('Making OpenRouter completions request', [
             'model'       => $model,
@@ -98,7 +104,7 @@ class OpenRouterApiClient extends BaseApiClient
      * @param string|null  $attributes          Optional attributes to store with the cache entry
      * @param int          $amount              Amount to pass to incrementAttempts
      *
-     * @throws \InvalidArgumentException When messages are not properly formatted
+     * @throws \InvalidArgumentException When model is not provided or when messages are not properly formatted
      *
      * @return array The API response data
      */
@@ -113,7 +119,13 @@ class OpenRouterApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        $model = $model ?? config('api-cache.apis.openrouter.default_model') ?? self::FALLBACK_MODEL;
+        $model = $model ?? config('api-cache.apis.openrouter.default_model');
+
+        if (!$model) {
+            throw new \InvalidArgumentException(
+                'Model required. Either pass $model parameter or set OPENROUTER_DEFAULT_MODEL in your .env file.'
+            );
+        }
 
         // If messages is a string, assume it is a prompt and wrap it in an array of messages
         if (is_string($messages)) {

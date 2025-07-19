@@ -40,7 +40,7 @@ function runOpenRouterTests(bool $compressionEnabled, bool $requestInfo = true, 
     $client->clearRateLimit();
 
     // Test completions endpoint with configured default model
-    $model = config('api-cache.apis.openrouter.default_model') ?? $client::FALLBACK_MODEL;
+    $model = config('api-cache.apis.openrouter.default_model');
     echo "\nTesting completions endpoint with model: {$model}...\n";
 
     try {

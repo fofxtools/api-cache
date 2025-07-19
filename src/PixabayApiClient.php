@@ -287,15 +287,18 @@ class PixabayApiClient extends BaseApiClient
     /**
      * Clear processed items from pixabay_images table
      *
-     * @return int Number of records cleared
+     * @param bool $withCount Whether to count rows before clearing (default: false)
+     *
+     * @return int|null Number of records cleared, or null if counting was skipped
      */
-    public function clearProcessedTable(): int
+    public function clearProcessedTable(bool $withCount = false): ?int
     {
-        $count = DB::table($this->imagesTableName)->count();
+        $count = $withCount ? DB::table($this->imagesTableName)->count() : null;
         DB::table($this->imagesTableName)->truncate();
 
         Log::info('Cleared Pixabay processed table', [
-            'images_cleared' => $count,
+            'with_count'     => $withCount,
+            'images_cleared' => $withCount ? $count : 'not counted',
         ]);
 
         return $count;

@@ -140,7 +140,68 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
 
         $stats = $this->processor->clearProcessedTables();
 
-        $this->assertEquals(1, $stats['autocomplete_cleared']);
+        // Default behavior returns null
+        $this->assertNull($stats['autocomplete_cleared']);
+
+        // Verify table is empty
+        $this->assertEquals(0, DB::table($this->autocompleteItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_true(): void
+    {
+        // Insert test data
+        DB::table($this->autocompleteItemsTable)->insert([
+            'keyword'       => 'test1',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'suggestion'    => 'test suggestion 1',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->autocompleteItemsTable)->insert([
+            'keyword'       => 'test2',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 2,
+            'suggestion'    => 'test suggestion 2',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(true);
+
+        // With counting enabled, should return actual count
+        $this->assertEquals(2, $stats['autocomplete_cleared']);
+
+        // Verify table is empty
+        $this->assertEquals(0, DB::table($this->autocompleteItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_false(): void
+    {
+        // Insert test data
+        DB::table($this->autocompleteItemsTable)->insert([
+            'keyword'       => 'test3',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'suggestion'    => 'test suggestion 3',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(false);
+
+        // With counting disabled, should return null
+        $this->assertNull($stats['autocomplete_cleared']);
 
         // Verify table is empty
         $this->assertEquals(0, DB::table($this->autocompleteItemsTable)->count());

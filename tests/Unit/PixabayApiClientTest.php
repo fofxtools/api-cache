@@ -370,12 +370,87 @@ class PixabayApiClientTest extends TestCase
         // Verify data exists
         $this->assertDatabaseCount($this->imagesTableName, 2);
 
-        // Act
+        // Act - default behavior now returns null (no counting)
         $count = $this->client->clearProcessedTable();
 
         // Assert
-        $this->assertEquals(2, $count);
+        $this->assertNull($count);
         $this->assertDatabaseCount($this->imagesTableName, 0);
+    }
+
+    public function test_clearProcessedTable_with_count_true()
+    {
+        // Arrange
+        $now = now();
+
+        // Insert test images
+        DB::table($this->imagesTableName)->insert([
+            [
+                'id'         => 789,
+                'pageURL'    => 'https://example.com/789',
+                'user'       => 'testuser3',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id'         => 101112,
+                'pageURL'    => 'https://example.com/101112',
+                'user'       => 'testuser4',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id'         => 131415,
+                'pageURL'    => 'https://example.com/131415',
+                'user'       => 'testuser5',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        // Verify data exists
+        $this->assertDatabaseCount($this->imagesTableName, 3);
+
+        // Act
+        $count = $this->client->clearProcessedTable(true);
+
+        // Assert
+        $this->assertEquals(3, $count);
+        $this->assertDatabaseCount($this->imagesTableName, 0);
+    }
+
+    public function test_clearProcessedTable_with_count_false()
+    {
+        // Arrange
+        $now = now();
+
+        // Insert test images
+        DB::table($this->imagesTableName)->insert([
+            [
+                'id'         => 161718,
+                'pageURL'    => 'https://example.com/161718',
+                'user'       => 'testuser6',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id'         => 192021,
+                'pageURL'    => 'https://example.com/192021',
+                'user'       => 'testuser7',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        // Verify data exists
+        $this->assertDatabaseCount($this->imagesTableName, 2);
+
+        // Act
+        $count = $this->client->clearProcessedTable(false);
+
+        // Assert
+        $this->assertNull($count); // Should return null when withCount is false
+        $this->assertDatabaseCount($this->imagesTableName, 0); // Table should still be cleared
     }
 
     public function test_processResponses()

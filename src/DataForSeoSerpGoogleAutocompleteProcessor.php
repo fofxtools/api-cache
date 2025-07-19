@@ -120,16 +120,21 @@ class DataForSeoSerpGoogleAutocompleteProcessor
     /**
      * Clear processed items from database table
      *
-     * @return array Statistics about cleared records
+     * @param bool $withCount Whether to count rows before clearing (default: false)
+     *
+     * @return array Statistics about cleared records, with null values if counting was skipped
      */
-    public function clearProcessedTables(): array
+    public function clearProcessedTables(bool $withCount = false): array
     {
-        $stats = ['autocomplete_cleared' => 0];
+        $stats = [
+            'autocomplete_cleared' => $withCount ? DB::table($this->autocompleteItemsTable)->count() : null,
+        ];
 
-        $stats['autocomplete_cleared'] = DB::table($this->autocompleteItemsTable)->delete();
+        DB::table($this->autocompleteItemsTable)->truncate();
 
         Log::info('Cleared DataForSEO SERP Google autocomplete processed table', [
-            'autocomplete_cleared' => $stats['autocomplete_cleared'],
+            'autocomplete_cleared' => $withCount ? $stats['autocomplete_cleared'] : 'not counted',
+            'with_count'           => $withCount,
         ]);
 
         return $stats;

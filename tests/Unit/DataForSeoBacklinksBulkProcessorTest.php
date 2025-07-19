@@ -148,7 +148,62 @@ class DataForSeoBacklinksBulkProcessorTest extends TestCase
 
         $stats = $this->processor->clearProcessedTables();
 
-        $this->assertEquals(1, $stats['bulk_items_cleared']);
+        // Default behavior returns null
+        $this->assertNull($stats['bulk_items_cleared']);
+
+        // Verify table is empty
+        $this->assertEquals(0, DB::table($this->bulkItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_true(): void
+    {
+        // Insert test data
+        DB::table($this->bulkItemsTable)->insert([
+            'target'      => 'https://example.com/test1',
+            'task_id'     => 'test-task-123',
+            'response_id' => 456,
+            'rank'        => 100,
+            'backlinks'   => 50,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        DB::table($this->bulkItemsTable)->insert([
+            'target'      => 'https://example.com/test2',
+            'task_id'     => 'test-task-124',
+            'response_id' => 457,
+            'rank'        => 200,
+            'backlinks'   => 75,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(true);
+
+        // With counting enabled, should return actual count
+        $this->assertEquals(2, $stats['bulk_items_cleared']);
+
+        // Verify table is empty
+        $this->assertEquals(0, DB::table($this->bulkItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_false(): void
+    {
+        // Insert test data
+        DB::table($this->bulkItemsTable)->insert([
+            'target'      => 'https://example.com/test3',
+            'task_id'     => 'test-task-125',
+            'response_id' => 458,
+            'rank'        => 150,
+            'backlinks'   => 25,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(false);
+
+        // With counting disabled, should return null
+        $this->assertNull($stats['bulk_items_cleared']);
 
         // Verify table is empty
         $this->assertEquals(0, DB::table($this->bulkItemsTable)->count());

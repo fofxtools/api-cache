@@ -150,16 +150,21 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
     /**
      * Clear processed items from database table
      *
-     * @return array Statistics about cleared records
+     * @param bool $withCount Whether to count rows before clearing (default: false)
+     *
+     * @return array Statistics about cleared records, with null values if counting was skipped
      */
-    public function clearProcessedTables(): array
+    public function clearProcessedTables(bool $withCount = false): array
     {
-        $stats = ['items_cleared' => 0];
+        $stats = [
+            'items_cleared' => $withCount ? DB::table($this->itemsTable)->count() : null,
+        ];
 
-        $stats['items_cleared'] = DB::table($this->itemsTable)->delete();
+        DB::table($this->itemsTable)->truncate();
 
         Log::info('Cleared DataForSEO Keywords Data Google Ads processed table', [
-            'items_cleared' => $stats['items_cleared'],
+            'items_cleared' => $withCount ? $stats['items_cleared'] : 'not counted',
+            'with_count'    => $withCount,
         ]);
 
         return $stats;

@@ -151,8 +151,9 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         $stats = $this->processor->clearProcessedTables();
 
-        $this->assertEquals(1, $stats['organic_cleared']);
-        $this->assertEquals(1, $stats['paa_cleared']);
+        // Default behavior returns null
+        $this->assertNull($stats['organic_cleared']);
+        $this->assertNull($stats['paa_cleared']);
 
         // Verify tables are empty
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
@@ -186,8 +187,128 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         $stats = $this->processor->clearProcessedTables(false);
 
+        // Default behavior returns null
+        $this->assertNull($stats['organic_cleared']);
+        $this->assertNull($stats['paa_cleared']);
+
+        // Verify only organic table is empty
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+        $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_true(): void
+    {
+        // Insert test data into both tables
+        DB::table($this->organicItemsTable)->insert([
+            'keyword'       => 'test1',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->organicItemsTable)->insert([
+            'keyword'       => 'test2',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 2,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->paaItemsTable)->insert([
+            'keyword'       => 'test1',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(true, true);
+
+        // With counting enabled, should return actual counts
+        $this->assertEquals(2, $stats['organic_cleared']);
+        $this->assertEquals(1, $stats['paa_cleared']);
+
+        // Verify tables are empty
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_false(): void
+    {
+        // Insert test data into both tables
+        DB::table($this->organicItemsTable)->insert([
+            'keyword'       => 'test3',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->paaItemsTable)->insert([
+            'keyword'       => 'test3',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(true, false);
+
+        // With counting disabled, should return null
+        $this->assertNull($stats['organic_cleared']);
+        $this->assertNull($stats['paa_cleared']);
+
+        // Verify tables are empty
+        $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
+        $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_exclude_paa_with_count(): void
+    {
+        // Insert test data into both tables
+        DB::table($this->organicItemsTable)->insert([
+            'keyword'       => 'test4',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'rank_absolute' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->paaItemsTable)->insert([
+            'keyword'       => 'test4',
+            'se_domain'     => 'google.com',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'device'        => 'desktop',
+            'item_position' => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(false, true);
+
+        // Should count organic but not PAA (since PAA is excluded)
         $this->assertEquals(1, $stats['organic_cleared']);
-        $this->assertEquals(0, $stats['paa_cleared']);
+        $this->assertNull($stats['paa_cleared']);
 
         // Verify only organic table is empty
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());

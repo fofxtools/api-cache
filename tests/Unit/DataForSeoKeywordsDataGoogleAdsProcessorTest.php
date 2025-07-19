@@ -168,7 +168,74 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
 
         $stats = $this->processor->clearProcessedTables();
 
-        $this->assertEquals(1, $stats['items_cleared']);
+        // Default behavior returns null
+        $this->assertNull($stats['items_cleared']);
+
+        // Verify table is empty
+        $this->assertEquals(0, DB::table($this->googleAdsItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_true(): void
+    {
+        // Insert test data
+        DB::table($this->googleAdsItemsTable)->insert([
+            'keyword'       => 'test keyword 1',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'se'            => 'google_ads',
+            'task_id'       => 'test-task-123',
+            'response_id'   => 456,
+            'search_volume' => 1000,
+            'competition'   => 'HIGH',
+            'cpc'           => 2.50,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        DB::table($this->googleAdsItemsTable)->insert([
+            'keyword'       => 'test keyword 2',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'se'            => 'google_ads',
+            'task_id'       => 'test-task-124',
+            'response_id'   => 457,
+            'search_volume' => 2000,
+            'competition'   => 'MEDIUM',
+            'cpc'           => 1.75,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(true);
+
+        // With counting enabled, should return actual count
+        $this->assertEquals(2, $stats['items_cleared']);
+
+        // Verify table is empty
+        $this->assertEquals(0, DB::table($this->googleAdsItemsTable)->count());
+    }
+
+    public function test_clear_processed_tables_with_count_false(): void
+    {
+        // Insert test data
+        DB::table($this->googleAdsItemsTable)->insert([
+            'keyword'       => 'test keyword 3',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'se'            => 'google_ads',
+            'task_id'       => 'test-task-125',
+            'response_id'   => 458,
+            'search_volume' => 1500,
+            'competition'   => 'LOW',
+            'cpc'           => 0.95,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        $stats = $this->processor->clearProcessedTables(false);
+
+        // With counting disabled, should return null
+        $this->assertNull($stats['items_cleared']);
 
         // Verify table is empty
         $this->assertEquals(0, DB::table($this->googleAdsItemsTable)->count());

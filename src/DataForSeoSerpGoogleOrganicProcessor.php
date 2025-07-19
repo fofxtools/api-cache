@@ -122,23 +122,32 @@ class DataForSeoSerpGoogleOrganicProcessor
      * Clear processed items from database tables
      *
      * @param bool $includePaa Whether to also clear PAA items table
+     * @param bool $withCount  Whether to count rows before clearing (default: false)
      *
-     * @return array Statistics about cleared records
+     * @return array Statistics about cleared records, with null values if counting was skipped
      */
-    public function clearProcessedTables(bool $includePaa = true): array
+    public function clearProcessedTables(bool $includePaa = true, bool $withCount = false): array
     {
-        $stats = ['organic_cleared' => 0, 'paa_cleared' => 0];
-
-        $stats['organic_cleared'] = DB::table($this->organicItemsTable)->delete();
+        $stats = [
+            'organic_cleared' => $withCount ? DB::table($this->organicItemsTable)->count() : null,
+            'paa_cleared'     => null,
+        ];
 
         if ($includePaa) {
-            $stats['paa_cleared'] = DB::table($this->paaItemsTable)->delete();
+            $stats['paa_cleared'] = $withCount ? DB::table($this->paaItemsTable)->count() : null;
+        }
+
+        DB::table($this->organicItemsTable)->truncate();
+
+        if ($includePaa) {
+            DB::table($this->paaItemsTable)->truncate();
         }
 
         Log::info('Cleared DataForSEO SERP Google processed tables', [
-            'organic_cleared' => $stats['organic_cleared'],
-            'paa_cleared'     => $stats['paa_cleared'],
+            'organic_cleared' => $withCount ? $stats['organic_cleared'] : 'not counted',
+            'paa_cleared'     => $withCount ? $stats['paa_cleared'] : 'not counted',
             'include_paa'     => $includePaa,
+            'with_count'      => $withCount,
         ]);
 
         return $stats;

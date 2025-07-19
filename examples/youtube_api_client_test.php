@@ -10,11 +10,13 @@ require_once __DIR__ . '/bootstrap.php';
  * Run YouTube API client tests
  *
  * @param bool $compressionEnabled Whether to enable compression for the test
- * @param bool $verbose            Whether to enable verbose output
+ * @param bool $requestInfo        Whether to enable request info
+ * @param bool $responseInfo       Whether to enable response info
+ * @param bool $testRateLimiting   Whether to test rate limiting
  *
  * @return void
  */
-function runYouTubeTests(bool $compressionEnabled, bool $verbose = true): void
+function runYouTubeTests(bool $compressionEnabled, bool $requestInfo = true, bool $responseInfo = true, bool $testRateLimiting = true): void
 {
     echo "\nRunning YouTube API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
@@ -41,7 +43,7 @@ function runYouTubeTests(bool $compressionEnabled, bool $verbose = true): void
     try {
         echo "Query: {$query}\n";
         $result = $client->search($query);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing search: {$e->getMessage()}\n";
     }
@@ -54,7 +56,7 @@ function runYouTubeTests(bool $compressionEnabled, bool $verbose = true): void
         $videoId = 'jNQXAC9IVRw';
         echo "Video ID: {$videoId}\n";
         $result = $client->videos($videoId);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing videos by ID: {$e->getMessage()}\n";
     }
@@ -65,7 +67,7 @@ function runYouTubeTests(bool $compressionEnabled, bool $verbose = true): void
     try {
         $chart  = 'mostPopular';
         $result = $client->videos(null, $chart);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing videos by chart: {$e->getMessage()}\n";
     }
@@ -76,29 +78,41 @@ function runYouTubeTests(bool $compressionEnabled, bool $verbose = true): void
     try {
         echo "\nSearching again for (should be cached): {$query}\n";
         $result2 = $client->search($query);
-        echo format_api_response($result2, $verbose);
+        echo format_api_response($result2, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing caching: {$e->getMessage()}\n";
     }
 
     // Test rate limiting with caching disabled
-    echo "\nTesting rate limiting with caching disabled...\n";
-    $client->setUseCache(false);
+    if ($testRateLimiting) {
+        echo "\nTesting rate limiting with caching disabled...\n";
+        $client->setUseCache(false);
 
-    try {
-        for ($i = 1; $i <= 6; $i++) {
-            echo "Request {$i}...\n";
-            $result = $client->search($query);
-            echo format_api_response($result, $verbose);
+        try {
+            for ($i = 1; $i <= 6; $i++) {
+                echo "Request {$i}...\n";
+                $result = $client->search($query);
+                echo format_api_response($result, $requestInfo, $responseInfo);
+            }
+        } catch (RateLimitException $e) {
+            echo "Successfully hit rate limit: {$e->getMessage()}\n";
+            echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
         }
-    } catch (RateLimitException $e) {
-        echo "Successfully hit rate limit: {$e->getMessage()}\n";
-        echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
     }
 }
 
+$start = microtime(true);
+
+$requestInfo      = false;
+$responseInfo     = false;
+$testRateLimiting = false;
+
 // Run tests without compression
-runYouTubeTests(false);
+runYouTubeTests(false, $requestInfo, $responseInfo, $testRateLimiting);
 
 // Run tests with compression
-runYouTubeTests(true);
+runYouTubeTests(true, $requestInfo, $responseInfo, $testRateLimiting);
+
+$end = microtime(true);
+
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

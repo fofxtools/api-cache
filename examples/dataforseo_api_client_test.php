@@ -165,7 +165,7 @@ function runDataForSeoTests(bool $compressionEnabled, bool $requestInfo = true, 
 
         echo "\nTesting OnPage Raw HTML endpoint...\n";
         $taskId = $result['response']['tasks'][0]['id'];
-        $result = $client->onPageRawHtmlPost($taskId);
+        $result = $client->onPageRawHtml($taskId);
         echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing OnPage Instant Pages endpoint: {$e->getMessage()}\n";

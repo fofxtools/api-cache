@@ -73,21 +73,24 @@ function validateApiKey(): bool
 /**
  * Handle status code testing endpoints
  *
- * Matches URLs that start with a 3-digit number, optionally followed by a slash and additional text.
+ * Matches URLs that start with a 3-digit number, optionally preceded by /v1 and followed by additional text.
  * The number becomes both the HTTP status code and part of the JSON response.
  *
  * Examples:
  *   /200           → Status 200, {"status": 200, "message": "Custom response with status code 200"}
  *   /404           → Status 404, {"status": 404, "message": "Custom response with status code 404"}
  *   /500/details   → Status 500, {"status": 500, "message": "Custom response with status code 500"}
+ *   /v1/200        → Status 200, {"status": 200, "message": "Custom response with status code 200"}
+ *   /v1/404        → Status 404, {"status": 404, "message": "Custom response with status code 404"}
+ *   /v1/500/details → Status 500, {"status": 500, "message": "Custom response with status code 500"}
  *
  * Non-matching examples:
  *   /404extrastuff (no slash)
  *   /1234 (too many digits)
  *   /4/04 (not 3 consecutive digits)
  */
-if (preg_match('#^/(\d{3})(/.*)?$#', $path, $matches)) {
-    $statusCode = (int) $matches[1];
+if (preg_match('#^(/v1)?/(\d{3})(/.*)?$#', $path, $matches)) {
+    $statusCode = (int) $matches[2];
     jsonResponse([
         'status'  => $statusCode,
         'message' => "Custom response with status code $statusCode",

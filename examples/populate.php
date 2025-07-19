@@ -1,5 +1,23 @@
 <?php
 
+/**
+ * DataForSEO API Population Script
+ *
+ * This script populates the cache with responses from various DataForSEO API endpoints.
+ *
+ * IMPORTANT - Local Development with Webhooks:
+ * For webhooks (pingbacks/postbacks) to work correctly in local development:
+ *
+ * 1. Run Cloudflare tunnel:
+ *    - cloudflared tunnel --url http://localhost:8000
+ * 2. Run PHP server in the SAME environment as the tunnel:
+ *    - php -S 0.0.0.0:8000 -t public
+ * 3. Run this script in the SAME environment as the server (WSL or CMD)
+ *
+ * The tunnel, PHP server and this script should run in the same environment for
+ * webhooks to function properly.
+ */
+
 declare(strict_types=1);
 
 namespace FOfX\ApiCache;
@@ -129,6 +147,12 @@ foreach ($keywordsArrays as $keywordSet) {
     echo "Response Body:\n";
     print_r($body);
 
+    $result   = $dfs->keywordsDataGoogleAdsSearchVolumeStandard($keywordSet, locationCode: null, languageCode: null, usePingback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->keywordsDataGoogleAdsSearchVolumeLive($keywordSet);
     $response = $result['response'];
     $body     = $response->body();
@@ -141,6 +165,12 @@ foreach ($keywordsArrays as $keywordSet) {
     echo "Response Body:\n";
     print_r($body);
 
+    $result   = $dfs->keywordsDataGoogleAdsKeywordsForKeywordsStandard($keywordSet, locationCode: null, languageCode: null, usePingback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->keywordsDataGoogleAdsKeywordsForKeywordsLive($keywordSet);
     $response = $result['response'];
     $body     = $response->body();
@@ -148,6 +178,12 @@ foreach ($keywordsArrays as $keywordSet) {
     print_r($body);
 
     $result   = $dfs->keywordsDataGoogleAdsAdTrafficByKeywordsStandard($keywordSet, $maxBid, $matchType, usePingback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->keywordsDataGoogleAdsAdTrafficByKeywordsStandard($keywordSet, $maxBid, $matchType, locationCode: null, languageCode: null, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";
@@ -175,6 +211,12 @@ foreach ($keywordsArrays as $keywordSet) {
 // Test single domain endpoints
 foreach ($domainArray as $domain) {
     $result   = $dfs->keywordsDataGoogleAdsKeywordsForSiteStandard($domain, usePingback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->keywordsDataGoogleAdsKeywordsForSiteStandard($domain, locationCode: null, languageCode: null, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";

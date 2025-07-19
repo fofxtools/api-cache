@@ -10,11 +10,12 @@ require_once __DIR__ . '/bootstrap.php';
  * Run OpenAI API tests with special characters
  *
  * @param bool $compressionEnabled Whether to enable compression for the test
- * @param bool $verbose            Whether to enable verbose output
+ * @param bool $requestInfo        Whether to enable request info
+ * @param bool $responseInfo       Whether to enable response info
  *
  * @return void
  */
-function runOpenAITests(bool $compressionEnabled, bool $verbose = true): void
+function runOpenAISpecialCharactersTests(bool $compressionEnabled, bool $requestInfo = true, bool $responseInfo = true): void
 {
     echo "\nRunning OpenAI API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
@@ -89,7 +90,7 @@ function runOpenAITests(bool $compressionEnabled, bool $verbose = true): void
                 1,
                 0.7
             );
-            echo format_api_response($result, $verbose);
+            echo format_api_response($result, $requestInfo, $responseInfo);
         } catch (\Exception $e) {
             echo "Error testing {$name}: {$e->getMessage()}\n";
         }
@@ -99,8 +100,17 @@ function runOpenAITests(bool $compressionEnabled, bool $verbose = true): void
     }
 }
 
+$start = microtime(true);
+
+$requestInfo  = false;
+$responseInfo = false;
+
 // Run tests without compression
-runOpenAITests(false);
+runOpenAISpecialCharactersTests(false, $requestInfo, $responseInfo);
 
 // Run tests with compression
-runOpenAITests(true);
+runOpenAISpecialCharactersTests(true, $requestInfo, $responseInfo);
+
+$end = microtime(true);
+
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

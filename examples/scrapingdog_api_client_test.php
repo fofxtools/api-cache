@@ -10,11 +10,13 @@ require_once __DIR__ . '/bootstrap.php';
  * Run Scrapingdog API client tests
  *
  * @param bool $compressionEnabled Whether to enable compression for the test
- * @param bool $verbose            Whether to enable verbose output
+ * @param bool $requestInfo        Whether to enable request info
+ * @param bool $responseInfo       Whether to enable response info
+ * @param bool $testRateLimiting   Whether to test rate limiting
  *
  * @return void
  */
-function runScrapingdogTests(bool $compressionEnabled, bool $verbose = true): void
+function runScrapingdogTests(bool $compressionEnabled, bool $requestInfo = true, bool $responseInfo = true, bool $testRateLimiting = true): void
 {
     echo "\nRunning Scrapingdog API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
@@ -81,8 +83,9 @@ function runScrapingdogTests(bool $compressionEnabled, bool $verbose = true): vo
             'args' => [
                 'url'              => $url,
                 'ai_extract_rules' => [
-                    'header'     => 'Extract the main heading',
-                    'first_link' => 'Extract the first link',
+                    'header'                 => 'Extract the main heading',
+                    'first_link_url'         => 'Extract the first link URL',
+                    'first_link_anchor_text' => 'Extract the first link anchor text',
                 ],
             ],
         ],
@@ -124,7 +127,7 @@ function runScrapingdogTests(bool $compressionEnabled, bool $verbose = true): vo
                 echo "Success: Remaining attempts difference ({$remainingAttemptsDiff}) matches expected ({$expectedDiff})\n";
             }
 
-            echo format_api_response($result, $verbose);
+            echo format_api_response($result, $requestInfo, $responseInfo);
         }
     } catch (\Exception $e) {
         echo "Error testing scraping: {$e->getMessage()}\n";
@@ -138,33 +141,45 @@ function runScrapingdogTests(bool $compressionEnabled, bool $verbose = true): vo
         echo "\nSearching again for (should be cached): {$url}\n";
         $result = $client->scrape($url);
         echo 'Remaining attempts after cached request: ' . $cacheManager->getRemainingAttempts($clientName) . "\n";
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing caching: {$e->getMessage()}\n";
     }
 
     // Test rate limiting with caching disabled
-    echo "\nTesting rate limiting with caching disabled...\n";
-    $client->setUseCache(false);
-    echo 'Remaining attempts before disabling cache: ' . $cacheManager->getRemainingAttempts($clientName) . "\n";
+    if ($testRateLimiting) {
+        echo "\nTesting rate limiting with caching disabled...\n";
+        $client->setUseCache(false);
+        echo 'Remaining attempts before disabling cache: ' . $cacheManager->getRemainingAttempts($clientName) . "\n";
 
-    try {
-        for ($i = 1; $i <= $rateLimitMaxAttempts; $i++) {
-            echo "Request {$i}...\n";
-            echo "Remaining attempts before request {$i}: " . $cacheManager->getRemainingAttempts($clientName) . "\n";
-            $result = $client->scrape($url);
-            echo "Remaining attempts after request {$i}: " . $cacheManager->getRemainingAttempts($clientName) . "\n";
-            echo format_api_response($result, $verbose);
+        try {
+            for ($i = 1; $i <= $rateLimitMaxAttempts; $i++) {
+                echo "Request {$i}...\n";
+                echo "Remaining attempts before request {$i}: " . $cacheManager->getRemainingAttempts($clientName) . "\n";
+                $result = $client->scrape($url);
+                echo "Remaining attempts after request {$i}: " . $cacheManager->getRemainingAttempts($clientName) . "\n";
+                echo format_api_response($result, $requestInfo, $responseInfo);
+            }
+        } catch (RateLimitException $e) {
+            echo "Successfully hit rate limit: {$e->getMessage()}\n";
+            echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
+            echo 'Final remaining attempts: ' . $cacheManager->getRemainingAttempts($clientName) . "\n";
         }
-    } catch (RateLimitException $e) {
-        echo "Successfully hit rate limit: {$e->getMessage()}\n";
-        echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
-        echo 'Final remaining attempts: ' . $cacheManager->getRemainingAttempts($clientName) . "\n";
     }
 }
 
+$start = microtime(true);
+
+$requestInfo      = false;
+$responseInfo     = false;
+$testRateLimiting = false;
+
 // Run tests without compression
-runScrapingdogTests(false);
+runScrapingdogTests(false, $requestInfo, $responseInfo, $testRateLimiting);
 
 // Run tests with compression
-runScrapingdogTests(true);
+runScrapingdogTests(true, $requestInfo, $responseInfo, $testRateLimiting);
+
+$end = microtime(true);
+
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

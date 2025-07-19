@@ -292,6 +292,92 @@ class PixabayApiClientTest extends TestCase
         $this->assertEquals($this->apiKey, $authParams['key']);
     }
 
+    public function test_resetProcessed()
+    {
+        // Arrange
+        $now          = now();
+        $responseBody = json_encode(['hits' => [['id' => 123]]]);
+
+        // Insert test responses with processed status
+        DB::table('api_cache_pixabay_responses')->insert([
+            [
+                'key'                  => 'test_key_1',
+                'client'               => 'pixabay',
+                'endpoint'             => 'api',
+                'response_status_code' => 200,
+                'response_body'        => $responseBody,
+                'processed_at'         => $now,
+                'processed_status'     => json_encode(['status' => 'OK']),
+                'created_at'           => $now,
+                'updated_at'           => $now,
+            ],
+            [
+                'key'                  => 'test_key_2',
+                'client'               => 'pixabay',
+                'endpoint'             => 'api/videos',
+                'response_status_code' => 200,
+                'response_body'        => $responseBody,
+                'processed_at'         => $now,
+                'processed_status'     => json_encode(['status' => 'OK']),
+                'created_at'           => $now,
+                'updated_at'           => $now,
+            ],
+        ]);
+
+        // Act
+        $this->client->resetProcessed();
+
+        // Assert - only 'api' endpoint should be reset
+        $this->assertDatabaseHas('api_cache_pixabay_responses', [
+            'key'              => 'test_key_1',
+            'endpoint'         => 'api',
+            'processed_at'     => null,
+            'processed_status' => null,
+        ]);
+
+        // Video endpoint should remain unchanged
+        $this->assertDatabaseHas('api_cache_pixabay_responses', [
+            'key'              => 'test_key_2',
+            'endpoint'         => 'api/videos',
+            'processed_at'     => $now,
+            'processed_status' => json_encode(['status' => 'OK']),
+        ]);
+    }
+
+    public function test_clearProcessedTable()
+    {
+        // Arrange
+        $now = now();
+
+        // Insert test images
+        DB::table($this->imagesTableName)->insert([
+            [
+                'id'         => 123,
+                'pageURL'    => 'https://example.com/123',
+                'user'       => 'testuser1',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id'         => 456,
+                'pageURL'    => 'https://example.com/456',
+                'user'       => 'testuser2',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        // Verify data exists
+        $this->assertDatabaseCount($this->imagesTableName, 2);
+
+        // Act
+        $count = $this->client->clearProcessedTable();
+
+        // Assert
+        $this->assertEquals(2, $count);
+        $this->assertDatabaseCount($this->imagesTableName, 0);
+    }
+
     public function test_processResponses()
     {
         // Arrange

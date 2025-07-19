@@ -453,7 +453,9 @@ class BaseApiClient
      * @param string|null $attributes Additional attributes to store with the response
      * @param int|null    $credits    Number of credits used for the request
      *
-     * @throws \InvalidArgumentException When HTTP method is not supported
+     * @throws \InvalidArgumentException                   When HTTP method is not supported
+     * @throws \Illuminate\Http\Client\ConnectionException When connection fails (timeouts, DNS failures, etc.)
+     * @throws \Illuminate\Http\Client\RequestException    When other HTTP client errors occur
      *
      * @return array API response data
      */
@@ -555,9 +557,11 @@ class BaseApiClient
      * @param string|null $attributes Additional attributes to store with the response
      * @param int         $amount     Amount to pass to incrementAttempts
      *
-     * @throws RateLimitException        When rate limit is exceeded. Or when cache manager is not initialized.
-     * @throws \JsonException            When cache key generation fails
-     * @throws \InvalidArgumentException When HTTP method is not supported
+     * @throws RateLimitException                          When rate limit is exceeded. Or when cache manager is not initialized.
+     * @throws \JsonException                              When cache key generation fails
+     * @throws \InvalidArgumentException                   When HTTP method is not supported
+     * @throws \Illuminate\Http\Client\ConnectionException When connection fails (timeouts, DNS failures, etc.)
+     * @throws \Illuminate\Http\Client\RequestException    When other HTTP client errors occur
      *
      * @return array API response data
      */
@@ -631,8 +635,42 @@ class BaseApiClient
         // Trim attributes to 255 characters if not null, for Laravel string column limit
         $trimmedAttributes = $attributes === null ? null : mb_substr($attributes, 0, 255);
 
-        // Make the request
-        $apiResult = $this->sendRequest($endpoint, $params, $method, $trimmedAttributes, $amount);
+        // Make the request with exception handling
+        try {
+            $apiResult = $this->sendRequest($endpoint, $params, $method, $trimmedAttributes, $amount);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            // Handle connection errors (timeouts, DNS failures, etc.)
+            $this->logHttpError(
+                0, // No HTTP status code for connection errors
+                'Connection error: ' . $e->getMessage(),
+                [
+                    'url'        => $this->buildUrl($endpoint),
+                    'method'     => $method,
+                    'cache_key'  => $cacheKey,
+                    'error_type' => 'connection_error',
+                ],
+                null
+            );
+
+            // Re-throw the exception so calling code can handle it
+            throw $e;
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            // Handle other HTTP client exceptions
+            $this->logHttpError(
+                $e->response->status(),
+                'HTTP request error: ' . $e->getMessage(),
+                [
+                    'url'        => $this->buildUrl($endpoint),
+                    'method'     => $method,
+                    'cache_key'  => $cacheKey,
+                    'error_type' => 'request_error',
+                ],
+                $e->response->body()
+            );
+
+            // Re-throw the exception so calling code can handle it
+            throw $e;
+        }
 
         // Increment attempts for the client to track rate limit usage
         $this->cacheManager->incrementAttempts($this->clientName, $amount);

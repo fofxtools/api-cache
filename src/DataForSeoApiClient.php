@@ -1905,7 +1905,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param bool|null   $includeAdultKeywords Include adult keywords
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
@@ -2048,7 +2048,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param bool|null   $includeAdultKeywords Include adult keywords
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
@@ -2160,7 +2160,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param bool|null   $includeAdultKeywords Include adult keywords
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
@@ -2267,7 +2267,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param bool|null   $includeAdultKeywords Include adult keywords
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
@@ -2406,7 +2406,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param bool|null   $includeAdultKeywords Include adult keywords
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
@@ -2514,7 +2514,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param bool|null   $includeAdultKeywords Include adult keywords
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
@@ -2620,7 +2620,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
      * @param bool|null   $includeAdultKeywords Include adult keywords
@@ -2765,7 +2765,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
      * @param bool|null   $includeAdultKeywords Include adult keywords
@@ -2879,7 +2879,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName         Language name (e.g., "English")
      * @param string|null $languageCode         Language code (e.g., "en")
      * @param bool|null   $searchPartners       Include Google search partners
-     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom             Starting date (yyyy-mm-dd format, minimal value: 4 years from the current date)
      * @param string|null $dateTo               Ending date (yyyy-mm-dd format)
      * @param string|null $sortBy               Sort by parameter (relevance, search_volume, competition_index, etc.)
      * @param bool|null   $includeAdultKeywords Include adult keywords
@@ -2986,7 +2986,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $locationCoordinate Location coordinate (e.g., "52.6178549,-155.352142")
      * @param string|null $languageName       Language name (e.g., "English")
      * @param string|null $languageCode       Language code (e.g., "en")
-     * @param string|null $dateFrom           Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom           Starting date (yyyy-mm-dd format, minimum value is tomorrow’s date)
      * @param string|null $dateTo             Ending date (yyyy-mm-dd format)
      * @param string|null $dateInterval       Forecasting date interval (next_week, next_month, next_quarter)
      * @param string|null $sortBy             Sort by parameter (relevance, impressions, ctr, average_cpc, cost, clicks)
@@ -3164,7 +3164,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $locationCoordinate Location coordinate (e.g., "52.6178549,-155.352142")
      * @param string|null $languageName       Language name (e.g., "English")
      * @param string|null $languageCode       Language code (e.g., "en")
-     * @param string|null $dateFrom           Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom           Starting date (yyyy-mm-dd format, minimum value is tomorrow’s date)
      * @param string|null $dateTo             Ending date (yyyy-mm-dd format)
      * @param string|null $dateInterval       Forecasting date interval (next_week, next_month, next_quarter)
      * @param string|null $sortBy             Sort by parameter (relevance, impressions, ctr, average_cpc, cost, clicks)
@@ -3314,7 +3314,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $locationCoordinate  Location coordinate (e.g., "52.6178549,-155.352142")
      * @param string|null $languageName        Language name (e.g., "English")
      * @param string|null $languageCode        Language code (e.g., "en")
-     * @param string|null $dateFrom            Starting date (yyyy-mm-dd format)
+     * @param string|null $dateFrom            Starting date (yyyy-mm-dd format, minimum value is tomorrow’s date)
      * @param string|null $dateTo              Ending date (yyyy-mm-dd format)
      * @param string|null $dateInterval        Forecasting date interval (next_week, next_month, next_quarter)
      * @param string|null $sortBy              Sort by parameter (relevance, impressions, ctr, average_cpc, cost, clicks)
@@ -5313,7 +5313,7 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @return array The API response data
      */
-    public function onPagePagesPost(
+    public function onPagePages(
         string $id,
         ?int $limit = null,
         ?int $offset = null,
@@ -5400,7 +5400,7 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @return array The API response data
      */
-    public function onPageResourcesPost(
+    public function onPageResources(
         string $id,
         ?string $url = null,
         ?int $limit = null,
@@ -5488,7 +5488,7 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @return array The API response data
      */
-    public function onPageWaterfallPost(
+    public function onPageWaterfall(
         string $id,
         string $url,
         ?string $tag = null,
@@ -5554,7 +5554,7 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @return array The API response data
      */
-    public function onPageKeywordDensityPost(
+    public function onPageKeywordDensity(
         string $id,
         int $keywordLength,
         ?string $url = null,
@@ -5632,7 +5632,7 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @return array The API response data
      */
-    public function onPageRawHtmlPost(
+    public function onPageRawHtml(
         string $id,
         ?string $url = null,
         array $additionalParams = [],
@@ -5678,7 +5678,7 @@ class DataForSeoApiClient extends BaseApiClient
      *
      * @return array The API response data
      */
-    public function onPageContentParsingPost(
+    public function onPageContentParsing(
         string $url,
         string $id,
         ?bool $markdownView = null,
@@ -6846,7 +6846,9 @@ class DataForSeoApiClient extends BaseApiClient
      * You can get data on up to 1,000 domains in this API.
      *
      * @param array       $targets          Domains, subdomains or webpages to get new/lost backlinks for (max 1000)
-     * @param string|null $dateFrom         Starting date of time range (yyyy-mm-dd, default: today minus one month)
+     * @param string|null $dateFrom         Starting date of time range (yyyy-mm-dd)
+     *                                      Default: today minus one month
+     *                                      Minimum value: today’s date -(minus) one year
      * @param string|null $tag              User-defined task identifier (max 255 characters)
      * @param array       $additionalParams Additional parameters
      * @param string|null $attributes       Optional attributes to store with cache entry
@@ -6926,7 +6928,9 @@ class DataForSeoApiClient extends BaseApiClient
      * You can get data on up to 1,000 domains in this API.
      *
      * @param array       $targets          Domains, subdomains or webpages to get new/lost referring domains for (max 1000)
-     * @param string|null $dateFrom         Starting date of time range (yyyy-mm-dd, default: today minus one month)
+     * @param string|null $dateFrom         Starting date of time range (yyyy-mm-dd)
+     *                                      Default: today minus one month
+     *                                      Minimum value: today’s date -(minus) one year
      * @param string|null $tag              User-defined task identifier (max 255 characters)
      * @param array       $additionalParams Additional parameters
      * @param string|null $attributes       Optional attributes to store with cache entry

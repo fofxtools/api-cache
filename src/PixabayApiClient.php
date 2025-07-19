@@ -264,6 +264,44 @@ class PixabayApiClient extends BaseApiClient
     }
 
     /**
+     * Reset processed status for Pixabay responses
+     *
+     * @return void
+     */
+    public function resetProcessed(): void
+    {
+        $tableName = $this->getTableName();
+
+        $updated = DB::table($tableName)
+            ->where('endpoint', 'api')
+            ->update([
+                'processed_at'     => null,
+                'processed_status' => null,
+            ]);
+
+        Log::info('Reset processed status for Pixabay responses', [
+            'updated_count' => $updated,
+        ]);
+    }
+
+    /**
+     * Clear processed items from pixabay_images table
+     *
+     * @return int Number of records cleared
+     */
+    public function clearProcessedTable(): int
+    {
+        $count = DB::table($this->imagesTableName)->count();
+        DB::table($this->imagesTableName)->truncate();
+
+        Log::info('Cleared Pixabay processed table', [
+            'images_cleared' => $count,
+        ]);
+
+        return $count;
+    }
+
+    /**
      * Process unprocessed image responses and insert them into the pixabay_images table.
      *
      * @param int|null $limit Maximum number of rows to process. Null for unlimited.
@@ -600,6 +638,7 @@ class PixabayApiClient extends BaseApiClient
             $filename = sprintf('%d_%s.%s', $image->id, $imageType, $extension);
 
             // Get save path and ensure it exists
+            // Use DIRECTORY_SEPARATOR (even though Laravel accepts '/') so that full path in database table has consistent slashes
             $savePath = $path ?: storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
             if (!is_dir($savePath)) {
                 if (!mkdir($savePath, 0755, true)) {
@@ -612,6 +651,7 @@ class PixabayApiClient extends BaseApiClient
             }
 
             // Save file
+            // Must use DIRECTORY_SEPARATOR for OS compatibility
             $fullPath = $savePath . DIRECTORY_SEPARATOR . $filename;
             if (!file_put_contents($fullPath, $image->{"file_contents_$imageType"})) {
                 throw new \RuntimeException("Failed to save file for type: $imageType");

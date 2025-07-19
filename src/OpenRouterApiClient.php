@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 
 class OpenRouterApiClient extends BaseApiClient
 {
+    public const FALLBACK_MODEL = 'deepseek/deepseek-chat-v3-0324:free';
+
     /**
      * Constructor for OpenRouterApiClient
      *
@@ -32,7 +34,7 @@ class OpenRouterApiClient extends BaseApiClient
      * Get legacy text completions based on prompt parameters
      *
      * @param string      $prompt           The prompt to use for the completions
-     * @param string      $model            The model to use for the completions
+     * @param string|null $model            The model to use for the completions
      * @param int         $maxTokens        The maximum number of tokens to generate
      * @param int         $n                The number of completions to generate
      * @param float       $temperature      Controls randomness (0-2, higher is more random)
@@ -45,7 +47,7 @@ class OpenRouterApiClient extends BaseApiClient
      */
     public function completions(
         string $prompt,
-        string $model = 'meta-llama/llama-3.3-70b-instruct:free',
+        ?string $model = null,
         int $maxTokens = 16,
         int $n = 1,
         float $temperature = 1.0,
@@ -54,6 +56,8 @@ class OpenRouterApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
+        $model = $model ?? config('api-cache.apis.openrouter.default_model') ?? self::FALLBACK_MODEL;
+
         Log::debug('Making OpenRouter completions request', [
             'model'       => $model,
             'max_tokens'  => $maxTokens,
@@ -85,7 +89,7 @@ class OpenRouterApiClient extends BaseApiClient
      * Get chat completions based on messages parameters
      *
      * @param array|string $messages            The messages to use for the completions
-     * @param string       $model               The model to use for the completions
+     * @param string|null  $model               The model to use for the completions
      * @param int|null     $maxCompletionTokens The maximum number of tokens to generate
      * @param int          $n                   The number of completions to generate
      * @param float        $temperature         Controls randomness (0-2, higher is more random)
@@ -100,7 +104,7 @@ class OpenRouterApiClient extends BaseApiClient
      */
     public function chatCompletions(
         array|string $messages,
-        string $model = 'meta-llama/llama-3.3-70b-instruct:free',
+        ?string $model = null,
         ?int $maxCompletionTokens = null,
         int $n = 1,
         float $temperature = 1.0,
@@ -109,6 +113,8 @@ class OpenRouterApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
+        $model = $model ?? config('api-cache.apis.openrouter.default_model') ?? self::FALLBACK_MODEL;
+
         // If messages is a string, assume it is a prompt and wrap it in an array of messages
         if (is_string($messages)) {
             $messages = [['role' => 'user', 'content' => $messages]];

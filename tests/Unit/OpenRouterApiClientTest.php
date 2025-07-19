@@ -24,6 +24,7 @@ class OpenRouterApiClientTest extends TestCase
 
         // Configure test environment
         Config::set('api-cache.apis.openrouter.api_key', $this->apiKey);
+        Config::set('api-cache.apis.openrouter.default_model', 'deepseek/deepseek-chat-v3-0324:free');
         Config::set('api-cache.apis.openrouter.base_url', $this->apiBaseUrl);
         Config::set('api-cache.apis.openrouter.version', 'v1');
         Config::set('api-cache.apis.openrouter.rate_limit_max_attempts', 5);
@@ -60,8 +61,8 @@ class OpenRouterApiClientTest extends TestCase
                 'id'       => 'gen-test',
                 'object'   => 'chat.completion',
                 'created'  => time(),
-                'model'    => 'meta-llama/llama-3.3-70b-instruct',
-                'provider' => 'Together',
+                'model'    => config('api-cache.apis.openrouter.default_model'),
+                'provider' => 'Chutes',
                 'choices'  => [
                     [
                         'text'                 => 'The answer is 4',
@@ -84,7 +85,7 @@ class OpenRouterApiClientTest extends TestCase
 
         $response = $this->client->completions(
             'What is 2+2?',
-            'meta-llama/llama-3.3-70b-instruct:free',
+            config('api-cache.apis.openrouter.default_model'),
             50,
             1,
             0.7,
@@ -95,7 +96,7 @@ class OpenRouterApiClientTest extends TestCase
             return $request->url() === "{$this->apiBaseUrl}/completions" &&
                    $request->method() === 'POST' &&
                    $request->data()['prompt'] === 'What is 2+2?' &&
-                   $request->data()['model'] === 'meta-llama/llama-3.3-70b-instruct:free' &&
+                   $request->data()['model'] === config('api-cache.apis.openrouter.default_model') &&
                    $request->data()['max_tokens'] === 50;
         });
 
@@ -112,8 +113,8 @@ class OpenRouterApiClientTest extends TestCase
                 'id'       => 'gen-test',
                 'object'   => 'chat.completion',
                 'created'  => time(),
-                'model'    => 'google/gemini-2.0-flash-exp:free',
-                'provider' => 'Google AI Studio',
+                'model'    => config('api-cache.apis.openrouter.default_model'),
+                'provider' => 'Chutes',
                 'choices'  => [
                     [
                         'index'   => 0,
@@ -141,7 +142,7 @@ class OpenRouterApiClientTest extends TestCase
 
         $response = $this->client->chatCompletions(
             'What is the meaning of life?',
-            'google/gemini-2.0-flash-exp:free',
+            config('api-cache.apis.openrouter.default_model'),
             100,
             1,
             0.7,
@@ -153,7 +154,7 @@ class OpenRouterApiClientTest extends TestCase
                    $request->method() === 'POST' &&
                    $request->data()['messages'][0]['role'] === 'user' &&
                    $request->data()['messages'][0]['content'] === 'What is the meaning of life?' &&
-                   $request->data()['model'] === 'google/gemini-2.0-flash-exp:free';
+                   $request->data()['model'] === config('api-cache.apis.openrouter.default_model');
         });
 
         // Make sure we used the Http::fake() response
@@ -169,8 +170,8 @@ class OpenRouterApiClientTest extends TestCase
                 'id'       => 'gen-test',
                 'object'   => 'chat.completion',
                 'created'  => time(),
-                'model'    => 'google/gemini-2.0-flash-exp:free',
-                'provider' => 'Google AI Studio',
+                'model'    => config('api-cache.apis.openrouter.default_model'),
+                'provider' => 'Chutes',
                 'choices'  => [
                     [
                         'index'   => 0,

@@ -129,8 +129,8 @@ class ScraperApiClient extends BaseApiClient
      * Scrape a URL using ScraperAPI
      *
      * @param string      $url              The URL to scrape
-     * @param bool        $autoparse        Whether to automatically parse JSON responses
-     * @param string|null $outputFormat     The output format (e.g. 'llm', 'json', etc.)
+     * @param bool        $autoparse        Whether to automatically parse JSON responses (default: false)
+     * @param string|null $outputFormat     The output format (e.g. 'text', 'markdown', etc., default: null)
      * @param array       $additionalParams Additional parameters to pass to the API
      * @param string|null $attributes       Optional attributes to store with the cache entry
      * @param int|null    $amount           Amount to pass to incrementAttempts

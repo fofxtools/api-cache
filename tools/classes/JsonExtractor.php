@@ -16,8 +16,8 @@ class JsonExtractor
     private $progressCallback;
 
     public function __construct(
-        string $docsDir = null,
-        string $outputDir = null,
+        ?string $docsDir = null,
+        ?string $outputDir = null,
         bool $forceExtraction = false
     ) {
         $this->docsDir          = $docsDir ?? __DIR__ . '/../../storage/app/dataforseo_docs';

@@ -10,9 +10,11 @@ require_once __DIR__ . '/bootstrap.php';
  * Run tests for ScraperApiClient
  *
  * @param bool $compressionEnabled Whether to enable compression
- * @param bool $verbose            Whether to output verbose information
+ * @param bool $requestInfo        Whether to enable request info
+ * @param bool $responseInfo       Whether to enable response info
+ * @param bool $testRateLimiting   Whether to test rate limiting
  */
-function runScraperApiTests(bool $compressionEnabled, bool $verbose = true): void
+function runScraperApiTests(bool $compressionEnabled, bool $requestInfo = true, bool $responseInfo = true, bool $testRateLimiting = true): void
 {
     echo "\nRunning ScraperAPI API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
@@ -64,7 +66,7 @@ function runScraperApiTests(bool $compressionEnabled, bool $verbose = true): voi
                 echo "Success: Remaining attempts difference ({$remainingAttemptsDiff}) matches expected ({$expectedDiff})\n";
             }
 
-            echo format_api_response($result, $verbose);
+            echo format_api_response($result, $requestInfo, $responseInfo);
         } catch (\Exception $e) {
             echo "Status: Failed\n";
             echo 'Error: ' . $e->getMessage() . "\n";
@@ -72,10 +74,18 @@ function runScraperApiTests(bool $compressionEnabled, bool $verbose = true): voi
     }
 }
 
+$start = microtime(true);
+
+$requestInfo      = false;
+$responseInfo     = false;
+$testRateLimiting = false;
+
 // Run tests without compression
-echo "Testing without compression:\n";
-runScraperApiTests(false);
+runScraperApiTests(false, $requestInfo, $responseInfo, $testRateLimiting);
 
 // Run tests with compression
-echo "\nTesting with compression:\n";
-runScraperApiTests(true);
+runScraperApiTests(true, $requestInfo, $responseInfo, $testRateLimiting);
+
+$end = microtime(true);
+
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

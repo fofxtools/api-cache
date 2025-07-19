@@ -10,11 +10,13 @@ require_once __DIR__ . '/bootstrap.php';
  * Run Jina API client tests
  *
  * @param bool $compressionEnabled Whether to enable compression for the test
- * @param bool $verbose            Whether to enable verbose output
+ * @param bool $requestInfo        Whether to enable request info
+ * @param bool $responseInfo       Whether to enable response info
+ * @param bool $testRateLimiting   Whether to test rate limiting
  *
  * @return void
  */
-function runJinaTests(bool $compressionEnabled, bool $verbose = true): void
+function runJinaTests(bool $compressionEnabled, bool $requestInfo = true, bool $responseInfo = true, bool $testRateLimiting = true): void
 {
     echo "\nRunning Jina API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
@@ -45,7 +47,7 @@ function runJinaTests(bool $compressionEnabled, bool $verbose = true): void
 
     try {
         $result = $client->reader($url);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing reader: {$e->getMessage()}\n";
     }
@@ -56,7 +58,7 @@ function runJinaTests(bool $compressionEnabled, bool $verbose = true): void
     try {
         $query  = 'Laravel PHP framework';
         $result = $client->serp($query);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing serp: {$e->getMessage()}\n";
     }
@@ -72,7 +74,7 @@ function runJinaTests(bool $compressionEnabled, bool $verbose = true): void
 
     try {
         $result = $client->rerank($query, $documents);
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing rerank: {$e->getMessage()}\n";
     }
@@ -83,30 +85,31 @@ function runJinaTests(bool $compressionEnabled, bool $verbose = true): void
     try {
         echo "First request...\n";
         $result1 = $client->reader($url);
-        echo format_api_response($result1, $verbose);
+        echo format_api_response($result1, $requestInfo, $responseInfo);
 
         echo "\nSecond request (should be cached)...\n";
         $result2 = $client->reader($url);
-        echo format_api_response($result2, $verbose);
+        echo format_api_response($result2, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing caching: {$e->getMessage()}\n";
     }
 
     // Test rate limiting with caching disabled
-    echo "\nTesting rate limiting with caching disabled...\n";
+    if ($testRateLimiting) {
+        echo "\nTesting rate limiting with caching disabled...\n";
+        $client->setUseCache(false);
 
-    $client->setUseCache(false);
-
-    try {
-        // Use rerank endpoint to test rate limiting
-        for ($i = 1; $i <= 6; $i++) {
-            echo "Request {$i}...\n";
-            $result = $client->rerank($query, $documents);
-            echo format_api_response($result, $verbose);
+        try {
+            // Use rerank endpoint to test rate limiting
+            for ($i = 1; $i <= 6; $i++) {
+                echo "Request {$i}...\n";
+                $result = $client->rerank($query, $documents);
+                echo format_api_response($result, $requestInfo, $responseInfo);
+            }
+        } catch (RateLimitException $e) {
+            echo "Successfully hit rate limit: {$e->getMessage()}\n";
+            echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
         }
-    } catch (RateLimitException $e) {
-        echo "Successfully hit rate limit: {$e->getMessage()}\n";
-        echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
     }
 
     // Get final token balance
@@ -114,8 +117,18 @@ function runJinaTests(bool $compressionEnabled, bool $verbose = true): void
     echo "\nFinal token balance: {$balance}\n";
 }
 
+$start = microtime(true);
+
+$requestInfo      = false;
+$responseInfo     = false;
+$testRateLimiting = false;
+
 // Run tests without compression
-runJinaTests(false);
+runJinaTests(false, $requestInfo, $responseInfo, $testRateLimiting);
 
 // Run tests with compression
-runJinaTests(true);
+runJinaTests(true, $requestInfo, $responseInfo, $testRateLimiting);
+
+$end = microtime(true);
+
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

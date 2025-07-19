@@ -745,6 +745,148 @@ class BaseApiClientTest extends TestCase
         $this->assertArrayHasKey('response_time', $result);
     }
 
+    public function test_sendCachedRequest_logs_and_rethrows_connection_exception(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.http_error' => true]);
+        config(['api-cache.error_logging.levels.http_error' => 'error']);
+
+        $this->cacheManager->shouldReceive('generateCacheKey')
+            ->once()
+            ->andReturn('test-cache-key');
+
+        $this->cacheManager->shouldReceive('getCachedResponse')
+            ->once()
+            ->andReturnNull();
+
+        $this->cacheManager->shouldReceive('allowRequest')
+            ->once()
+            ->with($this->clientName)
+            ->andReturnTrue();
+
+        // Create a test client that will throw ConnectionException
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->cacheManager
+        ) extends BaseApiClient {
+            public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
+            {
+                throw new \Illuminate\Http\Client\ConnectionException('cURL error 6: Could not resolve host: non-existent-host.com');
+            }
+        };
+
+        $this->expectException(\Illuminate\Http\Client\ConnectionException::class);
+        $this->expectExceptionMessage('cURL error 6: Could not resolve host: non-existent-host.com');
+
+        try {
+            $testClient->sendCachedRequest('predictions', ['query' => 'test']);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            // Verify the error was logged to the database
+            $this->assertDatabaseHas('api_cache_errors', [
+                'api_client'    => $this->clientName,
+                'error_type'    => 'http_error',
+                'log_level'     => 'error',
+                'error_message' => 'Connection error: cURL error 6: Could not resolve host: non-existent-host.com',
+            ]);
+
+            // Verify context data contains expected fields
+            $errorRecord = DB::table('api_cache_errors')
+                ->where('api_client', $this->clientName)
+                ->where('error_type', 'http_error')
+                ->latest('created_at')
+                ->first();
+
+            $contextData = json_decode($errorRecord->context_data, true);
+            $this->assertEquals(0, $contextData['status_code']);
+            $this->assertEquals('GET', $contextData['method']); // sendCachedRequest defaults to GET
+            $this->assertEquals('test-cache-key', $contextData['cache_key']);
+            $this->assertEquals('connection_error', $contextData['error_type']);
+            $this->assertStringContainsString('/predictions', $contextData['url']);
+
+            // Re-throw to satisfy expectException
+            throw $e;
+        }
+    }
+
+    public function test_sendCachedRequest_logs_and_rethrows_request_exception(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.http_error' => true]);
+        config(['api-cache.error_logging.levels.http_error' => 'error']);
+
+        $this->cacheManager->shouldReceive('generateCacheKey')
+            ->once()
+            ->andReturn('test-cache-key');
+
+        $this->cacheManager->shouldReceive('getCachedResponse')
+            ->once()
+            ->andReturnNull();
+
+        $this->cacheManager->shouldReceive('allowRequest')
+            ->once()
+            ->with($this->clientName)
+            ->andReturnTrue();
+
+        // Create a test client that will make a request to demo server's 500 endpoint
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl, // Use local demo server
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->cacheManager
+        ) extends BaseApiClient {
+            public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
+            {
+                // Make a request that will return a 500 status code using demo server's status endpoint
+                $result = parent::sendRequest('500', $params, $method, $attributes, $credits);
+
+                // Force throw RequestException for 500 status
+                if ($result['response']->status() >= 400) {
+                    $result['response']->throw();
+                }
+
+                return $result;
+            }
+        };
+
+        $this->expectException(\Illuminate\Http\Client\RequestException::class);
+
+        try {
+            $testClient->sendCachedRequest('predictions', ['query' => 'test']);
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            // Verify the error was logged to the database
+            $this->assertDatabaseHas('api_cache_errors', [
+                'api_client' => $this->clientName,
+                'error_type' => 'http_error',
+                'log_level'  => 'error',
+            ]);
+
+            // Verify context data contains expected fields
+            $errorRecord = DB::table('api_cache_errors')
+                ->where('api_client', $this->clientName)
+                ->where('error_type', 'http_error')
+                ->latest('created_at')
+                ->first();
+
+            $contextData = json_decode($errorRecord->context_data, true);
+            $this->assertEquals(500, $contextData['status_code']);
+            $this->assertEquals('GET', $contextData['method']);
+            $this->assertEquals('test-cache-key', $contextData['cache_key']);
+            $this->assertEquals('request_error', $contextData['error_type']);
+            $this->assertStringContainsString('predictions', $contextData['url']);
+
+            // Verify some response body was logged (demo server returns JSON for /500)
+            $this->assertNotNull($errorRecord->response_preview);
+            $this->assertStringContainsString('HTTP request error:', $errorRecord->error_message);
+
+            // Re-throw to satisfy expectException
+            throw $e;
+        }
+    }
+
     public function test_getHealth_returns_health_endpoint_response(): void
     {
         $result = $this->client->getHealth();

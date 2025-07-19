@@ -10,11 +10,13 @@ require_once __DIR__ . '/bootstrap.php';
  * Run OpenRouter API client tests
  *
  * @param bool $compressionEnabled Whether to enable compression for the test
- * @param bool $verbose            Whether to enable verbose output
+ * @param bool $requestInfo        Whether to enable request info
+ * @param bool $responseInfo       Whether to enable response info
+ * @param bool $testRateLimiting   Whether to test rate limiting
  *
  * @return void
  */
-function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
+function runOpenRouterTests(bool $compressionEnabled, bool $requestInfo = true, bool $responseInfo = true, bool $testRateLimiting = true): void
 {
     echo "\nRunning OpenRouter API tests with compression " . ($compressionEnabled ? 'enabled' : 'disabled') . "...\n";
     echo str_repeat('-', 80) . "\n";
@@ -37,8 +39,8 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
     $client->setTimeout(30);
     $client->clearRateLimit();
 
-    // Test completions endpoint
-    $model = 'meta-llama/llama-3.3-70b-instruct:free';
+    // Test completions endpoint with configured default model
+    $model = config('api-cache.apis.openrouter.default_model') ?? $client::FALLBACK_MODEL;
     echo "\nTesting completions endpoint with model: {$model}...\n";
 
     try {
@@ -49,13 +51,12 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
             1,
             0.7
         );
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing completions: {$e->getMessage()}\n";
     }
 
     // Test chat completions endpoint with string input
-    $model = 'google/gemini-2.0-flash-exp:free';
     echo "\nTesting chat completions endpoint with model: {$model}...\n";
 
     try {
@@ -66,7 +67,7 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
             1,
             0.7
         );
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing chat completions with string: {$e->getMessage()}\n";
     }
@@ -90,7 +91,7 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
             1,
             0.7
         );
-        echo format_api_response($result, $verbose);
+        echo format_api_response($result, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing chat completions with array: {$e->getMessage()}\n";
     }
@@ -117,34 +118,45 @@ function runOpenRouterTests(bool $compressionEnabled, $verbose = true): void
         $prompt = 'What is 2+2?';
         echo "First request...\n";
         $result1 = $client->completions($prompt);
-        echo format_api_response($result1, $verbose);
+        echo format_api_response($result1, $requestInfo, $responseInfo);
 
         echo "\nSecond request (should be cached)...\n";
         $result2 = $client->completions($prompt);
-        echo format_api_response($result2, $verbose);
+        echo format_api_response($result2, $requestInfo, $responseInfo);
     } catch (\Exception $e) {
         echo "Error testing caching: {$e->getMessage()}\n";
     }
 
     // Test rate limiting with caching disabled
-    echo "\nTesting rate limiting with caching disabled...\n";
+    if ($testRateLimiting) {
+        echo "\nTesting rate limiting with caching disabled...\n";
+        $client->setUseCache(false);
 
-    $client->setUseCache(false);
-
-    try {
-        for ($i = 0; $i <= 5; $i++) {
-            echo "Request {$i}...\n";
-            $result = $client->completions("Is {$i} even?");
-            echo format_api_response($result, $verbose);
+        try {
+            for ($i = 0; $i <= 5; $i++) {
+                echo "Request {$i}...\n";
+                $result = $client->completions("Is {$i} even?");
+                echo format_api_response($result, $requestInfo, $responseInfo);
+            }
+        } catch (RateLimitException $e) {
+            echo "Successfully hit rate limit: {$e->getMessage()}\n";
+            echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
         }
-    } catch (RateLimitException $e) {
-        echo "Successfully hit rate limit: {$e->getMessage()}\n";
-        echo "Available in: {$e->getAvailableInSeconds()} seconds\n";
     }
 }
 
+$start = microtime(true);
+
+$requestInfo      = false;
+$responseInfo     = false;
+$testRateLimiting = false;
+
 // Run tests without compression
-runOpenRouterTests(false);
+runOpenRouterTests(false, $requestInfo, $responseInfo, $testRateLimiting);
 
 // Run tests with compression
-runOpenRouterTests(true);
+runOpenRouterTests(true, $requestInfo, $responseInfo, $testRateLimiting);
+
+$end = microtime(true);
+
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

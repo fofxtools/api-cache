@@ -1012,7 +1012,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPagePagesPost($id);
+        $response = $this->client->onPagePages($id);
 
         Http::assertSent(function ($request) use ($id) {
             $this->assertEquals("{$this->apiBaseUrl}/on_page/pages", $request->url());
@@ -1035,7 +1035,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Task ID cannot be empty');
 
-        $this->client->onPagePagesPost('');
+        $this->client->onPagePages('');
     }
 
     public function test_onpage_pages_post_validates_limit_parameter()
@@ -1043,7 +1043,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Limit must be between 1 and 1000');
 
-        $this->client->onPagePagesPost('valid-id', limit: 1001);
+        $this->client->onPagePages('valid-id', limit: 1001);
     }
 
     public function test_onpage_pages_post_validates_offset_parameter()
@@ -1051,7 +1051,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Offset must be greater than or equal to 0');
 
-        $this->client->onPagePagesPost('valid-id', offset: -1);
+        $this->client->onPagePages('valid-id', offset: -1);
     }
 
     public function test_onpage_pages_post_validates_filters_count()
@@ -1061,7 +1061,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum 8 filters are allowed');
 
-        $this->client->onPagePagesPost('valid-id', filters: $filters);
+        $this->client->onPagePages('valid-id', filters: $filters);
     }
 
     public function test_onpage_pages_post_validates_order_by_count()
@@ -1071,7 +1071,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum 3 sorting rules are allowed');
 
-        $this->client->onPagePagesPost('valid-id', orderBy: $orderBy);
+        $this->client->onPagePages('valid-id', orderBy: $orderBy);
     }
 
     public function test_onpage_pages_post_validates_tag_length()
@@ -1081,10 +1081,10 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Tag must be 255 characters or less');
 
-        $this->client->onPagePagesPost('valid-id', tag: $longTag);
+        $this->client->onPagePages('valid-id', tag: $longTag);
     }
 
-    public static function onPagePagesPostParametersProvider(): array
+    public static function onPagePagesParametersProvider(): array
     {
         return [
             'with_limit_and_offset' => [
@@ -1130,7 +1130,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         ];
     }
 
-    #[DataProvider('onPagePagesPostParametersProvider')]
+    #[DataProvider('onPagePagesParametersProvider')]
     public function test_onpage_pages_post_builds_request_with_correct_parameters($parameters, $expectedParams)
     {
         $successResponse = [
@@ -1178,7 +1178,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPagePagesPost(...$parameters);
+        $response = $this->client->onPagePages(...$parameters);
 
         Http::assertSent(function ($request) use ($expectedParams) {
             $this->assertEquals("{$this->apiBaseUrl}/on_page/pages", $request->url());
@@ -1239,7 +1239,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $result = $this->client->onPagePagesPost('12345678-1234-1234-1234-123456789037');
+        $result = $this->client->onPagePages('12345678-1234-1234-1234-123456789037');
 
         // Make sure we used the Http::fake() response
         $this->assertEquals(404, $result['response']->status());
@@ -1299,7 +1299,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageResourcesPost($id);
+        $response = $this->client->onPageResources($id);
 
         Http::assertSent(function ($request) use ($id) {
             $this->assertEquals("{$this->apiBaseUrl}/on_page/resources", $request->url());
@@ -1322,7 +1322,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Task ID cannot be empty');
 
-        $this->client->onPageResourcesPost('');
+        $this->client->onPageResources('');
     }
 
     public function test_onpage_resources_post_validates_limit_parameter()
@@ -1330,7 +1330,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Limit must be between 1 and 1000');
 
-        $this->client->onPageResourcesPost('valid-id', limit: 1001);
+        $this->client->onPageResources('valid-id', limit: 1001);
     }
 
     public function test_onpage_resources_post_validates_offset_parameter()
@@ -1338,7 +1338,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Offset must be greater than or equal to 0');
 
-        $this->client->onPageResourcesPost('valid-id', offset: -1);
+        $this->client->onPageResources('valid-id', offset: -1);
     }
 
     public function test_onpage_resources_post_validates_filters_count()
@@ -1348,7 +1348,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum 8 filters are allowed');
 
-        $this->client->onPageResourcesPost('valid-id', filters: $filters);
+        $this->client->onPageResources('valid-id', filters: $filters);
     }
 
     public function test_onpage_resources_post_validates_relevant_pages_filters_count()
@@ -1358,7 +1358,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum 8 relevant pages filters are allowed');
 
-        $this->client->onPageResourcesPost('valid-id', relevantPagesFilters: $filters);
+        $this->client->onPageResources('valid-id', relevantPagesFilters: $filters);
     }
 
     public function test_onpage_resources_post_validates_order_by_count()
@@ -1368,7 +1368,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum 3 sorting rules are allowed');
 
-        $this->client->onPageResourcesPost('valid-id', orderBy: $orderBy);
+        $this->client->onPageResources('valid-id', orderBy: $orderBy);
     }
 
     public function test_onpage_resources_post_validates_tag_length()
@@ -1378,10 +1378,10 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Tag must be 255 characters or less');
 
-        $this->client->onPageResourcesPost('valid-id', tag: $longTag);
+        $this->client->onPageResources('valid-id', tag: $longTag);
     }
 
-    public static function onPageResourcesPostParametersProvider(): array
+    public static function onPageResourcesParametersProvider(): array
     {
         return [
             'with_url_parameter' => [
@@ -1439,7 +1439,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         ];
     }
 
-    #[DataProvider('onPageResourcesPostParametersProvider')]
+    #[DataProvider('onPageResourcesParametersProvider')]
     public function test_onpage_resources_post_builds_request_with_correct_parameters($parameters, $expectedParams)
     {
         $successResponse = [
@@ -1479,7 +1479,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $result = $this->client->onPageResourcesPost(...$parameters);
+        $result = $this->client->onPageResources(...$parameters);
 
         Http::assertSent(function ($request) use ($expectedParams) {
             $this->assertEquals("{$this->apiBaseUrl}/on_page/resources", $request->url());
@@ -1539,7 +1539,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageResourcesPost('invalid-id');
+        $response = $this->client->onPageResources('invalid-id');
 
         $this->assertEquals(400, $response['response_status_code']);
         $responseData = $response['response']->json();
@@ -1649,7 +1649,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageWaterfallPost($id, $url);
+        $response = $this->client->onPageWaterfall($id, $url);
 
         Http::assertSent(function ($request) use ($id, $url) {
             $this->assertEquals("{$this->apiBaseUrl}/on_page/waterfall", $request->url());
@@ -1675,7 +1675,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Task ID cannot be empty');
 
-        $this->client->onPageWaterfallPost('', 'https://example.com');
+        $this->client->onPageWaterfall('', 'https://example.com');
     }
 
     public function test_onpage_waterfall_post_validates_empty_url()
@@ -1683,7 +1683,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('URL cannot be empty');
 
-        $this->client->onPageWaterfallPost('12345678-1234-1234-1234-123456789040', '');
+        $this->client->onPageWaterfall('12345678-1234-1234-1234-123456789040', '');
     }
 
     public function test_onpage_waterfall_post_validates_tag_length()
@@ -1693,10 +1693,10 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Tag must be 255 characters or less');
 
-        $this->client->onPageWaterfallPost('12345678-1234-1234-1234-123456789040', 'https://example.com', $longTag);
+        $this->client->onPageWaterfall('12345678-1234-1234-1234-123456789040', 'https://example.com', $longTag);
     }
 
-    public static function onPageWaterfallPostParametersProvider(): array
+    public static function onPageWaterfallParametersProvider(): array
     {
         return [
             'with_basic_parameters' => [
@@ -1714,7 +1714,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         ];
     }
 
-    #[DataProvider('onPageWaterfallPostParametersProvider')]
+    #[DataProvider('onPageWaterfallParametersProvider')]
     public function test_onpage_waterfall_post_builds_request_with_correct_parameters($parameters, $expectedParams)
     {
         $successResponse = [
@@ -1761,7 +1761,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageWaterfallPost(...$parameters);
+        $response = $this->client->onPageWaterfall(...$parameters);
 
         Http::assertSent(function ($request) use ($expectedParams) {
             $this->assertEquals("{$this->apiBaseUrl}/on_page/waterfall", $request->url());
@@ -1826,7 +1826,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $result = $this->client->onPageWaterfallPost($id, $url);
+        $result = $this->client->onPageWaterfall($id, $url);
 
         // Make sure we used the Http::fake() response
         $this->assertEquals(404, $result['response']->status());
@@ -1896,7 +1896,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageKeywordDensityPost($id, $keywordLength);
+        $response = $this->client->onPageKeywordDensity($id, $keywordLength);
 
         Http::assertSent(function ($request) use ($id, $keywordLength) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/keyword_density" &&
@@ -1919,7 +1919,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Task ID cannot be empty');
 
-        $this->client->onPageKeywordDensityPost('', 2);
+        $this->client->onPageKeywordDensity('', 2);
     }
 
     public function test_onpage_keyword_density_post_validates_keyword_length()
@@ -1927,7 +1927,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Keyword length must be 1, 2, 3, 4, or 5');
 
-        $this->client->onPageKeywordDensityPost('12345678-1234-1234-1234-123456789021', 6);
+        $this->client->onPageKeywordDensity('12345678-1234-1234-1234-123456789021', 6);
     }
 
     public function test_onpage_keyword_density_post_validates_limit_parameter()
@@ -1935,7 +1935,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Limit must be between 1 and 1000');
 
-        $this->client->onPageKeywordDensityPost('12345678-1234-1234-1234-123456789022', 2, null, 1500);
+        $this->client->onPageKeywordDensity('12345678-1234-1234-1234-123456789022', 2, null, 1500);
     }
 
     public function test_onpage_keyword_density_post_validates_filters_count()
@@ -1945,7 +1945,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum 8 filters are allowed');
 
-        $this->client->onPageKeywordDensityPost('12345678-1234-1234-1234-123456789023', 2, null, null, $tooManyFilters);
+        $this->client->onPageKeywordDensity('12345678-1234-1234-1234-123456789023', 2, null, null, $tooManyFilters);
     }
 
     public function test_onpage_keyword_density_post_validates_order_by_count()
@@ -1955,7 +1955,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Maximum 3 sorting rules are allowed');
 
-        $this->client->onPageKeywordDensityPost('12345678-1234-1234-1234-123456789024', 2, null, null, null, $tooManyOrderBy);
+        $this->client->onPageKeywordDensity('12345678-1234-1234-1234-123456789024', 2, null, null, null, $tooManyOrderBy);
     }
 
     public function test_onpage_keyword_density_post_validates_tag_length()
@@ -1965,10 +1965,10 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Tag must be 255 characters or less');
 
-        $this->client->onPageKeywordDensityPost('12345678-1234-1234-1234-123456789025', 2, null, null, null, null, $longTag);
+        $this->client->onPageKeywordDensity('12345678-1234-1234-1234-123456789025', 2, null, null, null, null, $longTag);
     }
 
-    public static function onPageKeywordDensityPostParametersProvider(): array
+    public static function onPageKeywordDensityParametersProvider(): array
     {
         return [
             'basic_parameters' => [
@@ -2004,7 +2004,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         ];
     }
 
-    #[DataProvider('onPageKeywordDensityPostParametersProvider')]
+    #[DataProvider('onPageKeywordDensityParametersProvider')]
     public function test_onpage_keyword_density_post_builds_request_with_correct_parameters($parameters, $expectedParams)
     {
         $successResponse = [
@@ -2047,7 +2047,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client->clearRateLimit();
 
         // Call with variable number of parameters
-        $response = $this->client->onPageKeywordDensityPost(...$parameters);
+        $response = $this->client->onPageKeywordDensity(...$parameters);
 
         // Verify request was made correctly
         Http::assertSent(function ($request) use ($expectedParams) {
@@ -2110,7 +2110,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $result = $this->client->onPageKeywordDensityPost($id, $keywordLength);
+        $result = $this->client->onPageKeywordDensity($id, $keywordLength);
 
         // Make sure we used the Http::fake() response
         $this->assertEquals(404, $result['response']->status());
@@ -2166,7 +2166,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageRawHtmlPost($id);
+        $response = $this->client->onPageRawHtml($id);
 
         Http::assertSent(function ($request) use ($id) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
@@ -2231,7 +2231,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageRawHtmlPost($id, $url);
+        $response = $this->client->onPageRawHtml($id, $url);
 
         Http::assertSent(function ($request) use ($id, $url) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
@@ -2288,7 +2288,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageRawHtmlPost('invalid-id');
+        $response = $this->client->onPageRawHtml('invalid-id');
 
         $this->assertEquals(400, $response['response_status_code']);
         $responseData = $response['response']->json();
@@ -2346,7 +2346,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageContentParsingPost($url, $id);
+        $response = $this->client->onPageContentParsing($url, $id);
 
         Http::assertSent(function ($request) use ($url, $id) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/content_parsing" &&
@@ -2416,7 +2416,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $response = $this->client->onPageContentParsingPost($url, $id, $markdownView);
+        $response = $this->client->onPageContentParsing($url, $id, $markdownView);
 
         Http::assertSent(function ($request) use ($url, $id, $markdownView) {
             return $request->url() === "{$this->apiBaseUrl}/on_page/content_parsing" &&
@@ -2441,7 +2441,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('URL cannot be empty');
 
-        $this->client->onPageContentParsingPost('', '12345678-1234-1234-1234-123456789032');
+        $this->client->onPageContentParsing('', '12345678-1234-1234-1234-123456789032');
     }
 
     public function test_onpage_content_parsing_post_validates_empty_task_id()
@@ -2449,10 +2449,10 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Task ID cannot be empty');
 
-        $this->client->onPageContentParsingPost('https://example.com', '');
+        $this->client->onPageContentParsing('https://example.com', '');
     }
 
-    public static function onPageContentParsingPostParametersProvider(): array
+    public static function onPageContentParsingParametersProvider(): array
     {
         return [
             'basic_parameters' => [
@@ -2480,7 +2480,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         ];
     }
 
-    #[DataProvider('onPageContentParsingPostParametersProvider')]
+    #[DataProvider('onPageContentParsingParametersProvider')]
     public function test_onpage_content_parsing_post_builds_request_with_correct_parameters($parameters, $expectedParams)
     {
         $successResponse = [
@@ -2524,7 +2524,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client->clearRateLimit();
 
         // Call with variable number of parameters
-        $response = $this->client->onPageContentParsingPost(...$parameters);
+        $response = $this->client->onPageContentParsing(...$parameters);
 
         // Verify request was made correctly
         Http::assertSent(function ($request) use ($expectedParams) {
@@ -2587,7 +2587,7 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->client = new DataForSeoApiClient();
         $this->client->clearRateLimit();
 
-        $result = $this->client->onPageContentParsingPost($url, $id);
+        $result = $this->client->onPageContentParsing($url, $id);
 
         // Make sure we used the Http::fake() response
         $this->assertEquals(404, $result['response']->status());

@@ -802,6 +802,109 @@ function uuid_v4(?string $data = null): string
 }
 
 /**
+ * Create DataForSEO SERP Google Organic Listing table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_serp_google_organic_listing_table(
+    Builder $schema,
+    string $table = 'dataforseo_serp_google_organic_listing',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO SERP Google Organic Listing table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO SERP Google Organic Listing table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable()->index();
+            $table->string('task_id')->nullable()->index();
+
+            // Fields passed
+            $table->string('keyword')->index(); // From data.keyword
+            $table->string('se')->index();
+            $table->string('se_type')->index();
+            $table->integer('location_code')->index();
+            $table->string('language_code', 20)->index();
+            $table->string('device', 20)->index();
+            $table->string('os')->nullable()->index();
+            $table->string('tag')->nullable()->index();
+
+            // Fields returned
+            $table->string('result_keyword')->index(); // From result.keyword
+            $table->string('type')->nullable()->index();
+            $table->string('se_domain')->index();
+            $table->string('check_url')->index();
+            $table->string('result_datetime')->index(); // From result.datetime
+            $table->text('spell')->nullable(); // JSON, should be pretty printed
+            $table->text('refinement_chips')->nullable(); // JSON, should be pretty printed
+            $table->text('item_types')->nullable(); // JSON, should be pretty printed
+            $table->integer('se_results_count')->nullable()->index();
+            $table->integer('items_count')->nullable()->index();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->text('processed_status')->nullable();
+
+            // Add unique index for keyword, location_code, language_code, device
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->unique(['keyword', 'location_code', 'language_code', 'device'], 'dsgol_keyword_location_language_device_unique');
+            } else {
+                $table->unique(['keyword', 'location_code', 'language_code', 'device']);
+            }
+        });
+
+        Log::debug('DataForSEO SERP Google Organic Listing table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
  * Create DataForSEO SERP Google Organic Items table
  *
  * @param Builder $schema       Schema builder instance
@@ -842,7 +945,7 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
             $table->string('device', 20)->index();
-            $table->string('os')->index()->nullable();
+            $table->string('os')->nullable()->index();
 
             // Fields returned
             $table->string('type')->nullable()->index();
@@ -949,7 +1052,7 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
             $table->string('device', 20)->index();
-            $table->string('os')->index()->nullable();
+            $table->string('os')->nullable()->index();
 
             // Added (not from API)
             $table->integer('item_position')->index();
@@ -1059,7 +1162,7 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
             $table->string('device', 20)->index();
-            $table->string('os')->index()->nullable();
+            $table->string('os')->nullable()->index();
 
             // Fields returned
             $table->string('type')->nullable()->index();

@@ -20,7 +20,7 @@ $capsule->addConnection(
 createClientTables('dataforseo', false);
 
 // Drop existing organic and PAA tables
-create_dataforseo_serp_google_organic_listing_table($capsule->schema(), dropExisting: true);
+create_dataforseo_serp_google_organic_listings_table($capsule->schema(), dropExisting: true);
 create_dataforseo_serp_google_organic_items_table($capsule->schema(), dropExisting: true);
 create_dataforseo_serp_google_organic_paa_items_table($capsule->schema(), dropExisting: true);
 

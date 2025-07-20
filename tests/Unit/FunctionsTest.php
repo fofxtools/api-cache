@@ -27,7 +27,7 @@ use function FOfX\ApiCache\summarize_params;
 use function FOfX\ApiCache\download_public_suffix_list;
 use function FOfX\ApiCache\extract_registrable_domain;
 use function FOfX\ApiCache\create_errors_table;
-use function FOfX\ApiCache\create_dataforseo_serp_google_organic_listing_table;
+use function FOfX\ApiCache\create_dataforseo_serp_google_organic_listings_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_items_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_paa_items_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_autocomplete_items_table;
@@ -43,12 +43,12 @@ class FunctionsTest extends TestCase
     protected string $testErrorsTable    = 'api_cache_errors_test';
     protected string $testImagesTable    = 'pixabay_images_test';
 
-    protected string $testGoogleOrganicListingTable = 'dataforseo_serp_google_organic_listing_test';
-    protected string $testGoogleOrganicTable        = 'dataforseo_serp_google_organic_items_test';
-    protected string $testGoogleOrganicPaaTable     = 'dataforseo_serp_google_organic_paa_items_test';
-    protected string $testGoogleAutocompleteTable   = 'dataforseo_serp_google_autocomplete_items_test';
-    protected string $testGoogleAdsTable            = 'dataforseo_keywords_data_google_ads_items_test';
-    protected string $testBacklinksBulkTable        = 'dataforseo_backlinks_bulk_items_test';
+    protected string $testGoogleOrganicListingsTable = 'dataforseo_serp_google_organic_listings_test';
+    protected string $testGoogleOrganicTable         = 'dataforseo_serp_google_organic_items_test';
+    protected string $testGoogleOrganicPaaTable      = 'dataforseo_serp_google_organic_paa_items_test';
+    protected string $testGoogleAutocompleteTable    = 'dataforseo_serp_google_autocomplete_items_test';
+    protected string $testGoogleAdsTable             = 'dataforseo_keywords_data_google_ads_items_test';
+    protected string $testBacklinksBulkTable         = 'dataforseo_backlinks_bulk_items_test';
 
     protected string $clientName = 'demo';
     protected string $apiBaseUrl;
@@ -67,7 +67,7 @@ class FunctionsTest extends TestCase
         $this->testErrorsTable .= '_' . uniqid();
         $this->testImagesTable .= '_' . uniqid();
 
-        $this->testGoogleOrganicListingTable .= '_' . uniqid();
+        $this->testGoogleOrganicListingsTable .= '_' . uniqid();
         $this->testGoogleOrganicTable .= '_' . uniqid();
         $this->testGoogleOrganicPaaTable .= '_' . uniqid();
         $this->testGoogleAutocompleteTable .= '_' . uniqid();
@@ -923,11 +923,11 @@ class FunctionsTest extends TestCase
         $this->assertEquals($expected, $actual);
     }
 
-    public function test_create_dataforseo_serp_google_organic_listing_table_creates_table(): void
+    public function test_create_dataforseo_serp_google_organic_listings_table_creates_table(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = $this->testGoogleOrganicListingTable;
-        create_dataforseo_serp_google_organic_listing_table($schema, $table, true, true);
+        $table  = $this->testGoogleOrganicListingsTable;
+        create_dataforseo_serp_google_organic_listings_table($schema, $table, true, true);
         $this->assertTrue($schema->hasTable($table));
         $columns = $schema->getColumnListing($table);
         $this->assertContains('id', $columns);
@@ -946,11 +946,11 @@ class FunctionsTest extends TestCase
         $schema->dropIfExists($table);
     }
 
-    public function test_create_dataforseo_serp_google_organic_listing_table_respects_drop_existing_parameter(): void
+    public function test_create_dataforseo_serp_google_organic_listings_table_respects_drop_existing_parameter(): void
     {
         $schema = \Illuminate\Support\Facades\Schema::connection(null);
-        $table  = $this->testGoogleOrganicListingTable;
-        create_dataforseo_serp_google_organic_listing_table($schema, $table, true, false);
+        $table  = $this->testGoogleOrganicListingsTable;
+        create_dataforseo_serp_google_organic_listings_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'keyword'         => 'test-keyword',
             'se'              => 'google',
@@ -966,9 +966,9 @@ class FunctionsTest extends TestCase
             'created_at'      => now(),
             'updated_at'      => now(),
         ]);
-        create_dataforseo_serp_google_organic_listing_table($schema, $table, false, false);
+        create_dataforseo_serp_google_organic_listings_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
-        create_dataforseo_serp_google_organic_listing_table($schema, $table, true, false);
+        create_dataforseo_serp_google_organic_listings_table($schema, $table, true, false);
         $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
         $schema->dropIfExists($table);
     }

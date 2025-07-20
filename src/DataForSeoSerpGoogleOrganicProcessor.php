@@ -24,7 +24,7 @@ class DataForSeoSerpGoogleOrganicProcessor
         'serp/google/organic/task_get/%',
         'serp/google/organic/live/%',
     ];
-    private string $listingTable      = 'dataforseo_serp_google_organic_listing';
+    private string $listingsTable     = 'dataforseo_serp_google_organic_listings';
     private string $organicItemsTable = 'dataforseo_serp_google_organic_items';
     private string $paaItemsTable     = 'dataforseo_serp_google_organic_paa_items';
 
@@ -153,16 +153,16 @@ class DataForSeoSerpGoogleOrganicProcessor
     public function clearProcessedTables(bool $includePaa = true, bool $withCount = false): array
     {
         $stats = [
-            'listing_cleared' => $withCount ? DB::table($this->listingTable)->count() : null,
-            'organic_cleared' => $withCount ? DB::table($this->organicItemsTable)->count() : null,
-            'paa_cleared'     => null,
+            'listings_cleared' => $withCount ? DB::table($this->listingsTable)->count() : null,
+            'organic_cleared'  => $withCount ? DB::table($this->organicItemsTable)->count() : null,
+            'paa_cleared'      => null,
         ];
 
         if ($includePaa) {
             $stats['paa_cleared'] = $withCount ? DB::table($this->paaItemsTable)->count() : null;
         }
 
-        DB::table($this->listingTable)->truncate();
+        DB::table($this->listingsTable)->truncate();
         DB::table($this->organicItemsTable)->truncate();
 
         if ($includePaa) {
@@ -170,11 +170,11 @@ class DataForSeoSerpGoogleOrganicProcessor
         }
 
         Log::info('Cleared DataForSEO SERP Google processed tables', [
-            'listing_cleared' => $withCount ? $stats['listing_cleared'] : 'not counted',
-            'organic_cleared' => $withCount ? $stats['organic_cleared'] : 'not counted',
-            'paa_cleared'     => $withCount ? $stats['paa_cleared'] : 'not counted',
-            'include_paa'     => $includePaa,
-            'with_count'      => $withCount,
+            'listings_cleared' => $withCount ? $stats['listings_cleared'] : 'not counted',
+            'organic_cleared'  => $withCount ? $stats['organic_cleared'] : 'not counted',
+            'paa_cleared'      => $withCount ? $stats['paa_cleared'] : 'not counted',
+            'include_paa'      => $includePaa,
+            'with_count'       => $withCount,
         ]);
 
         return $stats;
@@ -200,13 +200,13 @@ class DataForSeoSerpGoogleOrganicProcessor
     }
 
     /**
-     * Extract listing-specific metadata from task data
+     * Extract listings-specific metadata from task data
      *
      * @param array $taskData The task data
      *
-     * @return array The extracted listing-specific fields
+     * @return array The extracted listings-specific fields
      */
-    public function extractListingTaskMetadata(array $taskData): array
+    public function extractListingsTaskMetadata(array $taskData): array
     {
         return [
             'se'      => $taskData['se'] ?? null,
@@ -231,13 +231,13 @@ class DataForSeoSerpGoogleOrganicProcessor
     }
 
     /**
-     * Batch insert or update listing items.
+     * Batch insert or update listings items.
      *
-     * @param array $listingItems The listing items to process
+     * @param array $listingsItems The listings items to process
      *
      * @return array Statistics about insert/update operations
      */
-    public function batchInsertOrUpdateOrganicListings(array $listingItems): array
+    public function batchInsertOrUpdateOrganicListings(array $listingsItems): array
     {
         $stats = [
             'items_inserted' => 0,
@@ -247,8 +247,8 @@ class DataForSeoSerpGoogleOrganicProcessor
 
         if (!$this->updateIfNewer) {
             // Fast path: accept only brand-new rows, silently skip duplicates
-            foreach (array_chunk($listingItems, 100) as $chunk) {
-                $inserted = DB::table($this->listingTable)->insertOrIgnore($chunk);
+            foreach (array_chunk($listingsItems, 100) as $chunk) {
+                $inserted = DB::table($this->listingsTable)->insertOrIgnore($chunk);
                 $stats['items_inserted'] += $inserted;
                 $stats['items_skipped'] += count($chunk) - $inserted;
             }
@@ -256,7 +256,7 @@ class DataForSeoSerpGoogleOrganicProcessor
             return $stats;
         }
 
-        foreach ($listingItems as $row) {
+        foreach ($listingsItems as $row) {
             $where = [
                 'keyword'       => $row['keyword'],
                 'location_code' => $row['location_code'],
@@ -264,13 +264,13 @@ class DataForSeoSerpGoogleOrganicProcessor
                 'device'        => $row['device'],
             ];
 
-            $existingCreatedAt = DB::table($this->listingTable)
+            $existingCreatedAt = DB::table($this->listingsTable)
                 ->where($where)
                 ->value('created_at');
 
             if ($existingCreatedAt === null) {
                 // No clash – insert fresh
-                DB::table($this->listingTable)->insert($row);
+                DB::table($this->listingsTable)->insert($row);
                 $stats['items_inserted']++;
 
                 continue;
@@ -279,7 +279,7 @@ class DataForSeoSerpGoogleOrganicProcessor
             // Only update if the new row is more recent
             if (Carbon::parse($row['created_at'])
                 ->gte(Carbon::parse($existingCreatedAt))) {
-                DB::table($this->listingTable)
+                DB::table($this->listingsTable)
                     ->where($where)
                     ->update($row);
                 $stats['items_updated']++;
@@ -416,20 +416,20 @@ class DataForSeoSerpGoogleOrganicProcessor
     }
 
     /**
-     * Process listing data from response
+     * Process listings data from response
      *
-     * @param array $result          The result data containing listing information
-     * @param array $listingTaskData The task data including listing-specific fields (se, se_type, tag)
+     * @param array $result           The result data containing listings information
+     * @param array $listingsTaskData The task data including listings-specific fields (se, se_type, tag)
      *
      * @return array Statistics about processing including item count and insert/update details
      */
-    public function processListing(array $result, array $listingTaskData): array
+    public function processListings(array $result, array $listingsTaskData): array
     {
-        $listingItems = [];
-        $now          = now();
+        $listingsItems = [];
+        $now           = now();
 
-        // Extract listing-level data from result and merge with task data
-        $listingData = array_merge($listingTaskData, [
+        // Extract listings-level data from result and merge with task data
+        $listingsData = array_merge($listingsTaskData, [
             'result_keyword'  => $result['keyword'] ?? null,
             'type'            => $result['type'] ?? null,
             'check_url'       => $result['check_url'] ?? null,
@@ -449,14 +449,14 @@ class DataForSeoSerpGoogleOrganicProcessor
             'updated_at'       => $now,
         ]);
 
-        // Ensure defaults are applied and add to listing items for batch processing
-        $listingItems[] = $this->ensureDefaults($listingData);
+        // Ensure defaults are applied and add to listings items for batch processing
+        $listingsItems[] = $this->ensureDefaults($listingsData);
 
-        // Batch process listing items and get detailed stats
-        $batchStats = $this->batchInsertOrUpdateOrganicListings($listingItems);
+        // Batch process listings items and get detailed stats
+        $batchStats = $this->batchInsertOrUpdateOrganicListings($listingsItems);
 
         return [
-            'listing_items'  => count($listingItems),
+            'listings_items' => count($listingsItems),
             'items_inserted' => $batchStats['items_inserted'],
             'items_updated'  => $batchStats['items_updated'],
             'items_skipped'  => $batchStats['items_skipped'],
@@ -601,19 +601,19 @@ class DataForSeoSerpGoogleOrganicProcessor
         }
 
         $stats = [
-            'listing_items'          => 0,
-            'listing_items_inserted' => 0,
-            'listing_items_updated'  => 0,
-            'listing_items_skipped'  => 0,
-            'organic_items'          => 0,
-            'organic_items_inserted' => 0,
-            'organic_items_updated'  => 0,
-            'organic_items_skipped'  => 0,
-            'paa_items'              => 0,
-            'paa_items_inserted'     => 0,
-            'paa_items_updated'      => 0,
-            'paa_items_skipped'      => 0,
-            'total_items'            => 0,
+            'listings_items'          => 0,
+            'listings_items_inserted' => 0,
+            'listings_items_updated'  => 0,
+            'listings_items_skipped'  => 0,
+            'organic_items'           => 0,
+            'organic_items_inserted'  => 0,
+            'organic_items_updated'   => 0,
+            'organic_items_skipped'   => 0,
+            'paa_items'               => 0,
+            'paa_items_inserted'      => 0,
+            'paa_items_updated'       => 0,
+            'paa_items_skipped'       => 0,
+            'total_items'             => 0,
         ];
 
         foreach ($responseBody['tasks'] as $task) {
@@ -628,15 +628,15 @@ class DataForSeoSerpGoogleOrganicProcessor
             $baseTaskData['response_id'] = $response->id;
 
             foreach ($task['result'] as $result) {
-                // For listings: add listing-specific fields (se, se_type, tag)
-                $listingTaskData = array_merge($baseTaskData, $this->extractListingTaskMetadata($task['data']));
+                // For listings: add listings-specific fields (se, se_type, tag)
+                $listingsTaskData = array_merge($baseTaskData, $this->extractListingsTaskMetadata($task['data']));
 
-                // Process listing data and get detailed stats
-                $listingStats = $this->processListing($result, $listingTaskData);
-                $stats['listing_items'] += $listingStats['listing_items'];
-                $stats['listing_items_inserted'] += $listingStats['items_inserted'];
-                $stats['listing_items_updated'] += $listingStats['items_updated'];
-                $stats['listing_items_skipped'] += $listingStats['items_skipped'];
+                // Process listings data and get detailed stats
+                $listingsStats = $this->processListings($result, $listingsTaskData);
+                $stats['listings_items'] += $listingsStats['listings_items'];
+                $stats['listings_items_inserted'] += $listingsStats['items_inserted'];
+                $stats['listings_items_updated'] += $listingsStats['items_updated'];
+                $stats['listings_items_skipped'] += $listingsStats['items_skipped'];
 
                 if (!isset($result['items'])) {
                     continue;
@@ -711,21 +711,21 @@ class DataForSeoSerpGoogleOrganicProcessor
         ]);
 
         $stats = [
-            'processed_responses'    => 0,
-            'listing_items'          => 0,
-            'listing_items_inserted' => 0,
-            'listing_items_updated'  => 0,
-            'listing_items_skipped'  => 0,
-            'organic_items'          => 0,
-            'organic_items_inserted' => 0,
-            'organic_items_updated'  => 0,
-            'organic_items_skipped'  => 0,
-            'paa_items'              => 0,
-            'paa_items_inserted'     => 0,
-            'paa_items_updated'      => 0,
-            'paa_items_skipped'      => 0,
-            'total_items'            => 0,
-            'errors'                 => 0,
+            'processed_responses'     => 0,
+            'listings_items'          => 0,
+            'listings_items_inserted' => 0,
+            'listings_items_updated'  => 0,
+            'listings_items_skipped'  => 0,
+            'organic_items'           => 0,
+            'organic_items_inserted'  => 0,
+            'organic_items_updated'   => 0,
+            'organic_items_skipped'   => 0,
+            'paa_items'               => 0,
+            'paa_items_inserted'      => 0,
+            'paa_items_updated'       => 0,
+            'paa_items_skipped'       => 0,
+            'total_items'             => 0,
+            'errors'                  => 0,
         ];
 
         foreach ($responses as $response) {
@@ -733,10 +733,10 @@ class DataForSeoSerpGoogleOrganicProcessor
                 // Wrap each response processing in a transaction
                 DB::transaction(function () use ($response, $processPaas, &$stats, $tableName) {
                     $responseStats = $this->processResponse($response, $processPaas);
-                    $stats['listing_items'] += $responseStats['listing_items'];
-                    $stats['listing_items_inserted'] += $responseStats['listing_items_inserted'];
-                    $stats['listing_items_updated'] += $responseStats['listing_items_updated'];
-                    $stats['listing_items_skipped'] += $responseStats['listing_items_skipped'];
+                    $stats['listings_items'] += $responseStats['listings_items'];
+                    $stats['listings_items_inserted'] += $responseStats['listings_items_inserted'];
+                    $stats['listings_items_updated'] += $responseStats['listings_items_updated'];
+                    $stats['listings_items_skipped'] += $responseStats['listings_items_skipped'];
                     $stats['organic_items'] += $responseStats['organic_items'];
                     $stats['organic_items_inserted'] += $responseStats['organic_items_inserted'];
                     $stats['organic_items_updated'] += $responseStats['organic_items_updated'];
@@ -754,21 +754,21 @@ class DataForSeoSerpGoogleOrganicProcessor
                         ->update([
                             'processed_at'     => now(),
                             'processed_status' => json_encode([
-                                'status'                 => 'OK',
-                                'error'                  => null,
-                                'listing_items'          => $responseStats['listing_items'],
-                                'listing_items_inserted' => $responseStats['listing_items_inserted'],
-                                'listing_items_updated'  => $responseStats['listing_items_updated'],
-                                'listing_items_skipped'  => $responseStats['listing_items_skipped'],
-                                'organic_items'          => $responseStats['organic_items'],
-                                'organic_items_inserted' => $responseStats['organic_items_inserted'],
-                                'organic_items_updated'  => $responseStats['organic_items_updated'],
-                                'organic_items_skipped'  => $responseStats['organic_items_skipped'],
-                                'paa_items'              => $responseStats['paa_items'],
-                                'paa_items_inserted'     => $responseStats['paa_items_inserted'],
-                                'paa_items_updated'      => $responseStats['paa_items_updated'],
-                                'paa_items_skipped'      => $responseStats['paa_items_skipped'],
-                                'total_items'            => $responseStats['total_items'],
+                                'status'                  => 'OK',
+                                'error'                   => null,
+                                'listings_items'          => $responseStats['listings_items'],
+                                'listings_items_inserted' => $responseStats['listings_items_inserted'],
+                                'listings_items_updated'  => $responseStats['listings_items_updated'],
+                                'listings_items_skipped'  => $responseStats['listings_items_skipped'],
+                                'organic_items'           => $responseStats['organic_items'],
+                                'organic_items_inserted'  => $responseStats['organic_items_inserted'],
+                                'organic_items_updated'   => $responseStats['organic_items_updated'],
+                                'organic_items_skipped'   => $responseStats['organic_items_skipped'],
+                                'paa_items'               => $responseStats['paa_items'],
+                                'paa_items_inserted'      => $responseStats['paa_items_inserted'],
+                                'paa_items_updated'       => $responseStats['paa_items_updated'],
+                                'paa_items_skipped'       => $responseStats['paa_items_skipped'],
+                                'total_items'             => $responseStats['total_items'],
                             ], JSON_PRETTY_PRINT),
                         ]);
                 });
@@ -786,21 +786,21 @@ class DataForSeoSerpGoogleOrganicProcessor
                     ->update([
                         'processed_at'     => now(),
                         'processed_status' => json_encode([
-                            'status'                 => 'ERROR',
-                            'error'                  => $e->getMessage(),
-                            'listing_items'          => 0,
-                            'listing_items_inserted' => 0,
-                            'listing_items_updated'  => 0,
-                            'listing_items_skipped'  => 0,
-                            'organic_items'          => 0,
-                            'organic_items_inserted' => 0,
-                            'organic_items_updated'  => 0,
-                            'organic_items_skipped'  => 0,
-                            'paa_items'              => 0,
-                            'paa_items_inserted'     => 0,
-                            'paa_items_updated'      => 0,
-                            'paa_items_skipped'      => 0,
-                            'total_items'            => 0,
+                            'status'                  => 'ERROR',
+                            'error'                   => $e->getMessage(),
+                            'listings_items'          => 0,
+                            'listings_items_inserted' => 0,
+                            'listings_items_updated'  => 0,
+                            'listings_items_skipped'  => 0,
+                            'organic_items'           => 0,
+                            'organic_items_inserted'  => 0,
+                            'organic_items_updated'   => 0,
+                            'organic_items_skipped'   => 0,
+                            'paa_items'               => 0,
+                            'paa_items_inserted'      => 0,
+                            'paa_items_updated'       => 0,
+                            'paa_items_skipped'       => 0,
+                            'total_items'             => 0,
                         ], JSON_PRETTY_PRINT),
                     ]);
             }

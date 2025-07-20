@@ -802,7 +802,7 @@ function uuid_v4(?string $data = null): string
 }
 
 /**
- * Create DataForSEO SERP Google Organic Listing table
+ * Create DataForSEO SERP Google Organic Listings table
  *
  * @param Builder $schema       Schema builder instance
  * @param string  $table        Table name
@@ -811,14 +811,14 @@ function uuid_v4(?string $data = null): string
  *
  * @throws \RuntimeException When table creation fails
  */
-function create_dataforseo_serp_google_organic_listing_table(
+function create_dataforseo_serp_google_organic_listings_table(
     Builder $schema,
-    string $table = 'dataforseo_serp_google_organic_listing',
+    string $table = 'dataforseo_serp_google_organic_listings',
     bool $dropExisting = false,
     bool $verify = false
 ): void {
     if ($dropExisting && $schema->hasTable($table)) {
-        Log::debug('Dropping existing DataForSEO SERP Google Organic Listing table', [
+        Log::debug('Dropping existing DataForSEO SERP Google Organic Listings table', [
             'table' => $table,
         ]);
         $schema->dropIfExists($table);
@@ -827,7 +827,7 @@ function create_dataforseo_serp_google_organic_listing_table(
     $driver = $schema->getConnection()->getDriverName();
 
     if (!$schema->hasTable($table)) {
-        Log::debug('Creating DataForSEO SERP Google Organic Listing table', [
+        Log::debug('Creating DataForSEO SERP Google Organic Listings table', [
             'table' => $table,
         ]);
 
@@ -872,7 +872,7 @@ function create_dataforseo_serp_google_organic_listing_table(
             }
         });
 
-        Log::debug('DataForSEO SERP Google Organic Listing table created successfully', [
+        Log::debug('DataForSEO SERP Google Organic Listings table created successfully', [
             'table' => $table,
         ]);
     }

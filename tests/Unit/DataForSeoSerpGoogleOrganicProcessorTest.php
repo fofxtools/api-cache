@@ -15,7 +15,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
     protected DataForSeoSerpGoogleOrganicProcessor $processor;
     protected ApiCacheManager $cacheManager;
     protected string $responsesTable    = 'api_cache_dataforseo_responses';
-    protected string $listingTable      = 'dataforseo_serp_google_organic_listing';
+    protected string $listingsTable     = 'dataforseo_serp_google_organic_listings';
     protected string $organicItemsTable = 'dataforseo_serp_google_organic_items';
     protected string $paaItemsTable     = 'dataforseo_serp_google_organic_paa_items';
 
@@ -135,7 +135,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
     public function test_clear_processed_tables(): void
     {
         // Insert test data into all tables
-        DB::table($this->listingTable)->insert([
+        DB::table($this->listingsTable)->insert([
             'keyword'         => 'test',
             'se_domain'       => 'google.com',
             'location_code'   => 2840,
@@ -176,12 +176,12 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->clearProcessedTables();
 
         // Default behavior returns null
-        $this->assertNull($stats['listing_cleared']);
+        $this->assertNull($stats['listings_cleared']);
         $this->assertNull($stats['organic_cleared']);
         $this->assertNull($stats['paa_cleared']);
 
         // Verify tables are empty
-        $this->assertEquals(0, DB::table($this->listingTable)->count());
+        $this->assertEquals(0, DB::table($this->listingsTable)->count());
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
         $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
     }
@@ -189,7 +189,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
     public function test_clear_processed_tables_exclude_paa(): void
     {
         // Insert test data into all tables
-        DB::table($this->listingTable)->insert([
+        DB::table($this->listingsTable)->insert([
             'keyword'         => 'test',
             'se_domain'       => 'google.com',
             'location_code'   => 2840,
@@ -230,12 +230,12 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->clearProcessedTables(false);
 
         // Default behavior returns null
-        $this->assertNull($stats['listing_cleared']);
+        $this->assertNull($stats['listings_cleared']);
         $this->assertNull($stats['organic_cleared']);
         $this->assertNull($stats['paa_cleared']);
 
-        // Verify listing and organic tables are empty, PAA table is not
-        $this->assertEquals(0, DB::table($this->listingTable)->count());
+        // Verify listings and organic tables are empty, PAA table is not
+        $this->assertEquals(0, DB::table($this->listingsTable)->count());
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
         $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
     }
@@ -243,7 +243,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
     public function test_clear_processed_tables_with_count_true(): void
     {
         // Insert test data into all tables
-        DB::table($this->listingTable)->insert([
+        DB::table($this->listingsTable)->insert([
             'keyword'         => 'test1',
             'se_domain'       => 'google.com',
             'location_code'   => 2840,
@@ -295,12 +295,12 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->clearProcessedTables(true, true);
 
         // With counting enabled, should return actual counts
-        $this->assertEquals(1, $stats['listing_cleared']);
+        $this->assertEquals(1, $stats['listings_cleared']);
         $this->assertEquals(2, $stats['organic_cleared']);
         $this->assertEquals(1, $stats['paa_cleared']);
 
         // Verify tables are empty
-        $this->assertEquals(0, DB::table($this->listingTable)->count());
+        $this->assertEquals(0, DB::table($this->listingsTable)->count());
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
         $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
     }
@@ -333,12 +333,12 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->clearProcessedTables(true, false);
 
         // With counting disabled, should return null
-        $this->assertNull($stats['listing_cleared']);
+        $this->assertNull($stats['listings_cleared']);
         $this->assertNull($stats['organic_cleared']);
         $this->assertNull($stats['paa_cleared']);
 
         // Verify tables are empty
-        $this->assertEquals(0, DB::table($this->listingTable)->count());
+        $this->assertEquals(0, DB::table($this->listingsTable)->count());
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
         $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
     }
@@ -346,7 +346,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
     public function test_clear_processed_tables_exclude_paa_with_count(): void
     {
         // Insert test data into all tables
-        DB::table($this->listingTable)->insert([
+        DB::table($this->listingsTable)->insert([
             'keyword'         => 'test4',
             'se_domain'       => 'google.com',
             'location_code'   => 2840,
@@ -386,13 +386,13 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         $stats = $this->processor->clearProcessedTables(false, true);
 
-        // Should count listing and organic but not PAA (since PAA is excluded)
-        $this->assertEquals(1, $stats['listing_cleared']);
+        // Should count listings and organic but not PAA (since PAA is excluded)
+        $this->assertEquals(1, $stats['listings_cleared']);
         $this->assertEquals(1, $stats['organic_cleared']);
         $this->assertNull($stats['paa_cleared']);
 
-        // Verify listing and organic tables are empty, PAA table is not
-        $this->assertEquals(0, DB::table($this->listingTable)->count());
+        // Verify listings and organic tables are empty, PAA table is not
+        $this->assertEquals(0, DB::table($this->listingsTable)->count());
         $this->assertEquals(0, DB::table($this->organicItemsTable)->count());
         $this->assertEquals(1, DB::table($this->paaItemsTable)->count());
     }
@@ -458,9 +458,9 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
     }
 
     /**
-     * Data provider for extractListingTaskMetadata test
+     * Data provider for extractListingsTaskMetadata test
      */
-    public static function extractListingTaskMetadataDataProvider(): array
+    public static function extractListingsTaskMetadataDataProvider(): array
     {
         return [
             'complete_data' => [
@@ -498,10 +498,10 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('extractListingTaskMetadataDataProvider')]
-    public function test_extract_listing_task_metadata(array $input, array $expected): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractListingsTaskMetadataDataProvider')]
+    public function test_extract_listings_task_metadata(array $input, array $expected): void
     {
-        $result = $this->processor->extractListingTaskMetadata($input);
+        $result = $this->processor->extractListingsTaskMetadata($input);
         $this->assertEquals($expected, $result);
     }
 
@@ -552,20 +552,20 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_batch_insert_or_update_organic_listings(): void
     {
-        $now          = now();
-        $listingItems = [
+        $now           = now();
+        $listingsItems = [
             [
-                'keyword'         => 'test listing keyword 1',
+                'keyword'         => 'test listings keyword 1',
                 'location_code'   => 2840,
                 'language_code'   => 'en',
                 'device'          => 'desktop',
                 'se_domain'       => 'google.com',
-                'task_id'         => 'task-listing-123',
+                'task_id'         => 'task-listings-123',
                 'response_id'     => 456,
                 'se'              => 'google',
                 'se_type'         => 'organic',
                 'tag'             => 'test-tag',
-                'result_keyword'  => 'test listing keyword 1',
+                'result_keyword'  => 'test listings keyword 1',
                 'type'            => 'organic',
                 'check_url'       => 'https://www.google.com/search?q=test',
                 'result_datetime' => '2023-01-01 12:00:00',
@@ -574,17 +574,17 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
                 'updated_at'      => $now,
             ],
             [
-                'keyword'         => 'test listing keyword 2',
+                'keyword'         => 'test listings keyword 2',
                 'location_code'   => 2840,
                 'language_code'   => 'en',
                 'device'          => 'desktop',
                 'se_domain'       => 'google.com',
-                'task_id'         => 'task-listing-123',
+                'task_id'         => 'task-listings-123',
                 'response_id'     => 456,
                 'se'              => 'google',
                 'se_type'         => 'organic',
                 'tag'             => 'test-tag',
-                'result_keyword'  => 'test listing keyword 2',
+                'result_keyword'  => 'test listings keyword 2',
                 'type'            => 'organic',
                 'check_url'       => 'https://www.google.com/search?q=test2',
                 'result_datetime' => '2023-01-01 12:00:00',
@@ -594,24 +594,24 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ],
         ];
 
-        $stats = $this->processor->batchInsertOrUpdateOrganicListings($listingItems);
+        $stats = $this->processor->batchInsertOrUpdateOrganicListings($listingsItems);
 
         $this->assertEquals(2, $stats['items_inserted']);
         $this->assertEquals(0, $stats['items_updated']);
         $this->assertEquals(0, $stats['items_skipped']);
 
         // Verify items were inserted
-        $insertedItems = DB::table($this->listingTable)->orderBy('keyword')->get();
+        $insertedItems = DB::table($this->listingsTable)->orderBy('keyword')->get();
         $this->assertCount(2, $insertedItems);
 
         $firstItem = $insertedItems[0];
-        $this->assertEquals('test listing keyword 1', $firstItem->keyword);
+        $this->assertEquals('test listings keyword 1', $firstItem->keyword);
         $this->assertEquals('google', $firstItem->se);
         $this->assertEquals('organic', $firstItem->se_type);
         $this->assertEquals('test-tag', $firstItem->tag);
 
         $secondItem = $insertedItems[1];
-        $this->assertEquals('test listing keyword 2', $secondItem->keyword);
+        $this->assertEquals('test listings keyword 2', $secondItem->keyword);
         $this->assertEquals('google', $secondItem->se);
         $this->assertEquals('organic', $secondItem->se_type);
         $this->assertEquals('test-tag', $secondItem->tag);
@@ -623,17 +623,17 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $newerTime    = now();
 
         $originalItem = [
-            'keyword'         => 'duplicate listing keyword',
+            'keyword'         => 'duplicate listings keyword',
             'location_code'   => 2840,
             'language_code'   => 'en',
             'device'          => 'desktop',
             'se_domain'       => 'google.com',
-            'task_id'         => 'task-listing-original',
+            'task_id'         => 'task-listings-original',
             'response_id'     => 100,
             'se'              => 'google',
             'se_type'         => 'organic',
             'tag'             => 'original-tag',
-            'result_keyword'  => 'duplicate listing keyword',
+            'result_keyword'  => 'duplicate listings keyword',
             'type'            => 'organic',
             'check_url'       => 'https://www.google.com/search?q=original',
             'result_datetime' => '2023-01-01 12:00:00',
@@ -647,24 +647,24 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $this->assertEquals(1, $stats['items_inserted']);
 
         // Verify original was inserted
-        $this->assertEquals(1, DB::table($this->listingTable)->count());
-        $original = DB::table($this->listingTable)->first();
+        $this->assertEquals(1, DB::table($this->listingsTable)->count());
+        $original = DB::table($this->listingsTable)->first();
         $this->assertEquals('original-tag', $original->tag);
         $this->assertEquals('https://www.google.com/search?q=original', $original->check_url);
 
         // Insert updated item with same unique constraints but newer timestamp
         $updatedItem = [
-            'keyword'         => 'duplicate listing keyword',
+            'keyword'         => 'duplicate listings keyword',
             'location_code'   => 2840,
             'language_code'   => 'en',
             'device'          => 'desktop', // Same unique constraint
             'se_domain'       => 'google.com',
-            'task_id'         => 'task-listing-updated',
+            'task_id'         => 'task-listings-updated',
             'response_id'     => 200,
             'se'              => 'google',
             'se_type'         => 'organic',
             'tag'             => 'updated-tag',
-            'result_keyword'  => 'duplicate listing keyword',
+            'result_keyword'  => 'duplicate listings keyword',
             'type'            => 'organic',
             'check_url'       => 'https://www.google.com/search?q=updated',
             'result_datetime' => '2023-01-01 12:00:00',
@@ -679,11 +679,11 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $this->assertEquals(0, $stats['items_skipped']);
 
         // Verify item was updated, not duplicated
-        $this->assertEquals(1, DB::table($this->listingTable)->count());
-        $updated = DB::table($this->listingTable)->first();
+        $this->assertEquals(1, DB::table($this->listingsTable)->count());
+        $updated = DB::table($this->listingsTable)->first();
         $this->assertEquals('updated-tag', $updated->tag);
         $this->assertEquals('https://www.google.com/search?q=updated', $updated->check_url);
-        $this->assertEquals('task-listing-updated', $updated->task_id);
+        $this->assertEquals('task-listings-updated', $updated->task_id);
     }
 
     public function test_batch_insert_or_update_organic_listings_with_empty_array(): void
@@ -693,7 +693,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $this->assertEquals(0, $stats['items_inserted']);
         $this->assertEquals(0, $stats['items_updated']);
         $this->assertEquals(0, $stats['items_skipped']);
-        $this->assertEquals(0, DB::table($this->listingTable)->count());
+        $this->assertEquals(0, DB::table($this->listingsTable)->count());
     }
 
     public function test_batch_insert_or_update_organic_listings_with_update_if_newer_false(): void
@@ -703,17 +703,17 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         $now          = now();
         $originalItem = [
-            'keyword'         => 'test listing keyword',
+            'keyword'         => 'test listings keyword',
             'location_code'   => 2840,
             'language_code'   => 'en',
             'device'          => 'desktop',
             'se_domain'       => 'google.com',
-            'task_id'         => 'task-listing-original',
+            'task_id'         => 'task-listings-original',
             'response_id'     => 100,
             'se'              => 'google',
             'se_type'         => 'organic',
             'tag'             => 'original-tag',
-            'result_keyword'  => 'test listing keyword',
+            'result_keyword'  => 'test listings keyword',
             'type'            => 'organic',
             'check_url'       => 'https://www.google.com/search?q=original',
             'result_datetime' => '2023-01-01 12:00:00',
@@ -725,21 +725,21 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         // Insert original item
         $stats = $this->processor->batchInsertOrUpdateOrganicListings([$originalItem]);
         $this->assertEquals(1, $stats['items_inserted']);
-        $this->assertEquals(1, DB::table($this->listingTable)->count());
+        $this->assertEquals(1, DB::table($this->listingsTable)->count());
 
         // Try to insert duplicate - should be ignored
         $duplicateItem = [
-            'keyword'         => 'test listing keyword',
+            'keyword'         => 'test listings keyword',
             'location_code'   => 2840,
             'language_code'   => 'en',
             'device'          => 'desktop', // Same unique constraint
             'se_domain'       => 'google.com',
-            'task_id'         => 'task-listing-duplicate',
+            'task_id'         => 'task-listings-duplicate',
             'response_id'     => 200,
             'se'              => 'google',
             'se_type'         => 'organic',
             'tag'             => 'duplicate-tag',
-            'result_keyword'  => 'test listing keyword',
+            'result_keyword'  => 'test listings keyword',
             'type'            => 'organic',
             'check_url'       => 'https://www.google.com/search?q=duplicate',
             'result_datetime' => '2023-01-01 12:00:00',
@@ -754,11 +754,11 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $this->assertEquals(1, $stats['items_skipped']);
 
         // Should still have only 1 record with original data
-        $this->assertEquals(1, DB::table($this->listingTable)->count());
-        $record = DB::table($this->listingTable)->first();
+        $this->assertEquals(1, DB::table($this->listingsTable)->count());
+        $record = DB::table($this->listingsTable)->first();
         $this->assertEquals('original-tag', $record->tag);
         $this->assertEquals('https://www.google.com/search?q=original', $record->check_url);
-        $this->assertEquals('task-listing-original', $record->task_id);
+        $this->assertEquals('task-listings-original', $record->task_id);
     }
 
     public function test_batch_insert_or_update_organic_items(): void
@@ -1237,10 +1237,10 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $this->assertEquals('task-paa-newer', $record->task_id);
     }
 
-    public function test_process_listing(): void
+    public function test_process_listings(): void
     {
         $result = [
-            'keyword'          => 'test listing keyword',
+            'keyword'          => 'test listings keyword',
             'type'             => 'organic',
             'check_url'        => 'https://www.google.com/search?q=test',
             'datetime'         => '2023-01-01 12:00:00',
@@ -1251,55 +1251,55 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'items_count'      => 10,
         ];
 
-        $listingTaskData = [
-            'keyword'       => 'test listing keyword',
+        $listingsTaskData = [
+            'keyword'       => 'test listings keyword',
             'se_domain'     => 'google.com',
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'task_id'       => 'task-listing-123',
+            'task_id'       => 'task-listings-123',
             'response_id'   => 456,
             'se'            => 'google',
             'se_type'       => 'organic',
             'tag'           => 'test-tag',
         ];
 
-        $stats = $this->processor->processListing($result, $listingTaskData);
+        $stats = $this->processor->processListings($result, $listingsTaskData);
 
-        $this->assertEquals(1, $stats['listing_items']);
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['items_inserted']);
         $this->assertEquals(0, $stats['items_updated']);
         $this->assertEquals(0, $stats['items_skipped']);
 
-        // Verify listing was inserted into database
-        $insertedListing = DB::table($this->listingTable)->first();
-        $this->assertNotNull($insertedListing);
-        $this->assertEquals('test listing keyword', $insertedListing->keyword);
-        $this->assertEquals('test listing keyword', $insertedListing->result_keyword);
-        $this->assertEquals('organic', $insertedListing->type);
-        $this->assertEquals('https://www.google.com/search?q=test', $insertedListing->check_url);
-        $this->assertEquals('2023-01-01 12:00:00', $insertedListing->result_datetime);
-        $this->assertEquals(1000000, $insertedListing->se_results_count);
-        $this->assertEquals(10, $insertedListing->items_count);
-        $this->assertEquals('google', $insertedListing->se);
-        $this->assertEquals('organic', $insertedListing->se_type);
-        $this->assertEquals('test-tag', $insertedListing->tag);
-        $this->assertEquals('desktop', $insertedListing->device); // Default applied
+        // Verify listings was inserted into database
+        $insertedListings = DB::table($this->listingsTable)->first();
+        $this->assertNotNull($insertedListings);
+        $this->assertEquals('test listings keyword', $insertedListings->keyword);
+        $this->assertEquals('test listings keyword', $insertedListings->result_keyword);
+        $this->assertEquals('organic', $insertedListings->type);
+        $this->assertEquals('https://www.google.com/search?q=test', $insertedListings->check_url);
+        $this->assertEquals('2023-01-01 12:00:00', $insertedListings->result_datetime);
+        $this->assertEquals(1000000, $insertedListings->se_results_count);
+        $this->assertEquals(10, $insertedListings->items_count);
+        $this->assertEquals('google', $insertedListings->se);
+        $this->assertEquals('organic', $insertedListings->se_type);
+        $this->assertEquals('test-tag', $insertedListings->tag);
+        $this->assertEquals('desktop', $insertedListings->device); // Default applied
 
         // Verify JSON fields are properly formatted
-        $this->assertStringContainsString('original', $insertedListing->spell);
-        $this->assertStringContainsString('corrected', $insertedListing->spell);
-        $this->assertStringContainsString('refinement', $insertedListing->refinement_chips);
-        $this->assertStringContainsString('organic', $insertedListing->item_types);
+        $this->assertStringContainsString('original', $insertedListings->spell);
+        $this->assertStringContainsString('corrected', $insertedListings->spell);
+        $this->assertStringContainsString('refinement', $insertedListings->refinement_chips);
+        $this->assertStringContainsString('organic', $insertedListings->item_types);
     }
 
-    public function test_process_listing_with_skip_refinement_chips(): void
+    public function test_process_listings_with_skip_refinement_chips(): void
     {
         // Enable skipRefinementChips
         $this->processor->setSkipRefinementChips(true);
 
         $result = [
-            'keyword'          => 'test listing keyword',
+            'keyword'          => 'test listings keyword',
             'type'             => 'organic',
             'check_url'        => 'https://www.google.com/search?q=test',
             'datetime'         => '2023-01-01 12:00:00',
@@ -1309,33 +1309,33 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'items_count'      => 10,
         ];
 
-        $listingTaskData = [
-            'keyword'       => 'test listing keyword',
+        $listingsTaskData = [
+            'keyword'       => 'test listings keyword',
             'se_domain'     => 'google.com',
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'task_id'       => 'task-listing-123',
+            'task_id'       => 'task-listings-123',
             'response_id'   => 456,
             'se'            => 'google',
             'se_type'       => 'organic',
             'tag'           => 'test-tag',
         ];
 
-        $stats = $this->processor->processListing($result, $listingTaskData);
+        $stats = $this->processor->processListings($result, $listingsTaskData);
 
-        $this->assertEquals(1, $stats['listing_items']);
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['items_inserted']);
 
         // Verify refinement_chips was skipped (should be null)
-        $insertedListing = DB::table($this->listingTable)->first();
-        $this->assertNull($insertedListing->refinement_chips);
+        $insertedListings = DB::table($this->listingsTable)->first();
+        $this->assertNull($insertedListings->refinement_chips);
     }
 
-    public function test_process_listing_with_null_optional_fields(): void
+    public function test_process_listings_with_null_optional_fields(): void
     {
         $result = [
-            'keyword'   => 'test listing keyword',
+            'keyword'   => 'test listings keyword',
             'type'      => 'organic',
             'check_url' => 'https://www.google.com/search?q=test',
             'datetime'  => '2023-01-01 12:00:00',
@@ -1345,29 +1345,29 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'items_count'      => 10,
         ];
 
-        $listingTaskData = [
-            'keyword'       => 'test listing keyword',
+        $listingsTaskData = [
+            'keyword'       => 'test listings keyword',
             'se_domain'     => 'google.com',
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'task_id'       => 'task-listing-123',
+            'task_id'       => 'task-listings-123',
             'response_id'   => 456,
             'se'            => 'google',
             'se_type'       => 'organic',
             'tag'           => 'test-tag',
         ];
 
-        $stats = $this->processor->processListing($result, $listingTaskData);
+        $stats = $this->processor->processListings($result, $listingsTaskData);
 
-        $this->assertEquals(1, $stats['listing_items']);
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['items_inserted']);
 
         // Verify optional fields are null when missing, but item_types gets JSON null
-        $insertedListing = DB::table($this->listingTable)->first();
-        $this->assertNull($insertedListing->spell);
-        $this->assertNull($insertedListing->refinement_chips);
-        $this->assertNull($insertedListing->item_types);
+        $insertedListings = DB::table($this->listingsTable)->first();
+        $this->assertNull($insertedListings->spell);
+        $this->assertNull($insertedListings->refinement_chips);
+        $this->assertNull($insertedListings->item_types);
     }
 
     public function test_process_organic_items(): void
@@ -1720,18 +1720,18 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         $stats = $this->processor->processResponse($response, true);
 
-        // Should return detailed stats including listing statistics
-        $this->assertEquals(1, $stats['listing_items']);
+        // Should return detailed stats including listings statistics
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['organic_items']);
         $this->assertEquals(1, $stats['paa_items']);
         $this->assertEquals(2, $stats['total_items']);
 
         // Verify items were inserted into all tables
-        $listingItem = DB::table($this->listingTable)->first();
-        $this->assertNotNull($listingItem);
-        $this->assertEquals('test response keyword', $listingItem->keyword);
-        $this->assertEquals('google', $listingItem->se);
-        $this->assertEquals('organic', $listingItem->se_type);
+        $listingsItem = DB::table($this->listingsTable)->first();
+        $this->assertNotNull($listingsItem);
+        $this->assertEquals('test response keyword', $listingsItem->keyword);
+        $this->assertEquals('google', $listingsItem->se);
+        $this->assertEquals('organic', $listingsItem->se_type);
 
         $organicItem = DB::table($this->organicItemsTable)->first();
         $this->assertNotNull($organicItem);
@@ -1806,14 +1806,14 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         $stats = $this->processor->processResponse($response, false);
 
-        // Should return detailed stats including listing statistics
-        $this->assertEquals(1, $stats['listing_items']);
+        // Should return detailed stats including listings statistics
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['organic_items']);
         $this->assertEquals(0, $stats['paa_items']); // PAA processing disabled
         $this->assertEquals(2, $stats['total_items']);
 
-        // Verify listing and organic items were inserted, but no PAA items
-        $this->assertEquals(1, DB::table($this->listingTable)->count());
+        // Verify listings and organic items were inserted, but no PAA items
+        $this->assertEquals(1, DB::table($this->listingsTable)->count());
         $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
         $this->assertEquals(0, DB::table($this->paaItemsTable)->count());
     }
@@ -1952,7 +1952,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->processResponses();
 
         $this->assertEquals(1, $stats['processed_responses']);
-        $this->assertEquals(1, $stats['listing_items']);
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['organic_items']);
         $this->assertEquals(0, $stats['paa_items']);
         $this->assertEquals(1, $stats['total_items']);
@@ -2036,7 +2036,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->processResponses(100, true);
 
         $this->assertEquals(1, $stats['processed_responses']);
-        $this->assertEquals(1, $stats['listing_items']);
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(0, $stats['organic_items']);
         $this->assertEquals(1, $stats['paa_items']);
         $this->assertEquals(1, $stats['total_items']);
@@ -2114,7 +2114,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->processResponses(100, false);
 
         $this->assertEquals(1, $stats['processed_responses']);
-        $this->assertEquals(1, $stats['listing_items']);
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(0, $stats['organic_items']);
         $this->assertEquals(0, $stats['paa_items']); // Should be 0 since PAA processing is disabled
         $this->assertEquals(1, $stats['total_items']);
@@ -2272,7 +2272,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $stats = $this->processor->processResponses();
 
         $this->assertEquals(1, $stats['processed_responses']);
-        $this->assertEquals(1, $stats['listing_items']);
+        $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['organic_items']);
 
         // Verify device default was applied

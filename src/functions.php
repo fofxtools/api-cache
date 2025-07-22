@@ -948,7 +948,7 @@ function create_dataforseo_serp_google_organic_items_table(
             $table->string('os')->nullable()->index();
 
             // Fields returned
-            $table->string('type')->nullable()->index();
+            $table->string('items_type')->nullable()->index(); // From items.type
             $table->integer('rank_group')->nullable()->index();
             $table->integer('rank_absolute')->nullable()->index();
             $table->string('domain')->nullable()->index();
@@ -1071,9 +1071,9 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->string('answer_domain')->nullable();
             $table->text('answer_title')->nullable();
             $table->text('answer_description')->nullable();
-            $table->json('answer_images')->nullable();
+            $table->text('answer_images')->nullable();  // JSON, should be pretty printed
             $table->string('answer_timestamp')->nullable();
-            $table->json('answer_table')->nullable();
+            $table->text('answer_table')->nullable();  // JSON, should be pretty printed
 
             $table->timestamps();
             $table->timestamp('processed_at')->nullable()->index();
@@ -1158,6 +1158,7 @@ function create_dataforseo_serp_google_autocomplete_items_table(
 
             // Fields passed
             $table->string('keyword')->index();
+            $table->integer('cursor_pointer')->default(-1)->index(); // -1 = not specified
             $table->string('se_domain')->index();
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
@@ -1179,13 +1180,13 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for keyword, suggestion, location_code, language_code, device
+            // Add unique index for keyword, cursor_pointer, suggestion, location_code, language_code, device
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['keyword', 'suggestion', 'location_code', 'language_code', 'device'], 'dsgai_keyword_suggestion_location_language_device_unique');
+                $table->unique(['keyword', 'cursor_pointer', 'suggestion', 'location_code', 'language_code', 'device'], 'dsgai_keyword_cursor_suggestion_location_language_device_unique');
             } else {
-                $table->unique(['keyword', 'suggestion', 'location_code', 'language_code', 'device']);
+                $table->unique(['keyword', 'cursor_pointer', 'suggestion', 'location_code', 'language_code', 'device']);
             }
         });
 
@@ -1459,6 +1460,374 @@ function create_dataforseo_backlinks_bulk_items_table(
         });
 
         Log::debug('DataForSEO Backlinks Bulk Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create DataForSEO Merchant Amazon Products Listings table
+ *
+ * @param Builder $schema       Database schema builder
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_merchant_amazon_products_listings_table(
+    Builder $schema,
+    string $table = 'dataforseo_merchant_amazon_products_listings',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO Merchant Amazon Products Listings table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO Merchant Amazon Products Listings table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable()->index();
+            $table->string('task_id')->nullable()->index();
+
+            // Fields passed
+            $table->string('keyword')->index(); // From data.keyword
+            $table->string('se')->index();
+            $table->string('se_type')->index();
+            $table->string('function')->index();
+            $table->integer('location_code')->index();
+            $table->string('language_code', 20)->index();
+            $table->string('device', 20)->index();
+            $table->string('os')->nullable()->index();
+            $table->string('tag')->nullable()->index();
+
+            // Fields returned
+            $table->string('result_keyword')->index(); // From result.keyword
+            $table->string('type')->nullable()->index();
+            $table->string('se_domain')->index();
+            $table->string('check_url')->index();
+            $table->string('result_datetime')->index(); // From result.datetime
+            $table->text('spell')->nullable(); // JSON, should be pretty printed
+            $table->text('item_types')->nullable(); // JSON, should be pretty printed
+            $table->integer('se_results_count')->nullable()->index();
+            $table->text('categories')->nullable(); // JSON, should be pretty printed
+            $table->integer('items_count')->nullable()->index();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->text('processed_status')->nullable();
+
+            // Add unique index for keyword, location_code, language_code, device
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->unique(['keyword', 'location_code', 'language_code', 'device'], 'dmapl_keyword_location_language_device_unique');
+            } else {
+                $table->unique(['keyword', 'location_code', 'language_code', 'device']);
+            }
+        });
+
+        Log::debug('DataForSEO Merchant Amazon Products Listings table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create DataForSEO Merchant Amazon Products Items table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_merchant_amazon_products_items_table(
+    Builder $schema,
+    string $table = 'dataforseo_merchant_amazon_products_items',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO Merchant Amazon Products Items table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO Merchant Amazon Products Items table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable()->index();
+            $table->string('task_id')->nullable()->index();
+
+            // Fields passed
+            $table->string('keyword')->index();
+            $table->string('se_domain')->index();
+            $table->integer('location_code')->index();
+            $table->string('language_code', 20)->index();
+            $table->string('device', 20)->index();
+            $table->string('os')->nullable()->index();
+            $table->string('tag')->nullable()->index();
+
+            // Fields returned
+            $table->string('result_keyword')->index(); // From result.keyword
+            $table->string('items_type')->nullable()->index(); // From result.items.type
+            $table->integer('rank_group')->nullable()->index();
+            $table->integer('rank_absolute')->nullable()->index();
+            $table->text('xpath')->nullable();
+            $table->string('domain')->nullable()->index();
+            $table->text('title')->nullable();
+            $table->text('url')->nullable();
+            $table->text('image_url')->nullable();
+            $table->integer('bought_past_month')->nullable()->index();
+            $table->float('price_from')->nullable()->index();
+            $table->float('price_to')->nullable()->index();
+            $table->string('currency')->nullable();
+            $table->text('special_offers')->nullable(); // JSON, should be pretty printed
+            $table->string('data_asin')->nullable();
+
+            // Rating fields (flattened from rating object)
+            $table->string('rating_type')->nullable(); // From result.items.rating.type
+            $table->string('rating_position')->nullable(); // From result.items.rating.position
+            $table->string('rating_rating_type')->nullable(); // From result.items.rating.rating_type
+            $table->string('rating_value')->nullable(); // From result.items.rating.value
+            $table->integer('rating_votes_count')->nullable(); // From result.items.rating.votes_count
+            $table->string('rating_rating_max')->nullable(); // From result.items.rating.rating_max
+
+            // More fields
+            $table->boolean('is_amazon_choice')->nullable()->index();
+            $table->boolean('is_best_seller')->nullable()->index();
+            $table->text('delivery_info')->nullable(); // JSON, should be pretty printed
+            $table->text('nested_items')->nullable(); // JSON, should be pretty printed. From result.items.items
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->text('processed_status')->nullable();
+
+            // Add unique index for keyword, location_code, language_code, device, rank_absolute
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute'], 'dmapi_keyword_location_language_device_rankabs_unique');
+            } else {
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute']);
+            }
+        });
+
+        Log::debug('DataForSEO Merchant Amazon Products Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}
+
+/**
+ * Create the DataForSEO Merchant Amazon ASINs table for processing individual ASIN items.
+ *
+ * @param Builder $schema       The database schema builder
+ * @param string  $table        The table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_merchant_amazon_asins_table(
+    Builder $schema,
+    string $table = 'dataforseo_merchant_amazon_asins',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO Merchant Amazon ASINs table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO Merchant Amazon ASINs table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable()->index();
+            $table->string('task_id')->nullable()->index();
+
+            // Fields passed
+            $table->string('asin')->index();
+            $table->string('se')->index();
+            $table->string('se_type')->index();
+            $table->integer('location_code')->index();
+            $table->string('language_code', 20)->index();
+            $table->string('device', 20)->index();
+            $table->string('os')->nullable()->index();
+            $table->boolean('load_more_local_reviews')->nullable();
+            $table->string('local_reviews_sort')->nullable();
+            $table->string('tag')->nullable()->index();
+
+            // Fields returned
+            $table->string('result_asin')->index(); // From result.asin
+            $table->string('type')->nullable()->index();
+            $table->string('se_domain')->index();
+            $table->text('check_url')->nullable();
+            $table->string('result_datetime')->nullable()->index(); // From result.datetime
+            $table->text('spell')->nullable(); // JSON, should be pretty printed
+            $table->text('item_types')->nullable(); // JSON, should be pretty printed
+            $table->integer('items_count')->nullable()->index();
+
+            // Item expanded
+            $table->string('items_type')->nullable()->index(); // From result.items.type
+            $table->integer('rank_group')->nullable()->index();
+            $table->integer('rank_absolute')->nullable()->index();
+            $table->string('position')->nullable();
+            $table->text('xpath')->nullable();
+            $table->text('title')->nullable();
+            $table->text('details')->nullable();
+            $table->text('image_url')->nullable();
+            $table->string('author')->nullable()->index();
+            $table->string('data_asin')->nullable()->index();
+            $table->string('parent_asin')->nullable()->index();
+            $table->text('product_asins')->nullable(); // From result.items.product_asins
+            $table->float('price_from')->nullable()->index();
+            $table->float('price_to')->nullable()->index();
+            $table->string('currency')->nullable();
+            $table->boolean('is_amazon_choice')->nullable()->index();
+
+            // Rating fields (flattened from rating object)
+            $table->string('rating_type')->nullable(); // From result.items.rating.type
+            $table->string('rating_position')->nullable(); // From result.items.rating.position
+            $table->string('rating_rating_type')->nullable(); // From result.items.rating.rating_type
+            $table->string('rating_value')->nullable(); // From result.items.rating.value
+            $table->integer('rating_votes_count')->nullable(); // From result.items.rating.votes_count
+            $table->string('rating_rating_max')->nullable(); // From result.items.rating.rating_max
+
+            // More fields
+            $table->boolean('is_newer_model_available')->nullable()->index();
+            $table->text('applicable_vouchers')->nullable(); // From result.items.applicable_vouchers
+            $table->text('newer_model')->nullable(); // From result.items.newer_model
+            $table->text('categories')->nullable(); // From result.items.categories
+            $table->text('product_information')->nullable(); // From result.items.product_information
+
+            $table->text('product_images_list')->nullable(); // JSON, should be pretty printed. From result.items.product_images_list
+            $table->text('product_videos_list')->nullable(); // JSON, should be pretty printed. From result.items.product_videos_list
+            $table->text('description')->nullable(); // JSON, should be pretty printed. From result.items.description
+            $table->boolean('is_available')->nullable()->index();
+            $table->text('top_local_reviews')->nullable(); // JSON, should be pretty printed. From result.items.top_local_reviews
+            $table->text('top_global_reviews')->nullable(); // JSON, should be pretty printed. From result.items.top_global_reviews
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable()->index();
+            $table->text('processed_status')->nullable();
+
+            // Add unique index for asin, location_code, language_code, device
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->unique(['asin', 'location_code', 'language_code', 'device'], 'dmaa_asin_location_language_device_unique');
+            } else {
+                $table->unique(['asin', 'location_code', 'language_code', 'device']);
+            }
+        });
+
+        Log::debug('DataForSEO Merchant Amazon ASINs table created successfully', [
             'table' => $table,
         ]);
     }

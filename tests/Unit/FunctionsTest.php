@@ -33,6 +33,9 @@ use function FOfX\ApiCache\create_dataforseo_serp_google_organic_paa_items_table
 use function FOfX\ApiCache\create_dataforseo_serp_google_autocomplete_items_table;
 use function FOfX\ApiCache\create_dataforseo_keywords_data_google_ads_items_table;
 use function FOfX\ApiCache\create_dataforseo_backlinks_bulk_items_table;
+use function FOfX\ApiCache\create_dataforseo_merchant_amazon_products_listings_table;
+use function FOfX\ApiCache\create_dataforseo_merchant_amazon_products_items_table;
+use function FOfX\ApiCache\create_dataforseo_merchant_amazon_asins_table;
 
 class FunctionsTest extends TestCase
 {
@@ -43,12 +46,15 @@ class FunctionsTest extends TestCase
     protected string $testErrorsTable    = 'api_cache_errors_test';
     protected string $testImagesTable    = 'pixabay_images_test';
 
-    protected string $testGoogleOrganicListingsTable = 'dataforseo_serp_google_organic_listings_test';
-    protected string $testGoogleOrganicTable         = 'dataforseo_serp_google_organic_items_test';
-    protected string $testGoogleOrganicPaaTable      = 'dataforseo_serp_google_organic_paa_items_test';
-    protected string $testGoogleAutocompleteTable    = 'dataforseo_serp_google_autocomplete_items_test';
-    protected string $testGoogleAdsTable             = 'dataforseo_keywords_data_google_ads_items_test';
-    protected string $testBacklinksBulkTable         = 'dataforseo_backlinks_bulk_items_test';
+    protected string $testGoogleOrganicListingsTable  = 'dataforseo_serp_google_organic_listings_test';
+    protected string $testGoogleOrganicTable          = 'dataforseo_serp_google_organic_items_test';
+    protected string $testGoogleOrganicPaaTable       = 'dataforseo_serp_google_organic_paa_items_test';
+    protected string $testGoogleAutocompleteTable     = 'dataforseo_serp_google_autocomplete_items_test';
+    protected string $testGoogleAdsTable              = 'dataforseo_keywords_data_google_ads_items_test';
+    protected string $testBacklinksBulkTable          = 'dataforseo_backlinks_bulk_items_test';
+    protected string $testAmazonProductsListingsTable = 'dataforseo_merchant_amazon_products_listings_test';
+    protected string $testAmazonProductsItemsTable    = 'dataforseo_merchant_amazon_products_items_test';
+    protected string $testAmazonAsinsTable            = 'dataforseo_merchant_amazon_asins_test';
 
     protected string $clientName = 'demo';
     protected string $apiBaseUrl;
@@ -73,6 +79,9 @@ class FunctionsTest extends TestCase
         $this->testGoogleAutocompleteTable .= '_' . uniqid();
         $this->testGoogleAdsTable .= '_' . uniqid();
         $this->testBacklinksBulkTable .= '_' . uniqid();
+        $this->testAmazonProductsListingsTable .= '_' . uniqid();
+        $this->testAmazonProductsItemsTable .= '_' . uniqid();
+        $this->testAmazonAsinsTable .= '_' . uniqid();
 
         // Get base URL from config
         $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
@@ -984,6 +993,7 @@ class FunctionsTest extends TestCase
         $this->assertContains('response_id', $columns);
         $this->assertContains('task_id', $columns);
         $this->assertContains('keyword', $columns);
+        $this->assertContains('items_type', $columns);
         $this->assertContains('is_featured_snippet', $columns);
         $schema->dropIfExists($table);
     }
@@ -1091,6 +1101,7 @@ class FunctionsTest extends TestCase
         $this->assertContains('language_code', $columns);
         $this->assertContains('device', $columns);
         $this->assertContains('os', $columns);
+        $this->assertContains('cursor_pointer', $columns);
         $this->assertContains('type', $columns);
         $this->assertContains('rank_group', $columns);
         $this->assertContains('rank_absolute', $columns);
@@ -1116,14 +1127,15 @@ class FunctionsTest extends TestCase
 
         // Insert a test record
         \Illuminate\Support\Facades\DB::table($table)->insert([
-            'keyword'       => 'test keyword',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'os'            => 'windows',
-            'created_at'    => now(),
-            'updated_at'    => now(),
+            'keyword'        => 'test keyword',
+            'se_domain'      => 'google.com',
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'os'             => 'windows',
+            'cursor_pointer' => -1,
+            'created_at'     => now(),
+            'updated_at'     => now(),
         ]);
 
         // Create table again without drop - record should still exist
@@ -1155,6 +1167,7 @@ class FunctionsTest extends TestCase
             'language_code'   => 'en',
             'device'          => 'desktop',
             'os'              => 'windows',
+            'cursor_pointer'  => -1,
             'type'            => 'autocomplete',
             'rank_group'      => 1,
             'rank_absolute'   => 1,
@@ -1380,6 +1393,262 @@ class FunctionsTest extends TestCase
         $this->assertEquals('driver-test.com', $record->target);
         $this->assertEquals(1000, $record->backlinks);
 
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_merchant_amazon_products_listings_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testAmazonProductsListingsTable;
+        create_dataforseo_merchant_amazon_products_listings_table($schema, $table, true, true);
+        $this->assertTrue($schema->hasTable($table));
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('keyword', $columns);
+        $this->assertContains('se', $columns);
+        $this->assertContains('se_type', $columns);
+        $this->assertContains('function', $columns);
+        $this->assertContains('location_code', $columns);
+        $this->assertContains('language_code', $columns);
+        $this->assertContains('device', $columns);
+        $this->assertContains('os', $columns);
+        $this->assertContains('tag', $columns);
+        $this->assertContains('result_keyword', $columns);
+        $this->assertContains('type', $columns);
+        $this->assertContains('se_domain', $columns);
+        $this->assertContains('check_url', $columns);
+        $this->assertContains('result_datetime', $columns);
+        $this->assertContains('spell', $columns);
+        $this->assertContains('item_types', $columns);
+        $this->assertContains('se_results_count', $columns);
+        $this->assertContains('categories', $columns);
+        $this->assertContains('items_count', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_merchant_amazon_products_listings_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testAmazonProductsListingsTable;
+        create_dataforseo_merchant_amazon_products_listings_table($schema, $table, true, false);
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'         => 'gaming keyboard',
+            'se'              => 'amazon',
+            'se_type'         => 'organic',
+            'function'        => 'products',
+            'location_code'   => 2840,
+            'language_code'   => 'en_US',
+            'device'          => 'desktop',
+            'result_keyword'  => 'gaming keyboard',
+            'se_domain'       => 'amazon.com',
+            'check_url'       => 'https://www.amazon.com/s/?field-keywords=gaming%20keyboard',
+            'result_datetime' => '2020-09-25 12:55:55 +00:00',
+            'item_types'      => '["amazon_paid", "amazon_serp"]',
+            'categories'      => '["PC Gaming Keyboards/All"]',
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ]);
+        create_dataforseo_merchant_amazon_products_listings_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_merchant_amazon_products_listings_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_merchant_amazon_products_items_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testAmazonProductsItemsTable;
+        create_dataforseo_merchant_amazon_products_items_table($schema, $table, true, true);
+        $this->assertTrue($schema->hasTable($table));
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('keyword', $columns);
+        $this->assertContains('se_domain', $columns);
+        $this->assertContains('location_code', $columns);
+        $this->assertContains('language_code', $columns);
+        $this->assertContains('device', $columns);
+        $this->assertContains('os', $columns);
+        $this->assertContains('tag', $columns);
+        $this->assertContains('result_keyword', $columns);
+        $this->assertContains('items_type', $columns);
+        $this->assertContains('rank_group', $columns);
+        $this->assertContains('rank_absolute', $columns);
+        $this->assertContains('xpath', $columns);
+        $this->assertContains('domain', $columns);
+        $this->assertContains('title', $columns);
+        $this->assertContains('url', $columns);
+        $this->assertContains('image_url', $columns);
+        $this->assertContains('bought_past_month', $columns);
+        $this->assertContains('price_from', $columns);
+        $this->assertContains('price_to', $columns);
+        $this->assertContains('currency', $columns);
+        $this->assertContains('special_offers', $columns);
+        $this->assertContains('data_asin', $columns);
+        $this->assertContains('rating_type', $columns);
+        $this->assertContains('rating_position', $columns);
+        $this->assertContains('rating_rating_type', $columns);
+        $this->assertContains('rating_value', $columns);
+        $this->assertContains('rating_votes_count', $columns);
+        $this->assertContains('rating_rating_max', $columns);
+        $this->assertContains('is_amazon_choice', $columns);
+        $this->assertContains('is_best_seller', $columns);
+        $this->assertContains('delivery_info', $columns);
+        $this->assertContains('nested_items', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_merchant_amazon_products_items_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testAmazonProductsItemsTable;
+        create_dataforseo_merchant_amazon_products_items_table($schema, $table, true, false);
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'          => 'gaming keyboard',
+            'se_domain'        => 'amazon.com',
+            'location_code'    => 2840,
+            'language_code'    => 'en_US',
+            'device'           => 'desktop',
+            'result_keyword'   => 'gaming keyboard',
+            'items_type'       => 'amazon_paid',
+            'rank_group'       => 1,
+            'rank_absolute'    => 1,
+            'domain'           => 'www.amazon.com',
+            'title'            => 'Logitech Gaming Keyboard',
+            'url'              => 'https://www.amazon.com/product',
+            'price_from'       => 229.99,
+            'currency'         => 'USD',
+            'data_asin'        => 'B085RFFC9Q',
+            'is_amazon_choice' => false,
+            'is_best_seller'   => false,
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ]);
+        create_dataforseo_merchant_amazon_products_items_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_merchant_amazon_products_items_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_merchant_amazon_asins_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testAmazonAsinsTable;
+        create_dataforseo_merchant_amazon_asins_table($schema, $table, true, true);
+        $this->assertTrue($schema->hasTable($table));
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('asin', $columns);
+        $this->assertContains('se', $columns);
+        $this->assertContains('se_type', $columns);
+        $this->assertContains('location_code', $columns);
+        $this->assertContains('language_code', $columns);
+        $this->assertContains('device', $columns);
+        $this->assertContains('os', $columns);
+        $this->assertContains('load_more_local_reviews', $columns);
+        $this->assertContains('local_reviews_sort', $columns);
+        $this->assertContains('tag', $columns);
+        $this->assertContains('result_asin', $columns);
+        $this->assertContains('type', $columns);
+        $this->assertContains('se_domain', $columns);
+        $this->assertContains('check_url', $columns);
+        $this->assertContains('result_datetime', $columns);
+        $this->assertContains('spell', $columns);
+        $this->assertContains('item_types', $columns);
+        $this->assertContains('items_count', $columns);
+        $this->assertContains('items_type', $columns);
+        $this->assertContains('rank_group', $columns);
+        $this->assertContains('rank_absolute', $columns);
+        $this->assertContains('position', $columns);
+        $this->assertContains('xpath', $columns);
+        $this->assertContains('title', $columns);
+        $this->assertContains('details', $columns);
+        $this->assertContains('image_url', $columns);
+        $this->assertContains('author', $columns);
+        $this->assertContains('data_asin', $columns);
+        $this->assertContains('parent_asin', $columns);
+        $this->assertContains('product_asins', $columns);
+        $this->assertContains('price_from', $columns);
+        $this->assertContains('price_to', $columns);
+        $this->assertContains('currency', $columns);
+        $this->assertContains('is_amazon_choice', $columns);
+        $this->assertContains('rating_type', $columns);
+        $this->assertContains('rating_position', $columns);
+        $this->assertContains('rating_rating_type', $columns);
+        $this->assertContains('rating_value', $columns);
+        $this->assertContains('rating_votes_count', $columns);
+        $this->assertContains('rating_rating_max', $columns);
+        $this->assertContains('is_newer_model_available', $columns);
+        $this->assertContains('applicable_vouchers', $columns);
+        $this->assertContains('newer_model', $columns);
+        $this->assertContains('categories', $columns);
+        $this->assertContains('product_information', $columns);
+        $this->assertContains('product_images_list', $columns);
+        $this->assertContains('product_videos_list', $columns);
+        $this->assertContains('description', $columns);
+        $this->assertContains('is_available', $columns);
+        $this->assertContains('top_local_reviews', $columns);
+        $this->assertContains('top_global_reviews', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_merchant_amazon_asins_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testAmazonAsinsTable;
+        create_dataforseo_merchant_amazon_asins_table($schema, $table, true, false);
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'asin'             => 'B016MAK38U',
+            'se'               => 'amazon',
+            'se_type'          => 'asin',
+            'location_code'    => 2840,
+            'language_code'    => 'en_US',
+            'device'           => 'desktop',
+            'os'               => 'windows',
+            'result_asin'      => 'B016MAK38U',
+            'type'             => 'shopping',
+            'se_domain'        => 'amazon.com',
+            'check_url'        => 'https://www.amazon.com/dp/B016MAK38U?language=en_US',
+            'result_datetime'  => '2024-11-26 14:10:02 +00:00',
+            'item_types'       => '["amazon_product_info"]',
+            'items_count'      => 1,
+            'items_type'       => 'amazon_product_info',
+            'rank_group'       => 1,
+            'rank_absolute'    => 1,
+            'position'         => 'right',
+            'title'            => 'Redragon K552 Mechanical Gaming Keyboard',
+            'author'           => 'Visit the Redragon Store',
+            'data_asin'        => 'B016MAK38U',
+            'price_from'       => 29.59,
+            'currency'         => 'USD',
+            'is_amazon_choice' => true,
+            'is_available'     => true,
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ]);
+        create_dataforseo_merchant_amazon_asins_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_merchant_amazon_asins_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
         $schema->dropIfExists($table);
     }
 }

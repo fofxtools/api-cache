@@ -228,8 +228,6 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
                     'se_domain'     => 'google.com',
                     'location_code' => 2840,
                     'language_code' => 'en',
-                    'device'        => 'desktop',
-                    'os'            => 'windows',
                 ],
             ],
             'partial_data' => [
@@ -242,8 +240,6 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
                     'se_domain'     => 'google.co.uk',
                     'location_code' => null,
                     'language_code' => null,
-                    'device'        => null,
-                    'os'            => null,
                 ],
             ],
             'empty_data' => [
@@ -253,8 +249,6 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
                     'se_domain'     => null,
                     'location_code' => null,
                     'language_code' => null,
-                    'device'        => null,
-                    'os'            => null,
                 ],
             ],
         ];
@@ -264,6 +258,55 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
     public function test_extract_metadata(array $input, array $expected): void
     {
         $result = $this->processor->extractMetadata($input);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Data provider for extractTaskMetadata test
+     */
+    public static function extractTaskMetadataDataProvider(): array
+    {
+        return [
+            'complete_data' => [
+                [
+                    'device'         => 'desktop',
+                    'os'             => 'windows',
+                    'cursor_pointer' => 16,
+                    'keyword'        => 'ignored',
+                    'extra_field'    => 'ignored',
+                ],
+                [
+                    'device'         => 'desktop',
+                    'os'             => 'windows',
+                    'cursor_pointer' => 16,
+                ],
+            ],
+            'partial_data' => [
+                [
+                    'device' => 'mobile',
+                    'os'     => 'android',
+                ],
+                [
+                    'device'         => 'mobile',
+                    'os'             => 'android',
+                    'cursor_pointer' => -1,
+                ],
+            ],
+            'empty_data' => [
+                [],
+                [
+                    'device'         => null,
+                    'os'             => null,
+                    'cursor_pointer' => -1,
+                ],
+            ],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractTaskMetadataDataProvider')]
+    public function test_extract_task_metadata(array $input, array $expected): void
+    {
+        $result = $this->processor->extractTaskMetadata($input);
         $this->assertEquals($expected, $result);
     }
 
@@ -318,6 +361,7 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
         $autocompleteItems = [
             [
                 'keyword'          => 'test autocomplete 1',
+                'cursor_pointer'   => -1,
                 'location_code'    => 2840,
                 'language_code'    => 'en',
                 'device'           => 'desktop',
@@ -338,6 +382,7 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
             ],
             [
                 'keyword'          => 'test autocomplete 2',
+                'cursor_pointer'   => 16,
                 'location_code'    => 2840,
                 'language_code'    => 'en',
                 'device'           => 'desktop',
@@ -384,18 +429,19 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
         $newerTime    = now();
 
         $originalItem = [
-            'keyword'       => 'duplicate autocomplete',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 1,
-            'se_domain'     => 'google.com',
-            'task_id'       => 'task-original',
-            'response_id'   => 100,
-            'type'          => 'autocomplete',
-            'suggestion'    => 'original suggestion',
-            'created_at'    => $originalTime,
-            'updated_at'    => $originalTime,
+            'keyword'        => 'duplicate autocomplete',
+            'cursor_pointer' => -1,
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'rank_absolute'  => 1,
+            'se_domain'      => 'google.com',
+            'task_id'        => 'task-original',
+            'response_id'    => 100,
+            'type'           => 'autocomplete',
+            'suggestion'     => 'original suggestion',
+            'created_at'     => $originalTime,
+            'updated_at'     => $originalTime,
         ];
 
         // Insert original item
@@ -409,18 +455,19 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
 
         // Insert updated item with same unique constraints but newer timestamp
         $updatedItem = [
-            'keyword'       => 'duplicate autocomplete',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 2, // Different rank
-            'se_domain'     => 'google.com',
-            'task_id'       => 'task-updated',
-            'response_id'   => 200,
-            'type'          => 'autocomplete',
-            'suggestion'    => 'original suggestion', // Same suggestion triggers duplicate
-            'created_at'    => $newerTime,
-            'updated_at'    => $newerTime,
+            'keyword'        => 'duplicate autocomplete',
+            'cursor_pointer' => -1,
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'rank_absolute'  => 2, // Different rank
+            'se_domain'      => 'google.com',
+            'task_id'        => 'task-updated',
+            'response_id'    => 200,
+            'type'           => 'autocomplete',
+            'suggestion'     => 'original suggestion', // Same suggestion triggers duplicate
+            'created_at'     => $newerTime,
+            'updated_at'     => $newerTime,
         ];
 
         $this->processor->batchInsertOrUpdateAutocompleteItems([$updatedItem]);
@@ -446,18 +493,19 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
 
         $now          = now();
         $originalItem = [
-            'keyword'       => 'test autocomplete',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 1,
-            'se_domain'     => 'google.com',
-            'task_id'       => 'task-original',
-            'response_id'   => 100,
-            'type'          => 'autocomplete',
-            'suggestion'    => 'original suggestion',
-            'created_at'    => $now,
-            'updated_at'    => $now,
+            'keyword'        => 'test autocomplete',
+            'cursor_pointer' => 9,
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'rank_absolute'  => 1,
+            'se_domain'      => 'google.com',
+            'task_id'        => 'task-original',
+            'response_id'    => 100,
+            'type'           => 'autocomplete',
+            'suggestion'     => 'original suggestion',
+            'created_at'     => $now,
+            'updated_at'     => $now,
         ];
 
         // Insert original item
@@ -466,18 +514,19 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
 
         // Try to insert duplicate - should be ignored
         $duplicateItem = [
-            'keyword'       => 'test autocomplete',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 2, // Different rank
-            'se_domain'     => 'google.com',
-            'task_id'       => 'task-duplicate',
-            'response_id'   => 200,
-            'type'          => 'autocomplete',
-            'suggestion'    => 'original suggestion', // Same suggestion triggers duplicate
-            'created_at'    => $now,
-            'updated_at'    => $now,
+            'keyword'        => 'test autocomplete',
+            'cursor_pointer' => 9, // Same cursor position as original
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'rank_absolute'  => 2, // Different rank
+            'se_domain'      => 'google.com',
+            'task_id'        => 'task-duplicate',
+            'response_id'    => 200,
+            'type'           => 'autocomplete',
+            'suggestion'     => 'original suggestion', // Same suggestion triggers duplicate
+            'created_at'     => $now,
+            'updated_at'     => $now,
         ];
 
         $this->processor->batchInsertOrUpdateAutocompleteItems([$duplicateItem]);
@@ -496,18 +545,19 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
 
         // Insert newer item first
         $newerItem = [
-            'keyword'       => 'timestamp test autocomplete',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 1,
-            'se_domain'     => 'google.com',
-            'task_id'       => 'task-newer',
-            'response_id'   => 100,
-            'type'          => 'autocomplete',
-            'suggestion'    => 'newer suggestion',
-            'created_at'    => $newerTime,
-            'updated_at'    => $newerTime,
+            'keyword'        => 'timestamp test autocomplete',
+            'cursor_pointer' => 0,
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'rank_absolute'  => 1,
+            'se_domain'      => 'google.com',
+            'task_id'        => 'task-newer',
+            'response_id'    => 100,
+            'type'           => 'autocomplete',
+            'suggestion'     => 'newer suggestion',
+            'created_at'     => $newerTime,
+            'updated_at'     => $newerTime,
         ];
 
         $this->processor->batchInsertOrUpdateAutocompleteItems([$newerItem]);
@@ -515,18 +565,19 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
 
         // Try to insert older item - should NOT update
         $olderItem = [
-            'keyword'       => 'timestamp test autocomplete',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'rank_absolute' => 2, // Different rank
-            'se_domain'     => 'google.com',
-            'task_id'       => 'task-older',
-            'response_id'   => 200,
-            'type'          => 'autocomplete',
-            'suggestion'    => 'newer suggestion', // Same suggestion triggers duplicate
-            'created_at'    => $olderTime,
-            'updated_at'    => $olderTime,
+            'keyword'        => 'timestamp test autocomplete',
+            'cursor_pointer' => 0, // Same cursor position as newer item
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'rank_absolute'  => 2, // Different rank
+            'se_domain'      => 'google.com',
+            'task_id'        => 'task-older',
+            'response_id'    => 200,
+            'type'           => 'autocomplete',
+            'suggestion'     => 'newer suggestion', // Same suggestion triggers duplicate
+            'created_at'     => $olderTime,
+            'updated_at'     => $olderTime,
         ];
 
         $this->processor->batchInsertOrUpdateAutocompleteItems([$olderItem]);
@@ -541,13 +592,14 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
     public function test_process_autocomplete_items(): void
     {
         $taskData = [
-            'keyword'       => 'test autocomplete keyword',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'task_id'       => 'task-autocomplete-123',
-            'response_id'   => 456,
+            'keyword'        => 'test autocomplete keyword',
+            'cursor_pointer' => -1,
+            'se_domain'      => 'google.com',
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'task_id'        => 'task-autocomplete-123',
+            'response_id'    => 456,
         ];
 
         $items = [
@@ -574,7 +626,7 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
                 'highlighted'      => null,
             ],
             [
-                'type'       => 'other', // Should be ignored
+                'type'       => 'other', // Should be ignored as it is not an autocomplete item
                 'suggestion' => 'Other suggestion',
             ],
         ];

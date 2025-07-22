@@ -94,12 +94,6 @@ foreach ($keywordsSetA as $keyword) {
     echo "Response Body:\n";
     print_r($body);
 
-    $result   = $dfs->serpGoogleAutocompleteLiveAdvanced($keyword);
-    $response = $result['response'];
-    $body     = $response->body();
-    echo "Response Body:\n";
-    print_r($body);
-
     $result   = $dfs->serpGoogleOrganicStandardRegular($keyword, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
@@ -120,12 +114,33 @@ foreach ($keywordsSetA as $keyword) {
     echo "Response Body:\n";
     print_r($body);
 
+    // With allintitle: and usePostback
+    $result   = $dfs->serpGoogleOrganicStandardRegular("allintitle:{$keyword}", usePostback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->serpGoogleOrganicStandardAdvanced("allintitle:{$keyword}", usePostback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    // Autocomplete
+    $result   = $dfs->serpGoogleAutocompleteLiveAdvanced($keyword);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->serpGoogleAutocompleteStandardAdvanced($keyword, usePingback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";
     print_r($body);
 
+    // Amazon
     $result   = $dfs->labsAmazonRelatedKeywordsLive($keyword);
     $response = $result['response'];
     $body     = $response->body();
@@ -230,6 +245,19 @@ foreach ($domainArray as $domain) {
 
     // Use absolute URL for Instant Pages
     $result   = $dfs->onPageInstantPages("https://www.{$domain}");
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    // Google organic with site: and usePostback
+    $result   = $dfs->serpGoogleOrganicStandardRegular("site:{$domain}", usePostback: true, postTaskIfNotCached: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->serpGoogleOrganicStandardAdvanced("site:{$domain}", usePostback: true, postTaskIfNotCached: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";

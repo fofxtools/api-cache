@@ -154,8 +154,22 @@ class DataForSeoSerpGoogleAutocompleteProcessor
             'se_domain'     => $result['se_domain'] ?? null,
             'location_code' => $result['location_code'] ?? null,
             'language_code' => $result['language_code'] ?? null,
-            'device'        => $result['device'] ?? null,
-            'os'            => $result['os'] ?? null,
+        ];
+    }
+
+    /**
+     * Extract task-level metadata (device, os, cursor_pointer)
+     *
+     * @param array $taskData The task data
+     *
+     * @return array The extracted task metadata
+     */
+    public function extractTaskMetadata(array $taskData): array
+    {
+        return [
+            'device'         => $taskData['device'] ?? null,
+            'os'             => $taskData['os'] ?? null,
+            'cursor_pointer' => $taskData['cursor_pointer'] ?? -1, // Default to -1 if not specified
         ];
     }
 
@@ -202,11 +216,12 @@ class DataForSeoSerpGoogleAutocompleteProcessor
 
         foreach ($autocompleteItems as $row) {
             $where = [
-                'keyword'       => $row['keyword'],
-                'suggestion'    => $row['suggestion'],
-                'location_code' => $row['location_code'],
-                'language_code' => $row['language_code'],
-                'device'        => $row['device'],
+                'keyword'        => $row['keyword'],
+                'cursor_pointer' => $row['cursor_pointer'],
+                'suggestion'     => $row['suggestion'],
+                'location_code'  => $row['location_code'],
+                'language_code'  => $row['language_code'],
+                'device'         => $row['device'],
             ];
 
             $existingCreatedAt = DB::table($this->autocompleteItemsTable)
@@ -309,9 +324,10 @@ class DataForSeoSerpGoogleAutocompleteProcessor
                 continue;
             }
 
-            $taskData                = $this->extractMetadata($task['data'] ?? []);
-            $taskData['task_id']     = $task['id'] ?? null;
-            $taskData['response_id'] = $response->id;
+            // Extract base task data (device, os, cursor_pointer from task.data)
+            $baseTaskData                = $this->extractTaskMetadata($task['data'] ?? []);
+            $baseTaskData['task_id']     = $task['id'] ?? null;
+            $baseTaskData['response_id'] = $response->id;
 
             foreach ($task['result'] as $result) {
                 if (!isset($result['items'])) {
@@ -321,8 +337,8 @@ class DataForSeoSerpGoogleAutocompleteProcessor
                 // Count total items available for processing
                 $stats['total_items'] += count($result['items']);
 
-                // Merge task data with result data (result data takes precedence)
-                $mergedTaskData = array_merge($taskData, $this->extractMetadata($result));
+                // Merge base task data with result data (result data takes precedence)
+                $mergedTaskData = array_merge($baseTaskData, $this->extractMetadata($result));
                 $mergedTaskData = $this->ensureDefaults($mergedTaskData);
 
                 // Process autocomplete items and get detailed stats

@@ -482,7 +482,7 @@ class DataForSeoSerpGoogleOrganicProcessor
             }
 
             $organicItems[] = array_merge($mergedTaskData, [
-                'type'                => $item['type'] ?? null,
+                'items_type'          => $item['type'] ?? null,
                 'rank_group'          => $item['rank_group'] ?? null,
                 'rank_absolute'       => $item['rank_absolute'] ?? null,
                 'domain'              => $item['domain'] ?? null,
@@ -562,11 +562,15 @@ class DataForSeoSerpGoogleOrganicProcessor
                         'answer_domain'         => $expandedElement['domain'] ?? null,
                         'answer_title'          => $expandedElement['title'] ?? null,
                         'answer_description'    => $expandedElement['description'] ?? null,
-                        'answer_images'         => isset($expandedElement['images']) ? json_encode($expandedElement['images']) : null,
-                        'answer_timestamp'      => $expandedElement['timestamp'] ?? null,
-                        'answer_table'          => isset($expandedElement['table']) ? json_encode($expandedElement['table']) : null,
-                        'created_at'            => $now,
-                        'updated_at'            => $now,
+                        'answer_images'         => isset($expandedElement['images'])
+                            ? json_encode($expandedElement['images'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                            : null,
+                        'answer_timestamp' => $expandedElement['timestamp'] ?? null,
+                        'answer_table'     => isset($expandedElement['table'])
+                            ? json_encode($expandedElement['table'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                            : null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ]);
                 }
             }

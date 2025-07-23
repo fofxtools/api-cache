@@ -1158,6 +1158,7 @@ function create_dataforseo_serp_google_autocomplete_items_table(
 
             // Fields passed
             $table->string('keyword')->index();
+            // Add default value to avoid null in unique index for optional fields
             $table->integer('cursor_pointer')->default(-1)->index(); // -1 = not specified
             $table->string('se_domain')->index();
             $table->integer('location_code')->index();
@@ -1260,6 +1261,7 @@ function create_dataforseo_keywords_data_google_ads_items_table(
             // Fields passed
             $table->string('keyword');
             $table->string('se');
+            // Add default value to avoid null in unique index for optional fields
             $table->integer('location_code')->default(0); // 0 = worldwide/all locations
             $table->string('language_code')->default('none'); // 'none' = no specific language (worldwide)
 
@@ -1523,42 +1525,83 @@ function create_dataforseo_merchant_amazon_products_listings_table(
 
         $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
-            $table->unsignedBigInteger('response_id')->nullable()->index();
-            $table->string('task_id')->nullable()->index();
+            $table->unsignedBigInteger('response_id')->nullable();
+            $table->string('task_id')->nullable();
 
             // Fields passed
-            $table->string('keyword')->index(); // From data.keyword
-            $table->string('se')->index();
-            $table->string('se_type')->index();
-            $table->string('function')->index();
-            $table->integer('location_code')->index();
-            $table->string('language_code', 20)->index();
-            $table->string('device', 20)->index();
-            $table->string('os')->nullable()->index();
-            $table->string('tag')->nullable()->index();
+            $table->string('keyword'); // From data.keyword
+            $table->string('se');
+            $table->string('se_type');
+            $table->string('function');
+            $table->integer('location_code');
+            $table->string('language_code', 20);
+            $table->string('device', 20);
+            $table->string('os')->nullable();
+            $table->string('tag')->nullable();
 
             // Fields returned
-            $table->string('result_keyword')->index(); // From result.keyword
-            $table->string('type')->nullable()->index();
-            $table->string('se_domain')->index();
-            $table->string('check_url')->index();
-            $table->string('result_datetime')->index(); // From result.datetime
+            $table->string('result_keyword'); // From result.keyword
+            $table->string('type')->nullable();
+            $table->string('se_domain');
+            $table->string('check_url');
+            $table->string('result_datetime'); // From result.datetime
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('item_types')->nullable(); // JSON, should be pretty printed
-            $table->integer('se_results_count')->nullable()->index();
+            $table->integer('se_results_count')->nullable();
             $table->text('categories')->nullable(); // JSON, should be pretty printed
-            $table->integer('items_count')->nullable()->index();
+            $table->integer('items_count')->nullable();
 
             $table->timestamps();
-            $table->timestamp('processed_at')->nullable()->index();
+            $table->timestamp('processed_at')->nullable();
             $table->text('processed_status')->nullable();
 
+            // Add indexes with custom names for MySQL/PostgreSQL to avoid auto-generated names being too long
             // Add unique index for keyword, location_code, language_code, device
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->index('response_id', 'dmapl_response_id_idx');
+                $table->index('task_id', 'dmapl_task_id_idx');
+                $table->index('keyword', 'dmapl_keyword_idx');
+                $table->index('se', 'dmapl_se_idx');
+                $table->index('se_type', 'dmapl_se_type_idx');
+                $table->index('function', 'dmapl_function_idx');
+                $table->index('location_code', 'dmapl_location_code_idx');
+                $table->index('language_code', 'dmapl_language_code_idx');
+                $table->index('device', 'dmapl_device_idx');
+                $table->index('os', 'dmapl_os_idx');
+                $table->index('tag', 'dmapl_tag_idx');
+                $table->index('result_keyword', 'dmapl_result_keyword_idx');
+                $table->index('type', 'dmapl_type_idx');
+                $table->index('se_domain', 'dmapl_se_domain_idx');
+                $table->index('check_url', 'dmapl_check_url_idx');
+                $table->index('result_datetime', 'dmapl_result_datetime_idx');
+                $table->index('se_results_count', 'dmapl_se_results_count_idx');
+                $table->index('items_count', 'dmapl_items_count_idx');
+                $table->index('processed_at', 'dmapl_processed_at_idx');
+
                 $table->unique(['keyword', 'location_code', 'language_code', 'device'], 'dmapl_keyword_location_language_device_unique');
             } else {
+                $table->index('response_id');
+                $table->index('task_id');
+                $table->index('keyword');
+                $table->index('se');
+                $table->index('se_type');
+                $table->index('function');
+                $table->index('location_code');
+                $table->index('language_code');
+                $table->index('device');
+                $table->index('os');
+                $table->index('tag');
+                $table->index('result_keyword');
+                $table->index('type');
+                $table->index('se_domain');
+                $table->index('check_url');
+                $table->index('result_datetime');
+                $table->index('se_results_count');
+                $table->index('items_count');
+                $table->index('processed_at');
+
                 $table->unique(['keyword', 'location_code', 'language_code', 'device']);
             }
         });
@@ -1627,31 +1670,31 @@ function create_dataforseo_merchant_amazon_products_items_table(
 
         $schema->create($table, function (Blueprint $table) use ($driver) {
             $table->id();
-            $table->unsignedBigInteger('response_id')->nullable()->index();
-            $table->string('task_id')->nullable()->index();
+            $table->unsignedBigInteger('response_id')->nullable();
+            $table->string('task_id')->nullable();
 
             // Fields passed
-            $table->string('keyword')->index();
-            $table->string('se_domain')->index();
-            $table->integer('location_code')->index();
-            $table->string('language_code', 20)->index();
-            $table->string('device', 20)->index();
-            $table->string('os')->nullable()->index();
-            $table->string('tag')->nullable()->index();
+            $table->string('keyword');
+            $table->string('se_domain');
+            $table->integer('location_code');
+            $table->string('language_code', 20);
+            $table->string('device', 20);
+            $table->string('os')->nullable();
+            $table->string('tag')->nullable();
 
             // Fields returned
-            $table->string('result_keyword')->index(); // From result.keyword
-            $table->string('items_type')->nullable()->index(); // From result.items.type
-            $table->integer('rank_group')->nullable()->index();
-            $table->integer('rank_absolute')->nullable()->index();
+            $table->string('result_keyword'); // From result.keyword
+            $table->string('items_type')->nullable(); // From result.items.type
+            $table->integer('rank_group')->nullable();
+            $table->integer('rank_absolute')->nullable();
             $table->text('xpath')->nullable();
-            $table->string('domain')->nullable()->index();
+            $table->string('domain')->nullable();
             $table->text('title')->nullable();
             $table->text('url')->nullable();
             $table->text('image_url')->nullable();
-            $table->integer('bought_past_month')->nullable()->index();
-            $table->float('price_from')->nullable()->index();
-            $table->float('price_to')->nullable()->index();
+            $table->integer('bought_past_month')->nullable();
+            $table->float('price_from')->nullable();
+            $table->float('price_to')->nullable();
             $table->string('currency')->nullable();
             $table->text('special_offers')->nullable(); // JSON, should be pretty printed
             $table->string('data_asin')->nullable();
@@ -1665,22 +1708,81 @@ function create_dataforseo_merchant_amazon_products_items_table(
             $table->string('rating_rating_max')->nullable(); // From result.items.rating.rating_max
 
             // More fields
-            $table->boolean('is_amazon_choice')->nullable()->index();
-            $table->boolean('is_best_seller')->nullable()->index();
+            $table->boolean('is_amazon_choice')->nullable();
+            $table->boolean('is_best_seller')->nullable();
             $table->text('delivery_info')->nullable(); // JSON, should be pretty printed
             $table->text('nested_items')->nullable(); // JSON, should be pretty printed. From result.items.items
 
             $table->timestamps();
-            $table->timestamp('processed_at')->nullable()->index();
+            $table->timestamp('processed_at')->nullable();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for keyword, location_code, language_code, device, rank_absolute
+            // Add indexes with custom names for MySQL/PostgreSQL to avoid auto-generated names being too long
+            // Add unique index for keyword, location_code, language_code, device, items_type, rank_absolute
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute'], 'dmapi_keyword_location_language_device_rankabs_unique');
+                $table->index('response_id', 'dmapi_response_id_idx');
+                $table->index('task_id', 'dmapi_task_id_idx');
+                $table->index('keyword', 'dmapi_keyword_idx');
+                $table->index('se_domain', 'dmapi_se_domain_idx');
+                $table->index('location_code', 'dmapi_location_code_idx');
+                $table->index('language_code', 'dmapi_language_code_idx');
+                $table->index('device', 'dmapi_device_idx');
+                $table->index('os', 'dmapi_os_idx');
+                $table->index('tag', 'dmapi_tag_idx');
+
+                $table->index('result_keyword', 'dmapi_result_keyword_idx');
+                $table->index('items_type', 'dmapi_items_type_idx');
+                $table->index('rank_group', 'dmapi_rank_group_idx');
+                $table->index('rank_absolute', 'dmapi_rank_absolute_idx');
+                $table->index('domain', 'dmapi_domain_idx');
+                $table->index('bought_past_month', 'dmapi_bought_past_month_idx');
+                $table->index('price_from', 'dmapi_price_from_idx');
+                $table->index('price_to', 'dmapi_price_to_idx');
+                $table->index('data_asin', 'dmapi_data_asin_idx');
+
+                $table->index('rating_value', 'dmapi_rating_value_idx');
+                $table->index('rating_votes_count', 'dmapi_rating_votes_count_idx');
+                $table->index('rating_rating_max', 'dmapi_rating_rating_max_idx');
+
+                $table->index('is_amazon_choice', 'dmapi_is_amazon_choice_idx');
+                $table->index('is_best_seller', 'dmapi_is_best_seller_idx');
+
+                $table->index('processed_at', 'dmapi_processed_at_idx');
+
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'items_type', 'rank_absolute'], 'dmapi_keyword_location_language_device_type_rankabs_unique');
             } else {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'rank_absolute']);
+                $table->index('response_id');
+                $table->index('task_id');
+                $table->index('keyword');
+                $table->index('se_domain');
+                $table->index('location_code');
+                $table->index('language_code');
+                $table->index('device');
+                $table->index('os');
+                $table->index('tag');
+
+                $table->index('result_keyword');
+                $table->index('items_type');
+                $table->index('rank_group');
+                $table->index('rank_absolute');
+                $table->index('domain');
+                $table->index('bought_past_month');
+                $table->index('price_from');
+                $table->index('price_to');
+                $table->index('data_asin');
+
+                $table->index('rating_value');
+                $table->index('rating_votes_count');
+                $table->index('rating_rating_max');
+
+                $table->index('is_amazon_choice');
+                $table->index('is_best_seller');
+
+                $table->index('processed_at');
+
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'items_type', 'rank_absolute']);
             }
         });
 
@@ -1785,7 +1887,7 @@ function create_dataforseo_merchant_amazon_asins_table(
             $table->string('author')->nullable()->index();
             $table->string('data_asin')->nullable()->index();
             $table->string('parent_asin')->nullable()->index();
-            $table->text('product_asins')->nullable(); // From result.items.product_asins
+            $table->text('product_asins')->nullable(); // JSON, should be pretty printed. From result.items.product_asins
             $table->float('price_from')->nullable()->index();
             $table->float('price_to')->nullable()->index();
             $table->string('currency')->nullable();
@@ -1801,10 +1903,10 @@ function create_dataforseo_merchant_amazon_asins_table(
 
             // More fields
             $table->boolean('is_newer_model_available')->nullable()->index();
-            $table->text('applicable_vouchers')->nullable(); // From result.items.applicable_vouchers
-            $table->text('newer_model')->nullable(); // From result.items.newer_model
-            $table->text('categories')->nullable(); // From result.items.categories
-            $table->text('product_information')->nullable(); // From result.items.product_information
+            $table->text('applicable_vouchers')->nullable(); // JSON, should be pretty printed. From result.items.applicable_vouchers
+            $table->text('newer_model')->nullable(); // JSON, should be pretty printed. From result.items.newer_model
+            $table->text('categories')->nullable(); // JSON, should be pretty printed. From result.items.categories
+            $table->text('product_information')->nullable(); // JSON, should be pretty printed. From result.items.product_information
 
             $table->text('product_images_list')->nullable(); // JSON, should be pretty printed. From result.items.product_images_list
             $table->text('product_videos_list')->nullable(); // JSON, should be pretty printed. From result.items.product_videos_list
@@ -1817,13 +1919,13 @@ function create_dataforseo_merchant_amazon_asins_table(
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for asin, location_code, language_code, device
+            // Add unique index for asin, location_code, language_code, device, data_asin
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['asin', 'location_code', 'language_code', 'device'], 'dmaa_asin_location_language_device_unique');
+                $table->unique(['asin', 'location_code', 'language_code', 'device', 'data_asin'], 'dmaa_asin_location_language_device_data_asin_unique');
             } else {
-                $table->unique(['asin', 'location_code', 'language_code', 'device']);
+                $table->unique(['asin', 'location_code', 'language_code', 'device', 'data_asin']);
             }
         });
 

@@ -27,7 +27,7 @@ $processor = new DataForSeoBacklinksBulkProcessor();
 // Include sandbox responses for testing
 $processor->setSkipSandbox(false);
 
-// Disable update if newer to test insert only
+// Test setUpdateIfNewer functionality
 $processor->setUpdateIfNewer(false);
 
 // Reset processed status for responses and clear processed tables

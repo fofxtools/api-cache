@@ -20,13 +20,13 @@ class DataForSeoBacklinksBulkProcessor
     private bool $skipSandbox         = true;
     private bool $updateIfNewer       = true;
     private array $endpointsToProcess = [
-        'backlinks/bulk_ranks/live',
-        'backlinks/bulk_backlinks/live',
-        'backlinks/bulk_spam_score/live',
-        'backlinks/bulk_referring_domains/live',
-        'backlinks/bulk_new_lost_backlinks/live',
-        'backlinks/bulk_new_lost_referring_domains/live',
-        'backlinks/bulk_pages_summary/live',
+        'backlinks/bulk_ranks/live%',
+        'backlinks/bulk_backlinks/live%',
+        'backlinks/bulk_spam_score/live%',
+        'backlinks/bulk_referring_domains/live%',
+        'backlinks/bulk_new_lost_backlinks/live%',
+        'backlinks/bulk_new_lost_referring_domains/live%',
+        'backlinks/bulk_pages_summary/live%',
     ];
     private string $bulkItemsTable = 'dataforseo_backlinks_bulk_items';
 
@@ -105,9 +105,10 @@ class DataForSeoBacklinksBulkProcessor
 
         $query = DB::table($tableName);
 
+        // Filter by endpoints
         $query->where(function ($q) {
             foreach ($this->endpointsToProcess as $endpoint) {
-                $q->orWhere('endpoint', 'like', "%{$endpoint}%");
+                $q->orWhere('endpoint', 'like', $endpoint);
             }
         });
 
@@ -374,7 +375,7 @@ class DataForSeoBacklinksBulkProcessor
 
         $query->where(function ($q) {
             foreach ($this->endpointsToProcess as $endpoint) {
-                $q->orWhere('endpoint', 'like', "%{$endpoint}%");
+                $q->orWhere('endpoint', 'like', $endpoint);
             }
         });
 

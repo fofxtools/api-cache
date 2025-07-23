@@ -25,12 +25,12 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
     private bool $skipMonthlySearches = false;
     private bool $updateIfNewer       = true;
     private array $endpointsToProcess = [
-        'keywords_data/google_ads/search_volume/task_get',
-        'keywords_data/google_ads/search_volume/live',
-        'keywords_data/google_ads/keywords_for_site/task_get',
-        'keywords_data/google_ads/keywords_for_site/live',
-        'keywords_data/google_ads/keywords_for_keywords/task_get',
-        'keywords_data/google_ads/keywords_for_keywords/live',
+        'keywords_data/google_ads/search_volume/task_get%',
+        'keywords_data/google_ads/search_volume/live%',
+        'keywords_data/google_ads/keywords_for_site/task_get%',
+        'keywords_data/google_ads/keywords_for_site/live%',
+        'keywords_data/google_ads/keywords_for_keywords/task_get%',
+        'keywords_data/google_ads/keywords_for_keywords/live%',
     ];
     private string $itemsTable = 'dataforseo_keywords_data_google_ads_items';
 
@@ -131,9 +131,10 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
 
         $query = DB::table($tableName);
 
+        // Filter by endpoints
         $query->where(function ($q) {
             foreach ($this->endpointsToProcess as $endpoint) {
-                $q->orWhere('endpoint', 'like', "%{$endpoint}%");
+                $q->orWhere('endpoint', 'like', $endpoint);
             }
         });
 
@@ -400,7 +401,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
 
         $query->where(function ($q) {
             foreach ($this->endpointsToProcess as $endpoint) {
-                $q->orWhere('endpoint', 'like', "%{$endpoint}%");
+                $q->orWhere('endpoint', 'like', $endpoint);
             }
         });
 

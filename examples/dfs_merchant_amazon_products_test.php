@@ -19,16 +19,20 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing keywords data google ads items table
-create_dataforseo_keywords_data_google_ads_items_table($capsule->schema(), dropExisting: true);
+// Drop existing Amazon products tables to test skipNestedItems
+create_dataforseo_merchant_amazon_products_listings_table($capsule->schema(), dropExisting: true);
+create_dataforseo_merchant_amazon_products_items_table($capsule->schema(), dropExisting: true);
 
-$processor = new DataForSeoKeywordsDataGoogleAdsProcessor();
+$processor = new DataForSeoMerchantAmazonProductsProcessor();
 
 // Include sandbox responses for testing
 $processor->setSkipSandbox(false);
 
 // Test setUpdateIfNewer functionality
 $processor->setUpdateIfNewer(false);
+
+// Test skipNestedItems functionality
+$processor->setSkipNestedItems(false);
 
 // Reset processed status for responses and clear processed tables
 $processor->resetProcessed();

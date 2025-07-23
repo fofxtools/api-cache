@@ -170,6 +170,7 @@ $stats = $processor->processResponses(limit: 100, processPaas: true);
 
 ### Features
 
+- Extracts search-level data into `dataforseo_serp_google_organic_listings` table
 - Extracts organic search results into `dataforseo_serp_google_organic_items` table
 - Processes People Also Ask (PAA) items into `dataforseo_serp_google_organic_paa_items` table
 - Handles duplicate detection and updates
@@ -189,6 +190,10 @@ $processor->setUpdateIfNewer(true);
 
 The processor returns detailed statistics:
 - `processed_responses` - Number of responses processed
+- `listings_items` - Search-level data processed
+- `listings_items_inserted` - New searches inserted
+- `listings_items_updated` - Searches updated
+- `listings_items_skipped` - Searches skipped
 - `organic_items` - Organic items found
 - `organic_items_inserted` - New items inserted
 - `organic_items_updated` - Items updated
@@ -201,14 +206,38 @@ The processor returns detailed statistics:
 
 ### Data Structure
 
-#### Organic Search Results (`dataforseo_serp_google_organic_items`)
+#### Search-Level Data (`dataforseo_serp_google_organic_listings`)
 
-Each organic search result contains:
-- `keyword` - Search keyword
+Each search query contains:
+- `keyword` - Search keyword from request
+- `se` - Search engine (e.g. google)
+- `se_type` - Type of search (e.g. organic)
 - `location_code` - Location code
 - `language_code` - Language code
 - `device` - Device type (desktop/mobile)
 - `os` - Device operating system
+- `tag` - Tag passed in request
+- `result_keyword` - Keyword in result data (may be different from request search keyword due to spelling correction)
+- `type` - Type of search (e.g. organic)
+- `se_domain` - Search engine domain (e.g. google.com)
+- `check_url` - Direct URL to search engine results
+- `result_datetime` - Date and time when the result was received
+- `spell` - Autocorrection of the search engine
+- `refinement_chips` - Search refinement chips
+- `item_types` - Types of results found (JSON)
+- `se_results_count` - Total results found by search engine
+- `items_count` - Number of items returned in response
+
+#### Organic Search Results (`dataforseo_serp_google_organic_items`)
+
+Each organic search result contains:
+- `keyword` - Search keyword from result
+- `se_domain` - Search engine domain (e.g. google.com)
+- `location_code` - Location code
+- `language_code` - Language code
+- `device` - Device type (desktop/mobile)
+- `os` - Device operating system
+- `items_type` - Type of result (e.g. organic)
 - `rank_group` - Ranking group
 - `rank_absolute` - Absolute ranking position
 - `domain` - Result domain
@@ -226,13 +255,16 @@ Each organic search result contains:
 
 Each People Also Ask item contains:
 - `keyword` - Original search keyword
+- `se_domain` - Search engine domain (e.g. google.com)
 - `location_code` - Location code
 - `language_code` - Language code
 - `device` - Device type (desktop/mobile)
 - `os` - Device operating system
 - `item_position` - Position within PAA section
+- `type` - Type of item (e.g. people_also_ask_element)
 - `title` - Question title
 - `seed_question` - Original seed question
+- `xpath` - The XPath of the element
 - `answer_type` - Type of answer element
 - `answer_featured_title` - Featured title in answer
 - `answer_url` - URL of answer source

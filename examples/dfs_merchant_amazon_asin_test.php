@@ -19,10 +19,10 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing keywords data google ads items table
-create_dataforseo_keywords_data_google_ads_items_table($capsule->schema(), dropExisting: true);
+// Drop existing Amazon ASIN table to test fresh processing
+create_dataforseo_merchant_amazon_asins_table($capsule->schema(), dropExisting: true);
 
-$processor = new DataForSeoKeywordsDataGoogleAdsProcessor();
+$processor = new DataForSeoMerchantAmazonAsinProcessor();
 
 // Include sandbox responses for testing
 $processor->setSkipSandbox(false);
@@ -30,9 +30,15 @@ $processor->setSkipSandbox(false);
 // Test setUpdateIfNewer functionality
 $processor->setUpdateIfNewer(false);
 
-// Reset processed status for responses and clear processed tables
+// Test skipReviews functionality
+$processor->setSkipReviews(false);
+
+// Test skipProductInformation functionality
+$processor->setSkipProductInformation(false);
+
+// Reset processed status for responses and clear processed table
 $processor->resetProcessed();
-$clearedStats = $processor->clearProcessedTables();
+$clearedStats = $processor->clearProcessedTables(true);
 print_r($clearedStats);
 
 $stats = $processor->processResponses(100);

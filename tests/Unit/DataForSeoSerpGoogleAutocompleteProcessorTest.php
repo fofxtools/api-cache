@@ -208,9 +208,74 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
     }
 
     /**
-     * Data provider for extractMetadata test
+     * Data provider for extractTaskData test
      */
-    public static function extractMetadataDataProvider(): array
+    public static function extractTaskDataDataProvider(): array
+    {
+        return [
+            'complete_data' => [
+                [
+                    'keyword'        => 'test keyword',
+                    'location_code'  => 2840,
+                    'language_code'  => 'en',
+                    'device'         => 'desktop',
+                    'os'             => 'windows',
+                    'cursor_pointer' => 16,
+                    'tag'            => 'test-tag',
+                    'extra_field'    => 'ignored',
+                ],
+                [
+                    'keyword'        => 'test keyword',
+                    'location_code'  => 2840,
+                    'language_code'  => 'en',
+                    'device'         => 'desktop',
+                    'os'             => 'windows',
+                    'cursor_pointer' => 16,
+                    'tag'            => 'test-tag',
+                ],
+            ],
+            'partial_data' => [
+                [
+                    'keyword' => 'partial keyword',
+                    'device'  => 'mobile',
+                    'os'      => 'android',
+                ],
+                [
+                    'keyword'        => 'partial keyword',
+                    'location_code'  => null,
+                    'language_code'  => null,
+                    'device'         => 'mobile',
+                    'os'             => 'android',
+                    'cursor_pointer' => -1,
+                    'tag'            => null,
+                ],
+            ],
+            'empty_data' => [
+                [],
+                [
+                    'keyword'        => null,
+                    'location_code'  => null,
+                    'language_code'  => null,
+                    'device'         => null,
+                    'os'             => null,
+                    'cursor_pointer' => -1,
+                    'tag'            => null,
+                ],
+            ],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractTaskDataDataProvider')]
+    public function test_extract_task_data(array $input, array $expected): void
+    {
+        $result = $this->processor->extractTaskData($input);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Data provider for extractResultMetadata test
+     */
+    public static function extractResultMetadataDataProvider(): array
     {
         return [
             'complete_data' => [
@@ -224,10 +289,8 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
                     'extra_field'   => 'ignored',
                 ],
                 [
-                    'keyword'       => 'test keyword',
-                    'se_domain'     => 'google.com',
-                    'location_code' => 2840,
-                    'language_code' => 'en',
+                    'result_keyword' => 'test keyword',
+                    'se_domain'      => 'google.com',
                 ],
             ],
             'partial_data' => [
@@ -236,46 +299,57 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
                     'se_domain' => 'google.co.uk',
                 ],
                 [
-                    'keyword'       => 'partial keyword',
-                    'se_domain'     => 'google.co.uk',
-                    'location_code' => null,
-                    'language_code' => null,
+                    'result_keyword' => 'partial keyword',
+                    'se_domain'      => 'google.co.uk',
                 ],
             ],
             'empty_data' => [
                 [],
                 [
-                    'keyword'       => null,
-                    'se_domain'     => null,
-                    'location_code' => null,
-                    'language_code' => null,
+                    'result_keyword' => null,
+                    'se_domain'      => null,
                 ],
             ],
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('extractMetadataDataProvider')]
-    public function test_extract_metadata(array $input, array $expected): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractResultMetadataDataProvider')]
+    public function test_extract_result_metadata(array $input, array $expected): void
     {
-        $result = $this->processor->extractMetadata($input);
+        $result = $this->processor->extractResultMetadata($input);
         $this->assertEquals($expected, $result);
     }
 
     /**
-     * Data provider for extractTaskMetadata test
+     * Data provider for extractAutocompleteItemsData test
      */
-    public static function extractTaskMetadataDataProvider(): array
+    public static function extractAutocompleteItemsDataDataProvider(): array
     {
         return [
             'complete_data' => [
                 [
+                    'response_id'    => 123,
+                    'task_id'        => 'task-456',
+                    'keyword'        => 'test keyword',
+                    'tag'            => 'test-tag',
+                    'result_keyword' => 'test result keyword',
+                    'se_domain'      => 'google.com',
+                    'location_code'  => 2840,
+                    'language_code'  => 'en',
                     'device'         => 'desktop',
                     'os'             => 'windows',
                     'cursor_pointer' => 16,
-                    'keyword'        => 'ignored',
-                    'extra_field'    => 'ignored',
+                    'extra_field'    => 'should be filtered out',
                 ],
                 [
+                    'response_id'    => 123,
+                    'task_id'        => 'task-456',
+                    'keyword'        => 'test keyword',
+                    'tag'            => 'test-tag',
+                    'result_keyword' => 'test result keyword',
+                    'se_domain'      => 'google.com',
+                    'location_code'  => 2840,
+                    'language_code'  => 'en',
                     'device'         => 'desktop',
                     'os'             => 'windows',
                     'cursor_pointer' => 16,
@@ -283,18 +357,34 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
             ],
             'partial_data' => [
                 [
-                    'device' => 'mobile',
-                    'os'     => 'android',
+                    'keyword'   => 'partial keyword',
+                    'se_domain' => 'google.co.uk',
                 ],
                 [
-                    'device'         => 'mobile',
-                    'os'             => 'android',
+                    'response_id'    => null,
+                    'task_id'        => null,
+                    'keyword'        => 'partial keyword',
+                    'tag'            => null,
+                    'result_keyword' => null,
+                    'se_domain'      => 'google.co.uk',
+                    'location_code'  => null,
+                    'language_code'  => null,
+                    'device'         => null,
+                    'os'             => null,
                     'cursor_pointer' => -1,
                 ],
             ],
             'empty_data' => [
                 [],
                 [
+                    'response_id'    => null,
+                    'task_id'        => null,
+                    'keyword'        => null,
+                    'tag'            => null,
+                    'result_keyword' => null,
+                    'se_domain'      => null,
+                    'location_code'  => null,
+                    'language_code'  => null,
                     'device'         => null,
                     'os'             => null,
                     'cursor_pointer' => -1,
@@ -303,10 +393,10 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('extractTaskMetadataDataProvider')]
-    public function test_extract_task_metadata(array $input, array $expected): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractAutocompleteItemsDataDataProvider')]
+    public function test_extract_autocomplete_items_data(array $input, array $expected): void
     {
-        $result = $this->processor->extractTaskMetadata($input);
+        $result = $this->processor->extractAutocompleteItemsData($input);
         $this->assertEquals($expected, $result);
     }
 

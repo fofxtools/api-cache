@@ -209,9 +209,15 @@ class DataForSeoBacklinksBulkProcessorTest extends TestCase
         $this->assertEquals(0, DB::table($this->bulkItemsTable)->count());
     }
 
-    public function test_extract_metadata_returns_empty_array(): void
+    public function test_extract_task_data_returns_empty_array(): void
     {
-        $result = $this->processor->extractMetadata(['total_count' => 10, 'items_count' => 5]);
+        $result = $this->processor->extractTaskData(['keyword' => 'test', 'location_code' => 2840]);
+        $this->assertEquals([], $result);
+    }
+
+    public function test_extract_result_metadata_returns_empty_array(): void
+    {
+        $result = $this->processor->extractResultMetadata(['total_count' => 10, 'items_count' => 5]);
         $this->assertEquals([], $result);
     }
 
@@ -448,7 +454,7 @@ class DataForSeoBacklinksBulkProcessorTest extends TestCase
 
     public function test_process_bulk_items(): void
     {
-        $taskData = [
+        $mergedData = [
             'task_id'     => 'task-123',
             'response_id' => 456,
         ];
@@ -473,7 +479,7 @@ class DataForSeoBacklinksBulkProcessorTest extends TestCase
             ],
         ];
 
-        $result = $this->processor->processBulkItems($items, $taskData);
+        $result = $this->processor->processBulkItems($items, $mergedData);
 
         $this->assertEquals(2, $result['bulk_items']);
         $this->assertEquals(2, $result['items_inserted']);
@@ -505,8 +511,8 @@ class DataForSeoBacklinksBulkProcessorTest extends TestCase
 
     public function test_process_bulk_items_with_empty_array(): void
     {
-        $taskData = ['task_id' => 'test'];
-        $result   = $this->processor->processBulkItems([], $taskData);
+        $mergedData = ['task_id' => 'test'];
+        $result     = $this->processor->processBulkItems([], $mergedData);
 
         $this->assertEquals(0, $result['bulk_items']);
         $this->assertEquals(0, $result['items_inserted']);

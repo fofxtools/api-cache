@@ -241,9 +241,9 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
         $this->assertEquals(0, DB::table($this->googleAdsItemsTable)->count());
     }
 
-    public function test_extract_metadata(): void
+    public function test_extract_task_data(): void
     {
-        $result = $this->processor->extractMetadata([
+        $result = $this->processor->extractTaskData([
             'se'            => 'google_ads',
             'location_code' => 2840,
             'language_code' => 'en',
@@ -259,9 +259,9 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
         $this->assertEquals($expected, $result);
     }
 
-    public function test_extract_metadata_with_missing_fields(): void
+    public function test_extract_task_data_with_missing_fields(): void
     {
-        $result = $this->processor->extractMetadata([
+        $result = $this->processor->extractTaskData([
             'se' => 'google_ads',
             // missing location_code and language_code
         ]);
@@ -271,6 +271,21 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
             'location_code' => null,
             'language_code' => null,
         ];
+
+        $this->assertEquals($expected, $result);
+    }
+
+    public function test_extract_result_metadata(): void
+    {
+        $result = $this->processor->extractResultMetadata([
+            'keyword'       => 'test keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'extra_field'   => 'ignored',
+        ]);
+
+        // Should return empty array as Keywords Data Google Ads doesn't use result metadata
+        $expected = [];
 
         $this->assertEquals($expected, $result);
     }
@@ -541,7 +556,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
     {
         $this->processor->setSkipMonthlySearches(false);
 
-        $taskData = [
+        $mergedData = [
             'se'            => 'google_ads',
             'location_code' => 2840,
             'language_code' => 'en',
@@ -573,7 +588,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
             ],
         ];
 
-        $result = $this->processor->processGoogleAdsItems($items, $taskData);
+        $result = $this->processor->processGoogleAdsItems($items, $mergedData);
 
         $this->assertEquals(2, $result['google_ads_items']);
         $this->assertEquals(2, $result['items_inserted']);
@@ -608,7 +623,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
     {
         $this->processor->setSkipMonthlySearches(true);
 
-        $taskData = [
+        $mergedData = [
             'se'            => 'google_ads',
             'location_code' => 2840,
             'language_code' => 'en',
@@ -628,7 +643,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
             ],
         ];
 
-        $result = $this->processor->processGoogleAdsItems($items, $taskData);
+        $result = $this->processor->processGoogleAdsItems($items, $mergedData);
 
         $this->assertEquals(1, $result['google_ads_items']);
         $this->assertEquals(1, $result['items_inserted']);
@@ -641,8 +656,8 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
 
     public function test_process_google_ads_items_with_empty_array(): void
     {
-        $taskData = ['task_id' => 'test'];
-        $result   = $this->processor->processGoogleAdsItems([], $taskData);
+        $mergedData = ['task_id' => 'test'];
+        $result     = $this->processor->processGoogleAdsItems([], $mergedData);
 
         $this->assertEquals(0, $result['google_ads_items']);
         $this->assertEquals(0, $result['items_inserted']);

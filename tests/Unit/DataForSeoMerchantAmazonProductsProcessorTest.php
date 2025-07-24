@@ -232,73 +232,168 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
         $this->assertEquals(1, $stats['items_cleared']);
     }
 
-    public function test_extract_metadata(): void
+    public function test_extract_task_data(): void
     {
-        $result = [
-            'keyword'       => 'gaming keyboard',
-            'se_domain'     => 'amazon.com',
+        $taskData = [
+            'keyword'       => 'test keyword',
+            'se'            => 'amazon',
+            'se_type'       => 'products',
+            'function'      => 'products',
             'location_code' => 2840,
             'language_code' => 'en_US',
             'device'        => 'desktop',
             'os'            => 'windows',
+            'tag'           => 'test-tag',
         ];
 
-        $metadata = $this->processor->extractMetadata($result);
+        $result = $this->processor->extractTaskData($taskData);
 
-        $this->assertEquals('gaming keyboard', $metadata['keyword']);
-        $this->assertEquals('amazon.com', $metadata['se_domain']);
-        $this->assertEquals(2840, $metadata['location_code']);
-        $this->assertEquals('en_US', $metadata['language_code']);
-        $this->assertEquals('desktop', $metadata['device']);
-        $this->assertEquals('windows', $metadata['os']);
+        $this->assertEquals('test keyword', $result['keyword']);
+        $this->assertEquals('amazon', $result['se']);
+        $this->assertEquals('products', $result['se_type']);
+        $this->assertEquals('products', $result['function']);
+        $this->assertEquals(2840, $result['location_code']);
+        $this->assertEquals('en_US', $result['language_code']);
+        $this->assertEquals('desktop', $result['device']);
+        $this->assertEquals('windows', $result['os']);
+        $this->assertEquals('test-tag', $result['tag']);
     }
 
-    public function test_extract_metadata_with_missing_fields(): void
+    public function test_extract_task_data_with_missing_fields(): void
+    {
+        $taskData = [
+            'keyword' => 'test keyword',
+            'se'      => 'amazon',
+        ];
+
+        $result = $this->processor->extractTaskData($taskData);
+
+        $this->assertEquals('test keyword', $result['keyword']);
+        $this->assertEquals('amazon', $result['se']);
+        $this->assertNull($result['se_type']);
+        $this->assertNull($result['function']);
+        $this->assertNull($result['location_code']);
+        $this->assertNull($result['language_code']);
+        $this->assertNull($result['device']);
+        $this->assertNull($result['os']);
+        $this->assertNull($result['tag']);
+    }
+
+    public function test_extract_result_metadata(): void
     {
         $result = [
-            'keyword'       => 'gaming keyboard',
-            'location_code' => 2840,
+            'keyword'          => 'gaming keyboard',
+            'type'             => 'organic',
+            'se_domain'        => 'amazon.com',
+            'check_url'        => 'https://amazon.com/search?q=gaming+keyboard',
+            'datetime'         => '2023-01-01 12:00:00',
+            'spell'            => ['original' => 'gaming keyboard'],
+            'item_types'       => ['amazon_serp'],
+            'se_results_count' => 1000,
+            'categories'       => ['Electronics'],
+            'items_count'      => 50,
         ];
 
-        $metadata = $this->processor->extractMetadata($result);
+        $metadata = $this->processor->extractResultMetadata($result);
 
-        $this->assertEquals('gaming keyboard', $metadata['keyword']);
-        $this->assertEquals(2840, $metadata['location_code']);
-        $this->assertNull($metadata['se_domain']);
-        $this->assertNull($metadata['language_code']);
-        $this->assertNull($metadata['device']);
-        $this->assertNull($metadata['os']);
+        $this->assertEquals('gaming keyboard', $metadata['result_keyword']);
+        $this->assertEquals('organic', $metadata['type']);
+        $this->assertEquals('amazon.com', $metadata['se_domain']);
+        $this->assertEquals('https://amazon.com/search?q=gaming+keyboard', $metadata['check_url']);
+        $this->assertEquals('2023-01-01 12:00:00', $metadata['result_datetime']);
+        $this->assertEquals(['original' => 'gaming keyboard'], $metadata['spell']);
+        $this->assertEquals(['amazon_serp'], $metadata['item_types']);
+        $this->assertEquals(1000, $metadata['se_results_count']);
+        $this->assertEquals(['Electronics'], $metadata['categories']);
+        $this->assertEquals(50, $metadata['items_count']);
     }
 
-    public function test_extract_listings_task_metadata(): void
+    public function test_extract_result_metadata_with_missing_fields(): void
     {
-        $taskData = [
-            'se'       => 'amazon',
-            'se_type'  => 'organic',
-            'function' => 'products',
-            'tag'      => 'test-tag',
+        $result = [
+            'keyword'   => 'gaming keyboard',
+            'se_domain' => 'amazon.com',
         ];
 
-        $metadata = $this->processor->extractListingsTaskMetadata($taskData);
+        $metadata = $this->processor->extractResultMetadata($result);
 
-        $this->assertEquals('amazon', $metadata['se']);
-        $this->assertEquals('organic', $metadata['se_type']);
-        $this->assertEquals('products', $metadata['function']);
-        $this->assertEquals('test-tag', $metadata['tag']);
+        $this->assertEquals('gaming keyboard', $metadata['result_keyword']);
+        $this->assertEquals('amazon.com', $metadata['se_domain']);
+        $this->assertNull($metadata['type']);
+        $this->assertNull($metadata['check_url']);
+        $this->assertNull($metadata['result_datetime']);
+        $this->assertNull($metadata['spell']);
+        $this->assertNull($metadata['item_types']);
+        $this->assertNull($metadata['se_results_count']);
+        $this->assertNull($metadata['categories']);
+        $this->assertNull($metadata['items_count']);
     }
 
-    public function test_extract_listings_task_metadata_with_missing_fields(): void
+    public function test_extract_products_items_data(): void
     {
-        $taskData = [
-            'se' => 'amazon',
+        $mergedData = [
+            'response_id'     => 123,
+            'task_id'         => 'task-456',
+            'keyword'         => 'test keyword',
+            'se'              => 'amazon',
+            'se_type'         => 'products',
+            'function'        => 'products',
+            'se_domain'       => 'amazon.com',
+            'location_code'   => 2840,
+            'language_code'   => 'en_US',
+            'device'          => 'desktop',
+            'os'              => 'windows',
+            'tag'             => 'test-tag',
+            'result_keyword'  => 'test result keyword',
+            'type'            => 'organic',
+            'check_url'       => 'https://amazon.com/search',
+            'result_datetime' => '2023-01-01 12:00:00',
+            'extra_field'     => 'should be filtered out',
         ];
 
-        $metadata = $this->processor->extractListingsTaskMetadata($taskData);
+        $result = $this->processor->extractProductsItemsData($mergedData);
 
-        $this->assertEquals('amazon', $metadata['se']);
-        $this->assertNull($metadata['se_type']);
-        $this->assertNull($metadata['function']);
-        $this->assertNull($metadata['tag']);
+        // Should include these fields
+        $this->assertEquals(123, $result['response_id']);
+        $this->assertEquals('task-456', $result['task_id']);
+        $this->assertEquals('test keyword', $result['keyword']);
+        $this->assertEquals('amazon.com', $result['se_domain']);
+        $this->assertEquals(2840, $result['location_code']);
+        $this->assertEquals('en_US', $result['language_code']);
+        $this->assertEquals('desktop', $result['device']);
+        $this->assertEquals('windows', $result['os']);
+        $this->assertEquals('test-tag', $result['tag']);
+        $this->assertEquals('test result keyword', $result['result_keyword']);
+
+        // Should NOT include these fields (filtered out for items table)
+        $this->assertArrayNotHasKey('se', $result);
+        $this->assertArrayNotHasKey('se_type', $result);
+        $this->assertArrayNotHasKey('function', $result);
+        $this->assertArrayNotHasKey('type', $result);
+        $this->assertArrayNotHasKey('check_url', $result);
+        $this->assertArrayNotHasKey('result_datetime', $result);
+        $this->assertArrayNotHasKey('extra_field', $result);
+    }
+
+    public function test_extract_products_items_data_with_missing_fields(): void
+    {
+        $mergedData = [
+            'keyword'   => 'test keyword',
+            'se_domain' => 'amazon.com',
+        ];
+
+        $result = $this->processor->extractProductsItemsData($mergedData);
+
+        $this->assertEquals('test keyword', $result['keyword']);
+        $this->assertEquals('amazon.com', $result['se_domain']);
+        $this->assertNull($result['response_id']);
+        $this->assertNull($result['task_id']);
+        $this->assertNull($result['location_code']);
+        $this->assertNull($result['language_code']);
+        $this->assertNull($result['device']);
+        $this->assertNull($result['os']);
+        $this->assertNull($result['tag']);
+        $this->assertNull($result['result_keyword']);
     }
 
     public function test_ensure_defaults(): void
@@ -402,20 +497,32 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
             'items_count'      => 50,
         ];
 
-        $listingsTaskData = [
-            'keyword'       => 'gaming keyboard',
-            'location_code' => 2840,
-            'language_code' => 'en_US',
-            'device'        => 'desktop',
-            'se'            => 'amazon',
-            'se_type'       => 'organic',
-            'function'      => 'products',
-            'tag'           => 'test-tag',
-            'task_id'       => 'task-123',
-            'response_id'   => 1,
+        // Merged task data and result metadata (as would be done in processResponse)
+        $mergedData = [
+            'keyword'          => 'gaming keyboard',
+            'se'               => 'amazon',
+            'se_type'          => 'products',
+            'function'         => 'products',
+            'location_code'    => 2840,
+            'language_code'    => 'en_US',
+            'device'           => 'desktop',
+            'os'               => 'windows',
+            'tag'              => 'test-tag',
+            'task_id'          => 'task-123',
+            'response_id'      => 1,
+            'result_keyword'   => 'gaming keyboard',
+            'type'             => 'organic',
+            'se_domain'        => 'amazon.com',
+            'check_url'        => 'https://www.amazon.com/s?k=gaming+keyboard',
+            'result_datetime'  => '2023-01-01 12:00:00',
+            'spell'            => ['corrected' => 'gaming keyboard'],
+            'item_types'       => ['amazon_serp', 'amazon_paid'],
+            'se_results_count' => 1000,
+            'categories'       => ['Electronics', 'Computers'],
+            'items_count'      => 50,
         ];
 
-        $stats = $this->processor->processListings($result, $listingsTaskData);
+        $stats = $this->processor->processListings($result, $mergedData);
 
         $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['items_inserted']);
@@ -463,7 +570,7 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
             ],
         ];
 
-        $mergedTaskData = [
+        $mergedData = [
             'keyword'       => 'gaming keyboard',
             'location_code' => 2840,
             'language_code' => 'en_US',
@@ -473,7 +580,7 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
             'response_id'   => 1,
         ];
 
-        $stats = $this->processor->processItems($items, $mergedTaskData);
+        $stats = $this->processor->processItems($items, $mergedData);
 
         $this->assertEquals(1, $stats['items_processed']);
         $this->assertEquals(1, $stats['items_inserted']);
@@ -513,7 +620,7 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
             ],
         ];
 
-        $mergedTaskData = [
+        $mergedData = [
             'keyword'       => 'gaming keyboard',
             'location_code' => 2840,
             'language_code' => 'en_US',
@@ -523,7 +630,7 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
             'response_id'   => 1,
         ];
 
-        $stats = $this->processor->processItems($items, $mergedTaskData);
+        $stats = $this->processor->processItems($items, $mergedData);
 
         // Only 1 item should be processed (the one with data_asin)
         $this->assertEquals(1, $stats['items_processed']);

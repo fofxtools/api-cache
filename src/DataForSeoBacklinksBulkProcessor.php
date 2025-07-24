@@ -146,13 +146,27 @@ class DataForSeoBacklinksBulkProcessor
     }
 
     /**
-     * Extract metadata from result level
+     * Extract task data from tasks.data (request parameters)
      *
-     * @param array $result The result data
+     * @param array $taskData The task data from tasks.data
      *
-     * @return array The extracted result metadata
+     * @return array The extracted task-specific fields
      */
-    public function extractMetadata(array $result): array
+    public function extractTaskData(array $taskData): array
+    {
+        // Backlinks API Bulk endpoints don't provide task-level data we use
+        // Return empty array for consistency with other processors
+        return [];
+    }
+
+    /**
+     * Extract result metadata from tasks.result (response metadata)
+     *
+     * @param array $result The result data from tasks.result
+     *
+     * @return array The extracted result-specific fields
+     */
+    public function extractResultMetadata(array $result): array
     {
         return [];
     }
@@ -250,12 +264,12 @@ class DataForSeoBacklinksBulkProcessor
     /**
      * Process bulk items from response
      *
-     * @param array $items    The items to process
-     * @param array $taskData The task data
+     * @param array $items      The items to process
+     * @param array $mergedData The merged task data and result metadata
      *
      * @return array Statistics about processing including item count and insert/update details
      */
-    public function processBulkItems(array $items, array $taskData): array
+    public function processBulkItems(array $items, array $mergedData): array
     {
         $bulkItems = [];
         $now       = now();
@@ -277,7 +291,7 @@ class DataForSeoBacklinksBulkProcessor
                 continue;
             }
 
-            $nextItem = array_merge($taskData, [
+            $nextItem = array_merge($mergedData, [
                 'target'     => $target,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -332,9 +346,10 @@ class DataForSeoBacklinksBulkProcessor
                 continue;
             }
 
-            $taskData                = [];
-            $taskData['task_id']     = $task['id'] ?? null;
-            $taskData['response_id'] = $response->id;
+            // Extract task data from tasks.data (request parameters) and use as base for adding processing metadata
+            $baseTaskData                = $this->extractTaskData($task['data'] ?? []);
+            $baseTaskData['task_id']     = $task['id'] ?? null;
+            $baseTaskData['response_id'] = $response->id;
 
             foreach ($task['result'] as $result) {
                 if (!isset($result['items'])) {
@@ -343,10 +358,11 @@ class DataForSeoBacklinksBulkProcessor
 
                 $stats['total_items'] += count($result['items']);
 
-                $mergedTaskData = array_merge($taskData, $this->extractMetadata($result));
-                $mergedTaskData = $this->ensureDefaults($mergedTaskData);
+                // Merge task data with result metadata from tasks.result
+                $mergedData = array_merge($baseTaskData, $this->extractResultMetadata($result));
+                $mergedData = $this->ensureDefaults($mergedData);
 
-                $itemStats = $this->processBulkItems($result['items'], $mergedTaskData);
+                $itemStats = $this->processBulkItems($result['items'], $mergedData);
                 $stats['bulk_items'] += $itemStats['bulk_items'];
                 $stats['items_inserted'] += $itemStats['items_inserted'];
                 $stats['items_updated'] += $itemStats['items_updated'];

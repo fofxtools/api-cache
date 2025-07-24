@@ -172,19 +172,34 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
     }
 
     /**
-     * Extract metadata from result level
+     * Extract task data from tasks.data (request parameters)
      *
-     * @param array $result The result data
+     * @param array $taskData The task data from tasks.data
      *
-     * @return array The extracted result metadata
+     * @return array The extracted task-specific fields
      */
-    public function extractMetadata(array $result): array
+    public function extractTaskData(array $taskData): array
     {
         return [
-            'se'            => $result['se'] ?? null,
-            'location_code' => $result['location_code'] ?? null,
-            'language_code' => $result['language_code'] ?? null,
+            'se'            => $taskData['se'] ?? null,
+            'location_code' => $taskData['location_code'] ?? null,
+            'language_code' => $taskData['language_code'] ?? null,
         ];
+    }
+
+    /**
+     * Extract result metadata from tasks.result (response metadata)
+     *
+     * @param array $result The result data from tasks.result
+     *
+     * @return array The extracted result-specific fields
+     */
+    public function extractResultMetadata(array $result): array
+    {
+        // Keywords Data Google Ads endpoints don't provide result metadata we use
+        // All the meaningful data is in the individual result items
+        // Return empty array for consistency with other processors
+        return [];
     }
 
     /**
@@ -275,12 +290,12 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
     /**
      * Process items from response
      *
-     * @param array $items    The items to process
-     * @param array $taskData The task data
+     * @param array $items      The items to process
+     * @param array $mergedData The merged task and result data
      *
      * @return array Statistics about processing including item count and insert/update details
      */
-    public function processGoogleAdsItems(array $items, array $taskData): array
+    public function processGoogleAdsItems(array $items, array $mergedData): array
     {
         $googleAdsItems = [];
         $now            = now();
@@ -297,7 +312,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
                 continue;
             }
 
-            $nextItem = array_merge($taskData, [
+            $nextItem = array_merge($mergedData, [
                 'keyword'    => $keyword,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -360,19 +375,20 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
                 continue;
             }
 
-            $taskData                = $this->extractMetadata($task['data'] ?? []);
-            $taskData['task_id']     = $task['id'] ?? null;
-            $taskData['response_id'] = $response->id;
+            // Extract task data from tasks.data (request parameters) and use as base for adding processing metadata
+            $baseTaskData                = $this->extractTaskData($task['data'] ?? []);
+            $baseTaskData['task_id']     = $task['id'] ?? null;
+            $baseTaskData['response_id'] = $response->id;
 
             foreach ($task['result'] as $result) {
                 // Each $result is already a single keyword item
                 $stats['total_items']++;
 
-                // Merge task data with result data (result data takes precedence)
-                $mergedTaskData = array_merge($taskData, $this->extractMetadata($result));
-                $mergedTaskData = $this->ensureDefaults($mergedTaskData);
+                // Merge task data with result metadata from tasks.result
+                $mergedData = array_merge($baseTaskData, $this->extractResultMetadata($result));
+                $mergedData = $this->ensureDefaults($mergedData);
 
-                $itemStats = $this->processGoogleAdsItems([$result], $mergedTaskData);
+                $itemStats = $this->processGoogleAdsItems([$result], $mergedData);
                 $stats['google_ads_items'] += $itemStats['google_ads_items'];
                 $stats['items_inserted'] += $itemStats['items_inserted'];
                 $stats['items_updated'] += $itemStats['items_updated'];

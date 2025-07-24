@@ -141,35 +141,61 @@ class DataForSeoSerpGoogleAutocompleteProcessor
     }
 
     /**
-     * Extract metadata from result level (for task_get responses)
+     * Extract task data from tasks.data (request parameters)
      *
-     * @param array $result The result data
+     * @param array $taskData The task data from tasks.data
      *
-     * @return array The extracted result metadata
+     * @return array The extracted task-specific fields
      */
-    public function extractMetadata(array $result): array
+    public function extractTaskData(array $taskData): array
     {
         return [
-            'keyword'       => $result['keyword'] ?? null,
-            'se_domain'     => $result['se_domain'] ?? null,
-            'location_code' => $result['location_code'] ?? null,
-            'language_code' => $result['language_code'] ?? null,
+            'keyword'        => $taskData['keyword'] ?? null,
+            'cursor_pointer' => $taskData['cursor_pointer'] ?? -1, // Default to -1 if not specified
+            'location_code'  => $taskData['location_code'] ?? null,
+            'language_code'  => $taskData['language_code'] ?? null,
+            'device'         => $taskData['device'] ?? null,
+            'os'             => $taskData['os'] ?? null,
+            'tag'            => $taskData['tag'] ?? null,
         ];
     }
 
     /**
-     * Extract task-level metadata (device, os, cursor_pointer)
+     * Extract result metadata from tasks.result (response metadata)
      *
-     * @param array $taskData The task data
+     * @param array $result The result data from tasks.result
      *
-     * @return array The extracted task metadata
+     * @return array The extracted result-specific fields
      */
-    public function extractTaskMetadata(array $taskData): array
+    public function extractResultMetadata(array $result): array
     {
         return [
-            'device'         => $taskData['device'] ?? null,
-            'os'             => $taskData['os'] ?? null,
-            'cursor_pointer' => $taskData['cursor_pointer'] ?? -1, // Default to -1 if not specified
+            'result_keyword' => $result['keyword'] ?? null,
+            'se_domain'      => $result['se_domain'] ?? null,
+        ];
+    }
+
+    /**
+     * Extract fields for autocomplete items table from merged data
+     *
+     * @param array $mergedData The merged task data and result metadata
+     *
+     * @return array The filtered data for autocomplete items table
+     */
+    public function extractAutocompleteItemsData(array $mergedData): array
+    {
+        return [
+            'response_id'    => $mergedData['response_id'] ?? null,
+            'task_id'        => $mergedData['task_id'] ?? null,
+            'keyword'        => $mergedData['keyword'] ?? null,
+            'cursor_pointer' => $mergedData['cursor_pointer'] ?? -1,
+            'location_code'  => $mergedData['location_code'] ?? null,
+            'language_code'  => $mergedData['language_code'] ?? null,
+            'device'         => $mergedData['device'] ?? null,
+            'os'             => $mergedData['os'] ?? null,
+            'tag'            => $mergedData['tag'] ?? null,
+            'result_keyword' => $mergedData['result_keyword'] ?? null,
+            'se_domain'      => $mergedData['se_domain'] ?? null,
         ];
     }
 
@@ -325,7 +351,7 @@ class DataForSeoSerpGoogleAutocompleteProcessor
             }
 
             // Extract base task data (device, os, cursor_pointer from task.data)
-            $baseTaskData                = $this->extractTaskMetadata($task['data'] ?? []);
+            $baseTaskData                = $this->extractTaskData($task['data'] ?? []);
             $baseTaskData['task_id']     = $task['id'] ?? null;
             $baseTaskData['response_id'] = $response->id;
 
@@ -337,12 +363,15 @@ class DataForSeoSerpGoogleAutocompleteProcessor
                 // Count total items available for processing
                 $stats['total_items'] += count($result['items']);
 
-                // Merge base task data with result data (result data takes precedence)
-                $mergedTaskData = array_merge($baseTaskData, $this->extractMetadata($result));
-                $mergedTaskData = $this->ensureDefaults($mergedTaskData);
+                // Merge base task data with result metadata (result data takes precedence)
+                $mergedData = array_merge($baseTaskData, $this->extractResultMetadata($result));
+                $mergedData = $this->ensureDefaults($mergedData);
+
+                // Filter merged data for autocomplete items table
+                $autocompleteItemsData = $this->extractAutocompleteItemsData($mergedData);
 
                 // Process autocomplete items and get detailed stats
-                $itemStats = $this->processAutocompleteItems($result['items'], $mergedTaskData);
+                $itemStats = $this->processAutocompleteItems($result['items'], $autocompleteItemsData);
                 $stats['autocomplete_items'] += $itemStats['autocomplete_items'];
                 $stats['items_inserted'] += $itemStats['items_inserted'];
                 $stats['items_updated'] += $itemStats['items_updated'];

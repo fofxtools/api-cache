@@ -837,7 +837,7 @@ function create_dataforseo_serp_google_organic_listings_table(
             $table->string('task_id')->nullable()->index();
 
             // Fields passed
-            $table->string('keyword')->index(); // From data.keyword
+            $table->string('keyword')->index(); // From tasks.data.keyword
             $table->string('se')->index();
             $table->string('se_type')->index();
             $table->integer('location_code')->index();
@@ -847,11 +847,11 @@ function create_dataforseo_serp_google_organic_listings_table(
             $table->string('tag')->nullable()->index();
 
             // Fields returned
-            $table->string('result_keyword')->index(); // From result.keyword
+            $table->string('result_keyword')->nullable()->index(); // From tasks.result.keyword
             $table->string('type')->nullable()->index();
-            $table->string('se_domain')->index();
-            $table->string('check_url')->index();
-            $table->string('result_datetime')->index(); // From result.datetime
+            $table->string('se_domain')->nullable()->index();
+            $table->string('check_url')->nullable()->index();
+            $table->string('result_datetime')->nullable()->index(); // From tasks.result.datetime
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('refinement_chips')->nullable(); // JSON, should be pretty printed
             $table->text('item_types')->nullable(); // JSON, should be pretty printed
@@ -941,14 +941,16 @@ function create_dataforseo_serp_google_organic_items_table(
 
             // Fields passed
             $table->string('keyword')->index();
-            $table->string('se_domain')->index();
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
             $table->string('device', 20)->index();
             $table->string('os')->nullable()->index();
+            $table->string('tag')->nullable()->index();
 
             // Fields returned
-            $table->string('items_type')->nullable()->index(); // From items.type
+            $table->string('result_keyword')->nullable()->index(); // From tasks.result.keyword
+            $table->string('items_type')->nullable()->index(); // From tasks.result.items.type
+            $table->string('se_domain')->nullable()->index();
             $table->integer('rank_group')->nullable()->index();
             $table->integer('rank_absolute')->nullable()->index();
             $table->string('domain')->nullable()->index();
@@ -1048,16 +1050,19 @@ function create_dataforseo_serp_google_organic_paa_items_table(
 
             // Fields passed
             $table->string('keyword')->index();
-            $table->string('se_domain')->index();
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
             $table->string('device', 20)->index();
             $table->string('os')->nullable()->index();
-
-            // Added (not from API)
-            $table->integer('item_position')->index();
+            $table->string('tag')->nullable()->index();
 
             // Fields returned
+            $table->string('result_keyword')->nullable()->index(); // From tasks.result.keyword
+            $table->string('se_domain')->nullable()->index();
+
+            // Added (not from API)
+            $table->integer('paa_sequence')->index();
+
             // From people_also_ask_element
             $table->string('type')->nullable()->index();
             $table->text('title')->nullable();
@@ -1079,13 +1084,13 @@ function create_dataforseo_serp_google_organic_paa_items_table(
             $table->timestamp('processed_at')->nullable()->index();
             $table->text('processed_status')->nullable();
 
-            // Add unique index for keyword, location_code, language_code, device, item_position
+            // Add unique index for keyword, location_code, language_code, device, paa_sequence
             // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
             // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
             if ($driver === 'mysql' || $driver === 'pgsql') {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'item_position'], 'dsgopi_keyword_location_language_device_rankabs_unique');
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'paa_sequence'], 'dsgopi_keyword_location_language_device_rankabs_unique');
             } else {
-                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'item_position']);
+                $table->unique(['keyword', 'location_code', 'language_code', 'device', 'paa_sequence']);
             }
         });
 
@@ -1160,14 +1165,16 @@ function create_dataforseo_serp_google_autocomplete_items_table(
             $table->string('keyword')->index();
             // Add default value to avoid null in unique index for optional fields
             $table->integer('cursor_pointer')->default(-1)->index(); // -1 = not specified
-            $table->string('se_domain')->index();
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
             $table->string('device', 20)->index();
             $table->string('os')->nullable()->index();
+            $table->string('tag')->nullable()->index();
 
             // Fields returned
+            $table->string('result_keyword')->nullable()->index(); // From tasks.result.keyword
             $table->string('type')->nullable()->index();
+            $table->string('se_domain')->nullable()->index();
             $table->integer('rank_group')->nullable()->index();
             $table->integer('rank_absolute')->nullable()->index();
             $table->integer('relevance')->nullable();
@@ -1260,7 +1267,7 @@ function create_dataforseo_keywords_data_google_ads_items_table(
 
             // Fields passed
             $table->string('keyword');
-            $table->string('se');
+            $table->string('se')->nullable();
             // Add default value to avoid null in unique index for optional fields
             $table->integer('location_code')->default(0); // 0 = worldwide/all locations
             $table->string('language_code')->default('none'); // 'none' = no specific language (worldwide)
@@ -1529,7 +1536,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
             $table->string('task_id')->nullable();
 
             // Fields passed
-            $table->string('keyword'); // From data.keyword
+            $table->string('keyword'); // From tasks.data.keyword
             $table->string('se');
             $table->string('se_type');
             $table->string('function');
@@ -1540,11 +1547,11 @@ function create_dataforseo_merchant_amazon_products_listings_table(
             $table->string('tag')->nullable();
 
             // Fields returned
-            $table->string('result_keyword'); // From result.keyword
+            $table->string('result_keyword')->nullable(); // From tasks.result.keyword
             $table->string('type')->nullable();
-            $table->string('se_domain');
-            $table->string('check_url');
-            $table->string('result_datetime'); // From result.datetime
+            $table->string('se_domain')->nullable();
+            $table->string('check_url')->nullable();
+            $table->string('result_datetime')->nullable(); // From tasks.result.datetime
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('item_types')->nullable(); // JSON, should be pretty printed
             $table->integer('se_results_count')->nullable();
@@ -1562,6 +1569,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
             if ($driver === 'mysql' || $driver === 'pgsql') {
                 $table->index('response_id', 'dmapl_response_id_idx');
                 $table->index('task_id', 'dmapl_task_id_idx');
+
                 $table->index('keyword', 'dmapl_keyword_idx');
                 $table->index('se', 'dmapl_se_idx');
                 $table->index('se_type', 'dmapl_se_type_idx');
@@ -1571,6 +1579,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
                 $table->index('device', 'dmapl_device_idx');
                 $table->index('os', 'dmapl_os_idx');
                 $table->index('tag', 'dmapl_tag_idx');
+
                 $table->index('result_keyword', 'dmapl_result_keyword_idx');
                 $table->index('type', 'dmapl_type_idx');
                 $table->index('se_domain', 'dmapl_se_domain_idx');
@@ -1584,6 +1593,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
             } else {
                 $table->index('response_id');
                 $table->index('task_id');
+
                 $table->index('keyword');
                 $table->index('se');
                 $table->index('se_type');
@@ -1593,6 +1603,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
                 $table->index('device');
                 $table->index('os');
                 $table->index('tag');
+
                 $table->index('result_keyword');
                 $table->index('type');
                 $table->index('se_domain');
@@ -1675,7 +1686,6 @@ function create_dataforseo_merchant_amazon_products_items_table(
 
             // Fields passed
             $table->string('keyword');
-            $table->string('se_domain');
             $table->integer('location_code');
             $table->string('language_code', 20);
             $table->string('device', 20);
@@ -1683,8 +1693,9 @@ function create_dataforseo_merchant_amazon_products_items_table(
             $table->string('tag')->nullable();
 
             // Fields returned
-            $table->string('result_keyword'); // From result.keyword
-            $table->string('items_type')->nullable(); // From result.items.type
+            $table->string('result_keyword')->nullable(); // From tasks.result.keyword
+            $table->string('items_type')->nullable(); // From tasks.result.items.type
+            $table->string('se_domain')->nullable();
             $table->integer('rank_group')->nullable();
             $table->integer('rank_absolute')->nullable();
             $table->text('xpath')->nullable();
@@ -1700,12 +1711,12 @@ function create_dataforseo_merchant_amazon_products_items_table(
             $table->string('data_asin')->nullable();
 
             // Rating fields (flattened from rating object)
-            $table->string('rating_type')->nullable(); // From result.items.rating.type
-            $table->string('rating_position')->nullable(); // From result.items.rating.position
-            $table->string('rating_rating_type')->nullable(); // From result.items.rating.rating_type
-            $table->string('rating_value')->nullable(); // From result.items.rating.value
-            $table->integer('rating_votes_count')->nullable(); // From result.items.rating.votes_count
-            $table->string('rating_rating_max')->nullable(); // From result.items.rating.rating_max
+            $table->string('rating_type')->nullable(); // From tasks.result.items.rating.type
+            $table->string('rating_position')->nullable(); // From tasks.result.items.rating.position
+            $table->string('rating_rating_type')->nullable(); // From tasks.result.items.rating.rating_type
+            $table->string('rating_value')->nullable(); // From tasks.result.items.rating.value
+            $table->integer('rating_votes_count')->nullable(); // From tasks.result.items.rating.votes_count
+            $table->string('rating_rating_max')->nullable(); // From tasks.result.items.rating.rating_max
 
             // More fields
             $table->boolean('is_amazon_choice')->nullable();
@@ -1725,7 +1736,6 @@ function create_dataforseo_merchant_amazon_products_items_table(
                 $table->index('response_id', 'dmapi_response_id_idx');
                 $table->index('task_id', 'dmapi_task_id_idx');
                 $table->index('keyword', 'dmapi_keyword_idx');
-                $table->index('se_domain', 'dmapi_se_domain_idx');
                 $table->index('location_code', 'dmapi_location_code_idx');
                 $table->index('language_code', 'dmapi_language_code_idx');
                 $table->index('device', 'dmapi_device_idx');
@@ -1734,6 +1744,7 @@ function create_dataforseo_merchant_amazon_products_items_table(
 
                 $table->index('result_keyword', 'dmapi_result_keyword_idx');
                 $table->index('items_type', 'dmapi_items_type_idx');
+                $table->index('se_domain', 'dmapi_se_domain_idx');
                 $table->index('rank_group', 'dmapi_rank_group_idx');
                 $table->index('rank_absolute', 'dmapi_rank_absolute_idx');
                 $table->index('domain', 'dmapi_domain_idx');
@@ -1756,7 +1767,6 @@ function create_dataforseo_merchant_amazon_products_items_table(
                 $table->index('response_id');
                 $table->index('task_id');
                 $table->index('keyword');
-                $table->index('se_domain');
                 $table->index('location_code');
                 $table->index('language_code');
                 $table->index('device');
@@ -1765,6 +1775,7 @@ function create_dataforseo_merchant_amazon_products_items_table(
 
                 $table->index('result_keyword');
                 $table->index('items_type');
+                $table->index('se_domain');
                 $table->index('rank_group');
                 $table->index('rank_absolute');
                 $table->index('domain');
@@ -1866,17 +1877,17 @@ function create_dataforseo_merchant_amazon_asins_table(
             $table->string('tag')->nullable()->index();
 
             // Fields returned
-            $table->string('result_asin')->index(); // From result.asin
+            $table->string('result_asin')->index(); // From tasks.result.asin
             $table->string('type')->nullable()->index();
             $table->string('se_domain')->index();
             $table->text('check_url')->nullable();
-            $table->string('result_datetime')->nullable()->index(); // From result.datetime
+            $table->string('result_datetime')->nullable()->index(); // From tasks.result.datetime
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('item_types')->nullable(); // JSON, should be pretty printed
             $table->integer('items_count')->nullable()->index();
 
             // Item expanded
-            $table->string('items_type')->nullable()->index(); // From result.items.type
+            $table->string('items_type')->nullable()->index(); // From tasks.result.items.type
             $table->integer('rank_group')->nullable()->index();
             $table->integer('rank_absolute')->nullable()->index();
             $table->string('position')->nullable();
@@ -1894,12 +1905,12 @@ function create_dataforseo_merchant_amazon_asins_table(
             $table->boolean('is_amazon_choice')->nullable()->index();
 
             // Rating fields (flattened from rating object)
-            $table->string('rating_type')->nullable(); // From result.items.rating.type
-            $table->string('rating_position')->nullable(); // From result.items.rating.position
-            $table->string('rating_rating_type')->nullable(); // From result.items.rating.rating_type
-            $table->string('rating_value')->nullable(); // From result.items.rating.value
-            $table->integer('rating_votes_count')->nullable(); // From result.items.rating.votes_count
-            $table->string('rating_rating_max')->nullable(); // From result.items.rating.rating_max
+            $table->string('rating_type')->nullable(); // From tasks.result.items.rating.type
+            $table->string('rating_position')->nullable(); // From tasks.result.items.rating.position
+            $table->string('rating_rating_type')->nullable(); // From tasks.result.items.rating.rating_type
+            $table->string('rating_value')->nullable(); // From tasks.result.items.rating.value
+            $table->integer('rating_votes_count')->nullable(); // From tasks.result.items.rating.votes_count
+            $table->string('rating_rating_max')->nullable(); // From tasks.result.items.rating.rating_max
 
             // More fields
             $table->boolean('is_newer_model_available')->nullable()->index();

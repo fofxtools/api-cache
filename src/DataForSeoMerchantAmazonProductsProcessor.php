@@ -167,38 +167,70 @@ class DataForSeoMerchantAmazonProductsProcessor
     }
 
     /**
-     * Extract metadata from result level (for task_get responses)
+     * Extract task data from tasks.data (request parameters)
      *
-     * @param array $result The result data
+     * @param array $taskData The task data from tasks.data
      *
-     * @return array The extracted result metadata
+     * @return array The extracted task-specific fields
      */
-    public function extractMetadata(array $result): array
+    public function extractTaskData(array $taskData): array
     {
         return [
-            'keyword'       => $result['keyword'] ?? null,
-            'se_domain'     => $result['se_domain'] ?? null,
-            'location_code' => $result['location_code'] ?? null,
-            'language_code' => $result['language_code'] ?? null,
-            'device'        => $result['device'] ?? null,
-            'os'            => $result['os'] ?? null,
+            'keyword'       => $taskData['keyword'] ?? null,
+            'se'            => $taskData['se'] ?? null,
+            'se_type'       => $taskData['se_type'] ?? null,
+            'function'      => $taskData['function'] ?? null,
+            'location_code' => $taskData['location_code'] ?? null,
+            'language_code' => $taskData['language_code'] ?? null,
+            'device'        => $taskData['device'] ?? null,
+            'os'            => $taskData['os'] ?? null,
+            'tag'           => $taskData['tag'] ?? null,
         ];
     }
 
     /**
-     * Extract listings-specific metadata from task data
+     * Extract result metadata from tasks.result (response metadata)
      *
-     * @param array $taskData The task data
+     * @param array $result The result data from tasks.result
      *
-     * @return array The extracted listings-specific fields
+     * @return array The extracted result-specific fields
      */
-    public function extractListingsTaskMetadata(array $taskData): array
+    public function extractResultMetadata(array $result): array
     {
         return [
-            'se'       => $taskData['se'] ?? null,
-            'se_type'  => $taskData['se_type'] ?? null,
-            'function' => $taskData['function'] ?? null,
-            'tag'      => $taskData['tag'] ?? null,
+            'result_keyword'   => $result['keyword'] ?? null,
+            'type'             => $result['type'] ?? null,
+            'se_domain'        => $result['se_domain'] ?? null,
+            'check_url'        => $result['check_url'] ?? null,
+            'result_datetime'  => $result['datetime'] ?? null,
+            'spell'            => $result['spell'] ?? null,
+            'item_types'       => $result['item_types'] ?? null,
+            'se_results_count' => $result['se_results_count'] ?? null,
+            'categories'       => $result['categories'] ?? null,
+            'items_count'      => $result['items_count'] ?? null,
+        ];
+    }
+
+    /**
+     * Extract data for products items (filters merged data to only include fields that products items table expects)
+     *
+     * @param array $mergedData The merged task and result data
+     *
+     * @return array The filtered data for products items processing
+     */
+    public function extractProductsItemsData(array $mergedData): array
+    {
+        return [
+            'response_id'    => $mergedData['response_id'] ?? null,
+            'task_id'        => $mergedData['task_id'] ?? null,
+            'keyword'        => $mergedData['keyword'] ?? null,
+            'location_code'  => $mergedData['location_code'] ?? null,
+            'language_code'  => $mergedData['language_code'] ?? null,
+            'device'         => $mergedData['device'] ?? null,
+            'os'             => $mergedData['os'] ?? null,
+            'tag'            => $mergedData['tag'] ?? null,
+            'result_keyword' => $mergedData['result_keyword'] ?? null,
+            'se_domain'      => $mergedData['se_domain'] ?? null,
         ];
     }
 
@@ -344,36 +376,29 @@ class DataForSeoMerchantAmazonProductsProcessor
     /**
      * Process listings data from response
      *
-     * @param array $result           The result data containing listings information
-     * @param array $listingsTaskData The task data including listings-specific fields
+     * @param array $result       The result data containing listings information
+     * @param array $listingsData The merged task data and result metadata
      *
      * @return array Statistics about processing including item count and insert/update details
      */
-    public function processListings(array $result, array $listingsTaskData): array
+    public function processListings(array $result, array $listingsData): array
     {
         $listingsItems = [];
         $now           = now();
 
-        // Extract listings-level data from result and merge with task data
-        $listingsData = array_merge($listingsTaskData, [
-            'result_keyword'  => $result['keyword'] ?? null,
-            'type'            => $result['type'] ?? null,
-            'se_domain'       => $result['se_domain'] ?? null,
-            'check_url'       => $result['check_url'] ?? null,
-            'result_datetime' => $result['datetime'] ?? null,
-            'spell'           => !empty($result['spell'])
+        // Override fields that need special processing (JSON formatting) and add additional fields
+        $listingsData = array_merge($listingsData, [
+            'spell' => !empty($result['spell'])
                 ? json_encode($result['spell'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
                 : null,
             'item_types' => !empty($result['item_types'])
                 ? json_encode($result['item_types'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
                 : null,
-            'se_results_count' => $result['se_results_count'] ?? null,
-            'categories'       => !empty($result['categories'])
+            'categories' => !empty($result['categories'])
                 ? json_encode($result['categories'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
                 : null,
-            'items_count' => $result['items_count'] ?? null,
-            'created_at'  => $now,
-            'updated_at'  => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
 
         // Ensure defaults are applied and add to listings items for batch processing
@@ -393,12 +418,12 @@ class DataForSeoMerchantAmazonProductsProcessor
     /**
      * Process items from response
      *
-     * @param array $items          The items to process
-     * @param array $mergedTaskData The task data merged with result-level metadata
+     * @param array $items      The items to process
+     * @param array $mergedData The task data merged with result-level metadata
      *
      * @return array Statistics about processing including item count and insert/update details
      */
-    public function processItems(array $items, array $mergedTaskData): array
+    public function processItems(array $items, array $mergedData): array
     {
         $processedItems = [];
         $now            = now();
@@ -412,13 +437,13 @@ class DataForSeoMerchantAmazonProductsProcessor
             // Skip items that have nested items if we're processing those separately
             if (isset($item['items']) && !$this->skipNestedItems) {
                 // Process nested items recursively
-                $nestedStats = $this->processItems($item['items'], $mergedTaskData);
+                $nestedStats = $this->processItems($item['items'], $mergedData);
                 // Note: We don't accumulate nested stats in this implementation
                 // as they would be processed as separate items
             }
 
-            $itemData = array_merge($mergedTaskData, [
-                'result_keyword'    => $mergedTaskData['keyword'] ?? null, // Set result_keyword from merged keyword
+            $itemData = array_merge($mergedData, [
+                'result_keyword'    => $mergedData['keyword'] ?? null, // Set result_keyword from merged keyword
                 'items_type'        => $item['type'] ?? null,
                 'rank_group'        => $item['rank_group'] ?? null,
                 'rank_absolute'     => $item['rank_absolute'] ?? null,
@@ -501,18 +526,18 @@ class DataForSeoMerchantAmazonProductsProcessor
                 continue;
             }
 
-            // Extract common task-level fields (keyword, location_code, etc.)
-            // And use as base for adding processing metadata
-            $baseTaskData                = $this->extractMetadata($task['data'] ?? []);
+            // Extract task data from tasks.data (request parameters) and use as base for adding processing metadata
+            $baseTaskData                = $this->extractTaskData($task['data'] ?? []);
             $baseTaskData['task_id']     = $task['id'] ?? null;
             $baseTaskData['response_id'] = $response->id;
 
             foreach ($task['result'] as $result) {
-                // For listings: add listings-specific fields (se, se_type, function, tag)
-                $listingsTaskData = array_merge($baseTaskData, $this->extractListingsTaskMetadata($task['data']));
+                // Merge task data with result metadata from tasks.result
+                $mergedData = array_merge($baseTaskData, $this->extractResultMetadata($result));
+                $mergedData = $this->ensureDefaults($mergedData);
 
                 // Process listings data and get detailed stats
-                $listingsStats = $this->processListings($result, $listingsTaskData);
+                $listingsStats = $this->processListings($result, $mergedData);
                 $stats['listings_items'] += $listingsStats['listings_items'];
                 $stats['listings_inserted'] += $listingsStats['items_inserted'];
                 $stats['listings_updated'] += $listingsStats['items_updated'];
@@ -525,12 +550,11 @@ class DataForSeoMerchantAmazonProductsProcessor
                 // Count total items available for processing
                 $stats['total_items'] += count($result['items']);
 
-                // For items: merge with result-level metadata
-                $mergedTaskData = array_merge($baseTaskData, $this->extractMetadata($result));
-                $mergedTaskData = $this->ensureDefaults($mergedTaskData);
+                // Filter merged data for products items (only fields that products items table expects)
+                $itemsData = $this->extractProductsItemsData($mergedData);
 
                 // Process items and get detailed stats
-                $itemsStats = $this->processItems($result['items'], $mergedTaskData);
+                $itemsStats = $this->processItems($result['items'], $itemsData);
                 $stats['items_processed'] += $itemsStats['items_processed'];
                 $stats['items_inserted'] += $itemsStats['items_inserted'];
                 $stats['items_updated'] += $itemsStats['items_updated'];

@@ -260,7 +260,7 @@ Each People Also Ask item contains:
 - `language_code` - Language code
 - `device` - Device type (desktop/mobile)
 - `os` - Device operating system
-- `item_position` - Position within PAA section
+- `paa_sequence` - Sequential position within PAA section
 - `type` - Type of item (e.g. people_also_ask_element)
 - `title` - Question title
 - `seed_question` - Original seed question

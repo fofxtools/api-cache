@@ -993,6 +993,8 @@ class FunctionsTest extends TestCase
         $this->assertContains('response_id', $columns);
         $this->assertContains('task_id', $columns);
         $this->assertContains('keyword', $columns);
+        $this->assertContains('tag', $columns);
+        $this->assertContains('result_keyword', $columns);
         $this->assertContains('items_type', $columns);
         $this->assertContains('is_featured_snippet', $columns);
         $schema->dropIfExists($table);
@@ -1004,14 +1006,16 @@ class FunctionsTest extends TestCase
         $table  = $this->testGoogleOrganicTable;
         create_dataforseo_serp_google_organic_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
-            'keyword'       => 'test-keyword',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'os'            => 'windows',
-            'created_at'    => now(),
-            'updated_at'    => now(),
+            'keyword'        => 'test-keyword',
+            'tag'            => 'test-tag',
+            'result_keyword' => 'test-result-keyword',
+            'se_domain'      => 'google.com',
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'os'             => 'windows',
+            'created_at'     => now(),
+            'updated_at'     => now(),
         ]);
         create_dataforseo_serp_google_organic_items_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
@@ -1032,12 +1036,14 @@ class FunctionsTest extends TestCase
         $this->assertContains('task_id', $columns);
         $this->assertContains('organic_items_id', $columns);
         $this->assertContains('keyword', $columns);
+        $this->assertContains('tag', $columns);
+        $this->assertContains('result_keyword', $columns);
         $this->assertContains('se_domain', $columns);
         $this->assertContains('location_code', $columns);
         $this->assertContains('language_code', $columns);
         $this->assertContains('device', $columns);
         $this->assertContains('os', $columns);
-        $this->assertContains('item_position', $columns);
+        $this->assertContains('paa_sequence', $columns);
         $this->assertContains('type', $columns);
         $this->assertContains('title', $columns);
         $this->assertContains('seed_question', $columns);
@@ -1064,15 +1070,17 @@ class FunctionsTest extends TestCase
         $table  = $this->testGoogleOrganicPaaTable;
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, true, false);
         \Illuminate\Support\Facades\DB::table($table)->insert([
-            'keyword'       => 'test-keyword',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'os'            => 'windows',
-            'item_position' => 1,
-            'created_at'    => now(),
-            'updated_at'    => now(),
+            'keyword'        => 'test-keyword',
+            'tag'            => 'test-tag',
+            'result_keyword' => 'test-result-keyword',
+            'se_domain'      => 'google.com',
+            'location_code'  => 2840,
+            'language_code'  => 'en',
+            'device'         => 'desktop',
+            'os'             => 'windows',
+            'paa_sequence'   => 1,
+            'created_at'     => now(),
+            'updated_at'     => now(),
         ]);
         create_dataforseo_serp_google_organic_paa_items_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
@@ -1101,6 +1109,8 @@ class FunctionsTest extends TestCase
         $this->assertContains('language_code', $columns);
         $this->assertContains('device', $columns);
         $this->assertContains('os', $columns);
+        $this->assertContains('tag', $columns);
+        $this->assertContains('result_keyword', $columns);
         $this->assertContains('cursor_pointer', $columns);
         $this->assertContains('type', $columns);
         $this->assertContains('rank_group', $columns);
@@ -1128,6 +1138,8 @@ class FunctionsTest extends TestCase
         // Insert a test record
         \Illuminate\Support\Facades\DB::table($table)->insert([
             'keyword'        => 'test keyword',
+            'tag'            => 'test-tag',
+            'result_keyword' => 'test result keyword',
             'se_domain'      => 'google.com',
             'location_code'  => 2840,
             'language_code'  => 'en',

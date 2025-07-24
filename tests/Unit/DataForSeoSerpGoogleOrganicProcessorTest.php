@@ -168,7 +168,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'created_at'    => now(),
             'updated_at'    => now(),
         ]);
@@ -222,7 +222,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'created_at'    => now(),
             'updated_at'    => now(),
         ]);
@@ -287,7 +287,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'created_at'    => now(),
             'updated_at'    => now(),
         ]);
@@ -325,7 +325,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'created_at'    => now(),
             'updated_at'    => now(),
         ]);
@@ -379,7 +379,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'created_at'    => now(),
             'updated_at'    => now(),
         ]);
@@ -398,110 +398,229 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
     }
 
     /**
-     * Data provider for extractMetadata test
+     * Data provider for extractTaskData test
      */
-    public static function extractMetadataDataProvider(): array
+    public static function extractTaskDataDataProvider(): array
     {
         return [
             'complete_data' => [
                 [
                     'keyword'       => 'test keyword',
-                    'se_domain'     => 'google.com',
+                    'se'            => 'google',
+                    'se_type'       => 'organic',
                     'location_code' => 2840,
                     'language_code' => 'en',
                     'device'        => 'desktop',
                     'os'            => 'windows',
+                    'tag'           => 'test-tag',
                     'extra_field'   => 'ignored',
                 ],
                 [
                     'keyword'       => 'test keyword',
-                    'se_domain'     => 'google.com',
+                    'se'            => 'google',
+                    'se_type'       => 'organic',
                     'location_code' => 2840,
                     'language_code' => 'en',
                     'device'        => 'desktop',
                     'os'            => 'windows',
+                    'tag'           => 'test-tag',
                 ],
             ],
             'partial_data' => [
                 [
-                    'keyword'   => 'partial keyword',
-                    'se_domain' => 'google.co.uk',
+                    'keyword' => 'partial keyword',
+                    'se'      => 'google',
                 ],
                 [
                     'keyword'       => 'partial keyword',
-                    'se_domain'     => 'google.co.uk',
+                    'se'            => 'google',
+                    'se_type'       => null,
                     'location_code' => null,
                     'language_code' => null,
                     'device'        => null,
                     'os'            => null,
+                    'tag'           => null,
                 ],
             ],
             'empty_data' => [
                 [],
                 [
                     'keyword'       => null,
-                    'se_domain'     => null,
+                    'se'            => null,
+                    'se_type'       => null,
                     'location_code' => null,
                     'language_code' => null,
                     'device'        => null,
                     'os'            => null,
+                    'tag'           => null,
                 ],
             ],
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('extractMetadataDataProvider')]
-    public function test_extract_metadata(array $input, array $expected): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractTaskDataDataProvider')]
+    public function test_extract_task_data(array $input, array $expected): void
     {
-        $result = $this->processor->extractMetadata($input);
+        $result = $this->processor->extractTaskData($input);
         $this->assertEquals($expected, $result);
     }
 
     /**
-     * Data provider for extractListingsTaskMetadata test
+     * Data provider for extractResultMetadata test
      */
-    public static function extractListingsTaskMetadataDataProvider(): array
+    public static function extractResultMetadataDataProvider(): array
     {
         return [
             'complete_data' => [
                 [
-                    'se'          => 'google',
-                    'se_type'     => 'organic',
-                    'tag'         => 'test-tag',
-                    'keyword'     => 'ignored',
-                    'extra_field' => 'ignored',
+                    'keyword'          => 'test result keyword',
+                    'type'             => 'organic',
+                    'se_domain'        => 'google.com',
+                    'check_url'        => 'https://www.google.com/search?q=test',
+                    'datetime'         => '2023-01-01 12:00:00',
+                    'spell'            => ['original' => 'test'],
+                    'item_types'       => ['organic', 'featured_snippet'],
+                    'se_results_count' => 1000000,
+                    'items_count'      => 10,
+                    'extra_field'      => 'ignored',
                 ],
                 [
-                    'se'      => 'google',
-                    'se_type' => 'organic',
-                    'tag'     => 'test-tag',
+                    'result_keyword'   => 'test result keyword',
+                    'type'             => 'organic',
+                    'se_domain'        => 'google.com',
+                    'check_url'        => 'https://www.google.com/search?q=test',
+                    'result_datetime'  => '2023-01-01 12:00:00',
+                    'spell'            => ['original' => 'test'],
+                    'item_types'       => ['organic', 'featured_snippet'],
+                    'se_results_count' => 1000000,
+                    'items_count'      => 10,
                 ],
             ],
             'partial_data' => [
                 [
-                    'se' => 'google',
+                    'keyword'   => 'partial result keyword',
+                    'se_domain' => 'google.co.uk',
                 ],
                 [
-                    'se'      => 'google',
-                    'se_type' => null,
-                    'tag'     => null,
+                    'result_keyword'   => 'partial result keyword',
+                    'type'             => null,
+                    'se_domain'        => 'google.co.uk',
+                    'check_url'        => null,
+                    'result_datetime'  => null,
+                    'spell'            => null,
+                    'item_types'       => null,
+                    'se_results_count' => null,
+                    'items_count'      => null,
                 ],
             ],
             'empty_data' => [
                 [],
                 [
-                    'se'      => null,
-                    'se_type' => null,
-                    'tag'     => null,
+                    'result_keyword'   => null,
+                    'type'             => null,
+                    'se_domain'        => null,
+                    'check_url'        => null,
+                    'result_datetime'  => null,
+                    'spell'            => null,
+                    'item_types'       => null,
+                    'se_results_count' => null,
+                    'items_count'      => null,
                 ],
             ],
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('extractListingsTaskMetadataDataProvider')]
-    public function test_extract_listings_task_metadata(array $input, array $expected): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractResultMetadataDataProvider')]
+    public function test_extract_result_metadata(array $input, array $expected): void
     {
-        $result = $this->processor->extractListingsTaskMetadata($input);
+        $result = $this->processor->extractResultMetadata($input);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Data provider for extractOrganicItemsData test
+     */
+    public static function extractOrganicItemsDataDataProvider(): array
+    {
+        return [
+            'complete_merged_data' => [
+                [
+                    'response_id'      => 456,
+                    'task_id'          => 'task-123',
+                    'keyword'          => 'test organic keyword',
+                    'se'               => 'google',
+                    'se_type'          => 'organic',
+                    'se_domain'        => 'google.com',
+                    'location_code'    => 2840,
+                    'language_code'    => 'en',
+                    'device'           => 'desktop',
+                    'os'               => 'windows',
+                    'tag'              => 'test-tag',
+                    'result_keyword'   => 'test result keyword',
+                    'type'             => 'organic',
+                    'check_url'        => 'https://www.google.com/search?q=test',
+                    'result_datetime'  => '2023-01-01 12:00:00',
+                    'spell'            => ['original' => 'test'],
+                    'item_types'       => ['organic'],
+                    'se_results_count' => 1000000,
+                    'items_count'      => 10,
+                    'extra_field'      => 'ignored',
+                ],
+                [
+                    'response_id'    => 456,
+                    'task_id'        => 'task-123',
+                    'keyword'        => 'test organic keyword',
+                    'se_domain'      => 'google.com',
+                    'location_code'  => 2840,
+                    'language_code'  => 'en',
+                    'device'         => 'desktop',
+                    'os'             => 'windows',
+                    'tag'            => 'test-tag',
+                    'result_keyword' => 'test result keyword',
+                ],
+            ],
+            'partial_merged_data' => [
+                [
+                    'task_id'       => 'task-456',
+                    'keyword'       => 'partial keyword',
+                    'se_domain'     => 'google.co.uk',
+                    'location_code' => 2826,
+                ],
+                [
+                    'response_id'    => null,
+                    'task_id'        => 'task-456',
+                    'keyword'        => 'partial keyword',
+                    'se_domain'      => 'google.co.uk',
+                    'location_code'  => 2826,
+                    'language_code'  => null,
+                    'device'         => null,
+                    'os'             => null,
+                    'tag'            => null,
+                    'result_keyword' => null,
+                ],
+            ],
+            'empty_merged_data' => [
+                [],
+                [
+                    'response_id'    => null,
+                    'task_id'        => null,
+                    'keyword'        => null,
+                    'se_domain'      => null,
+                    'location_code'  => null,
+                    'language_code'  => null,
+                    'device'         => null,
+                    'os'             => null,
+                    'tag'            => null,
+                    'result_keyword' => null,
+                ],
+            ],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('extractOrganicItemsDataDataProvider')]
+    public function test_extract_organic_items_data(array $input, array $expected): void
+    {
+        $result = $this->processor->extractOrganicItemsData($input);
         $this->assertEquals($expected, $result);
     }
 
@@ -1002,7 +1121,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
                 'location_code'         => 2840,
                 'language_code'         => 'en',
                 'device'                => 'desktop',
-                'item_position'         => 1,
+                'paa_sequence'          => 1,
                 'se_domain'             => 'google.com',
                 'task_id'               => 'task-paa-123',
                 'response_id'           => 789,
@@ -1024,7 +1143,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
                 'location_code'         => 2840,
                 'language_code'         => 'en',
                 'device'                => 'desktop',
-                'item_position'         => 2,
+                'paa_sequence'          => 2,
                 'se_domain'             => 'google.com',
                 'task_id'               => 'task-paa-123',
                 'response_id'           => 789,
@@ -1046,18 +1165,18 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $this->processor->batchInsertOrUpdatePaaItems($paaItems);
 
         // Verify items were inserted
-        $insertedItems = DB::table($this->paaItemsTable)->orderBy('item_position')->get();
+        $insertedItems = DB::table($this->paaItemsTable)->orderBy('paa_sequence')->get();
         $this->assertCount(2, $insertedItems);
 
         $firstItem = $insertedItems[0];
         $this->assertEquals('test paa keyword 1', $firstItem->keyword);
-        $this->assertEquals(1, $firstItem->item_position);
+        $this->assertEquals(1, $firstItem->paa_sequence);
         $this->assertEquals('What is test 1?', $firstItem->title);
         $this->assertEquals('example.com', $firstItem->answer_domain);
 
         $secondItem = $insertedItems[1];
         $this->assertEquals('test paa keyword 2', $secondItem->keyword);
-        $this->assertEquals(2, $secondItem->item_position);
+        $this->assertEquals(2, $secondItem->paa_sequence);
         $this->assertEquals('What is test 2?', $secondItem->title);
         $this->assertEquals('example2.com', $secondItem->answer_domain);
     }
@@ -1072,7 +1191,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'se_domain'     => 'google.com',
             'task_id'       => 'task-paa-original',
             'response_id'   => 100,
@@ -1099,7 +1218,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1, // Same unique constraint
+            'paa_sequence'  => 1, // Same unique constraint
             'se_domain'     => 'google.com',
             'task_id'       => 'task-paa-updated',
             'response_id'   => 200,
@@ -1139,7 +1258,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'se_domain'     => 'google.com',
             'task_id'       => 'task-paa-original',
             'response_id'   => 100,
@@ -1161,7 +1280,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1, // Same unique constraint
+            'paa_sequence'  => 1, // Same unique constraint
             'se_domain'     => 'google.com',
             'task_id'       => 'task-paa-duplicate',
             'response_id'   => 200,
@@ -1194,7 +1313,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1,
+            'paa_sequence'  => 1,
             'se_domain'     => 'google.com',
             'task_id'       => 'task-paa-newer',
             'response_id'   => 100,
@@ -1215,7 +1334,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'location_code' => 2840,
             'language_code' => 'en',
             'device'        => 'desktop',
-            'item_position' => 1, // Same unique constraint
+            'paa_sequence'  => 1, // Same unique constraint
             'se_domain'     => 'google.com',
             'task_id'       => 'task-paa-older',
             'response_id'   => 200,
@@ -1251,20 +1370,29 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'items_count'      => 10,
         ];
 
-        $listingsTaskData = [
-            'keyword'       => 'test listings keyword',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'task_id'       => 'task-listings-123',
-            'response_id'   => 456,
-            'se'            => 'google',
-            'se_type'       => 'organic',
-            'tag'           => 'test-tag',
+        $listingsData = [
+            'keyword'          => 'test listings keyword',
+            'se'               => 'google',
+            'se_type'          => 'organic',
+            'location_code'    => 2840,
+            'language_code'    => 'en',
+            'device'           => 'desktop',
+            'os'               => null,
+            'tag'              => 'test-tag',
+            'task_id'          => 'task-listings-123',
+            'response_id'      => 456,
+            'result_keyword'   => 'test listings keyword',
+            'type'             => 'organic',
+            'se_domain'        => 'google.com',
+            'check_url'        => 'https://www.google.com/search?q=test',
+            'result_datetime'  => '2023-01-01 12:00:00',
+            'spell'            => ['original' => 'test', 'corrected' => 'test'],
+            'item_types'       => ['organic', 'people_also_ask'],
+            'se_results_count' => 1000000,
+            'items_count'      => 10,
         ];
 
-        $stats = $this->processor->processListings($result, $listingsTaskData);
+        $stats = $this->processor->processListings($result, $listingsData);
 
         $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['items_inserted']);
@@ -1309,20 +1437,29 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'items_count'      => 10,
         ];
 
-        $listingsTaskData = [
-            'keyword'       => 'test listings keyword',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'task_id'       => 'task-listings-123',
-            'response_id'   => 456,
-            'se'            => 'google',
-            'se_type'       => 'organic',
-            'tag'           => 'test-tag',
+        $listingsData = [
+            'keyword'          => 'test listings keyword',
+            'se'               => 'google',
+            'se_type'          => 'organic',
+            'location_code'    => 2840,
+            'language_code'    => 'en',
+            'device'           => 'desktop',
+            'os'               => null,
+            'tag'              => 'test-tag',
+            'task_id'          => 'task-listings-123',
+            'response_id'      => 456,
+            'result_keyword'   => 'test listings keyword',
+            'type'             => 'organic',
+            'se_domain'        => 'google.com',
+            'check_url'        => 'https://www.google.com/search?q=test',
+            'result_datetime'  => '2023-01-01 12:00:00',
+            'spell'            => null,
+            'item_types'       => ['organic'],
+            'se_results_count' => 1000000,
+            'items_count'      => 10,
         ];
 
-        $stats = $this->processor->processListings($result, $listingsTaskData);
+        $stats = $this->processor->processListings($result, $listingsData);
 
         $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['items_inserted']);
@@ -1345,20 +1482,29 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             'items_count'      => 10,
         ];
 
-        $listingsTaskData = [
-            'keyword'       => 'test listings keyword',
-            'se_domain'     => 'google.com',
-            'location_code' => 2840,
-            'language_code' => 'en',
-            'device'        => 'desktop',
-            'task_id'       => 'task-listings-123',
-            'response_id'   => 456,
-            'se'            => 'google',
-            'se_type'       => 'organic',
-            'tag'           => 'test-tag',
+        $listingsData = [
+            'keyword'          => 'test listings keyword',
+            'se'               => 'google',
+            'se_type'          => 'organic',
+            'location_code'    => 2840,
+            'language_code'    => 'en',
+            'device'           => 'desktop',
+            'os'               => null,
+            'tag'              => 'test-tag',
+            'task_id'          => 'task-listings-123',
+            'response_id'      => 456,
+            'result_keyword'   => 'test listings keyword',
+            'type'             => 'organic',
+            'se_domain'        => 'google.com',
+            'check_url'        => 'https://www.google.com/search?q=test',
+            'result_datetime'  => '2023-01-01 12:00:00',
+            'spell'            => null,
+            'item_types'       => null,
+            'se_results_count' => 1000000,
+            'items_count'      => 10,
         ];
 
-        $stats = $this->processor->processListings($result, $listingsTaskData);
+        $stats = $this->processor->processListings($result, $listingsData);
 
         $this->assertEquals(1, $stats['listings_items']);
         $this->assertEquals(1, $stats['items_inserted']);
@@ -1372,7 +1518,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_process_organic_items(): void
     {
-        $mergedTaskData = [
+        $mergedData = [
             'keyword'       => 'test organic keyword',
             'se_domain'     => 'google.com',
             'location_code' => 2840,
@@ -1414,7 +1560,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ],
         ];
 
-        $result = $this->processor->processOrganicItems($items, $mergedTaskData);
+        $result = $this->processor->processOrganicItems($items, $mergedData);
 
         // Should return detailed stats with count of organic items processed (2)
         $this->assertEquals(2, $result['organic_items']);
@@ -1444,7 +1590,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_process_organic_items_with_no_organic_items(): void
     {
-        $mergedTaskData = [
+        $mergedData = [
             'keyword'       => 'test keyword',
             'se_domain'     => 'google.com',
             'location_code' => 2840,
@@ -1458,7 +1604,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ['type' => 'featured_snippet'],
         ];
 
-        $result = $this->processor->processOrganicItems($items, $mergedTaskData);
+        $result = $this->processor->processOrganicItems($items, $mergedData);
 
         $this->assertEquals(0, $result['organic_items']);
         $this->assertEquals(0, $result['items_inserted']);
@@ -1469,8 +1615,8 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_process_organic_items_with_empty_array(): void
     {
-        $mergedTaskData = ['keyword' => 'test'];
-        $result         = $this->processor->processOrganicItems([], $mergedTaskData);
+        $mergedData = ['keyword' => 'test'];
+        $result     = $this->processor->processOrganicItems([], $mergedData);
 
         $this->assertEquals(0, $result['organic_items']);
         $this->assertEquals(0, $result['items_inserted']);
@@ -1481,7 +1627,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_process_paa_items(): void
     {
-        $mergedTaskData = [
+        $mergedData = [
             'keyword'       => 'test paa keyword',
             'se_domain'     => 'google.com',
             'location_code' => 2840,
@@ -1538,7 +1684,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ],
         ];
 
-        $result = $this->processor->processPaaItems($items, $mergedTaskData);
+        $result = $this->processor->processPaaItems($items, $mergedData);
 
         // Should return detailed stats with count of PAA items processed (2)
         $this->assertEquals(2, $result['paa_items']);
@@ -1547,12 +1693,12 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
         $this->assertEquals(0, $result['items_skipped']);
 
         // Verify items were inserted into database
-        $insertedItems = DB::table($this->paaItemsTable)->orderBy('item_position')->get();
+        $insertedItems = DB::table($this->paaItemsTable)->orderBy('paa_sequence')->get();
         $this->assertCount(2, $insertedItems);
 
         $firstItem = $insertedItems[0];
         $this->assertEquals('test paa keyword', $firstItem->keyword);
-        $this->assertEquals(1, $firstItem->item_position);
+        $this->assertEquals(1, $firstItem->paa_sequence);
         $this->assertEquals('What is test question 1?', $firstItem->title);
         $this->assertEquals('example.com', $firstItem->answer_domain);
         $this->assertEquals('Test Answer 1', $firstItem->answer_featured_title);
@@ -1561,7 +1707,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
         $secondItem = $insertedItems[1];
         $this->assertEquals('test paa keyword', $secondItem->keyword);
-        $this->assertEquals(2, $secondItem->item_position);
+        $this->assertEquals(2, $secondItem->paa_sequence);
         $this->assertEquals('What is test question 2?', $secondItem->title);
         $this->assertEquals('example2.com', $secondItem->answer_domain);
         $this->assertEquals('Test Answer 2', $secondItem->answer_featured_title);
@@ -1571,7 +1717,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_process_paa_items_with_no_paa_items(): void
     {
-        $mergedTaskData = [
+        $mergedData = [
             'keyword'       => 'test keyword',
             'se_domain'     => 'google.com',
             'location_code' => 2840,
@@ -1585,7 +1731,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ['type' => 'featured_snippet'],
         ];
 
-        $result = $this->processor->processPaaItems($items, $mergedTaskData);
+        $result = $this->processor->processPaaItems($items, $mergedData);
 
         $this->assertEquals(0, $result['paa_items']);
         $this->assertEquals(0, $result['items_inserted']);
@@ -1596,7 +1742,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_process_paa_items_with_invalid_structure(): void
     {
-        $mergedTaskData = ['keyword' => 'test'];
+        $mergedData = ['keyword' => 'test'];
 
         $items = [
             [
@@ -1627,7 +1773,7 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ],
         ];
 
-        $result = $this->processor->processPaaItems($items, $mergedTaskData);
+        $result = $this->processor->processPaaItems($items, $mergedData);
 
         $this->assertEquals(0, $result['paa_items']);
         $this->assertEquals(0, $result['items_inserted']);
@@ -1638,8 +1784,8 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
 
     public function test_process_paa_items_with_empty_array(): void
     {
-        $mergedTaskData = ['keyword' => 'test'];
-        $result         = $this->processor->processPaaItems([], $mergedTaskData);
+        $mergedData = ['keyword' => 'test'];
+        $result     = $this->processor->processPaaItems([], $mergedData);
 
         $this->assertEquals(0, $result['paa_items']);
         $this->assertEquals(0, $result['items_inserted']);

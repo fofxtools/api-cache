@@ -219,8 +219,8 @@ class DataForSeoMerchantAmazonAsinProcessor
     {
         return [
             'result_asin'     => $result['asin'] ?? null, // Response ASIN
-            'se_domain'       => $result['se_domain'] ?? null,
             'type'            => $result['type'] ?? null,
+            'se_domain'       => $result['se_domain'] ?? null,
             'check_url'       => $result['check_url'] ?? null,
             'result_datetime' => $result['datetime'] ?? null,
         ];
@@ -426,9 +426,8 @@ class DataForSeoMerchantAmazonAsinProcessor
 
             foreach ($task['result'] as $result) {
                 // Merge task data with result metadata from tasks.result
-                $resultMetadata = $this->extractResultMetadata($result);
-                $mergedData     = array_merge($baseTaskData, $resultMetadata);
-                $mergedData     = $this->ensureDefaults($mergedData);
+                $mergedData = array_merge($baseTaskData, $this->extractResultMetadata($result));
+                $mergedData = $this->ensureDefaults($mergedData);
 
                 // Add additional result-level fields that need JSON pretty-printing
                 $mergedData['spell'] = !empty($result['spell'])

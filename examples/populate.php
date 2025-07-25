@@ -50,6 +50,9 @@ createProcessedResponseTables($schema, $dropExisting);
 
 $dfs = new DataForSeoApiClient();
 
+// Increase timeout
+$dfs->setTimeout(120);
+
 // Sample data arrays with three different sets
 $keywordsArrays = [
     ['apple iphone',     'vacuum cleaner',   'kitchenaid mixer'],
@@ -152,6 +155,19 @@ foreach ($keywordsSetA as $keyword) {
     $body     = $response->body();
     echo "Response Body:\n";
     print_r($body);
+
+    // Labs Google
+    $result   = $dfs->labsGoogleRelatedKeywordsLive($keyword);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleKeywordSuggestionsLive($keyword);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
 }
 
 // Test keywords array endpoints
@@ -216,7 +232,31 @@ foreach ($keywordsArrays as $keywordSet) {
     echo "Response Body:\n";
     print_r($body);
 
+    $result   = $dfs->labsGoogleKeywordIdeasLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->labsGoogleBulkKeywordDifficultyLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleSearchIntentLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleKeywordOverviewLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleHistoricalKeywordDataLive($keywordSet);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";
@@ -238,6 +278,12 @@ foreach ($domainArray as $domain) {
     print_r($body);
 
     $result   = $dfs->keywordsDataGoogleAdsKeywordsForSiteLive($domain);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleKeywordsForSiteLive($domain);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";

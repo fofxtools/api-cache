@@ -4,6 +4,48 @@
 
 The DataForSEO Labs API provides advanced keyword research and analysis tools. All labs methods are **Live Methods** that return immediate results.
 
+## Google Keywords For Site
+
+### labsGoogleKeywordsForSiteLive()
+
+Get keywords that a target domain ranks for in Google search results.
+
+**Parameters:**
+- `target` - Target domain without https:// (required)
+- `locationCode` - Location code (default: 2840 for US)
+- `languageCode` - Language code (default: 'en')
+- `includeSerp_info` - Include SERP data for each keyword (default: false)
+- `includeSubdomains` - Include subdomains in search (default: true)
+- `includeClickstreamData` - Include clickstream-based metrics (default: false, costs double)
+- `limit` - Maximum number of keywords (max 1000, default: 100)
+- `offset` - Offset in results array (default: 0)
+- `offsetToken` - Token for subsequent requests
+- `filters` - Array of filtering parameters (max 8 filters)
+- `orderBy` - Results sorting rules (max 3 rules, default: relevance desc)
+
+**Basic Usage:**
+```php
+$dfs = new DataForSeoApiClient();
+
+$result = $dfs->labsGoogleKeywordsForSiteLive('apple.com');
+$response = $result['response'];
+$data = $response->body();
+```
+
+**Advanced Usage with Filters:**
+```php
+// Get keywords with search volume > 100, limit to 50 results
+$result = $dfs->labsGoogleKeywordsForSiteLive(
+    target: 'apple.com',
+    locationCode: 2840,
+    languageCode: 'en',
+    includeSerp_info: true,
+    limit: 50,
+    filters: [['keyword_info.search_volume', '>', 100]],
+    orderBy: [['keyword_info.search_volume', 'desc']]
+);
+```
+
 ## Google Bulk Keyword Difficulty
 
 ### labsGoogleBulkKeywordDifficultyLive()

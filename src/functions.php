@@ -838,7 +838,7 @@ function create_dataforseo_serp_google_organic_listings_table(
 
             // Fields passed
             $table->string('keyword')->index(); // From tasks.data.keyword
-            $table->string('se')->index();
+            $table->string('se')->nullable()->index();
             $table->string('se_type')->index();
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();
@@ -1537,7 +1537,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
 
             // Fields passed
             $table->string('keyword'); // From tasks.data.keyword
-            $table->string('se');
+            $table->string('se')->nullable();
             $table->string('se_type');
             $table->string('function');
             $table->integer('location_code');
@@ -1866,7 +1866,7 @@ function create_dataforseo_merchant_amazon_asins_table(
 
             // Fields passed
             $table->string('asin')->index();
-            $table->string('se')->index();
+            $table->string('se')->nullable()->index();
             $table->string('se_type')->index();
             $table->integer('location_code')->index();
             $table->string('language_code', 20)->index();

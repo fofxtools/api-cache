@@ -703,21 +703,22 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
-     * Validate target parameter for domain-only endpoints (must be domain without https:// and www.)
+     * Validate target parameter for domain-only endpoints (must be domain without https://)
      *
-     * @param string $target The target to validate
+     * @param string $target   The target to validate
+     * @param bool   $allowWww Whether to allow www prefix (default: false)
      *
      * @throws \InvalidArgumentException If validation fails
      */
-    public function validateDomainTarget(string $target): void
+    public function validateDomainTarget(string $target, bool $allowWww = false): void
     {
         // Check for forbidden protocols
         if (preg_match('/^https?:\/\//', $target)) {
             throw new \InvalidArgumentException('Target domain must be specified without https:// or http://');
         }
 
-        // Check for www prefix
-        if (preg_match('/^www\./', $target)) {
+        // Check for www prefix if not allowed
+        if (!$allowWww && preg_match('/^www\./', $target)) {
             throw new \InvalidArgumentException('Target domain must be specified without www.');
         }
 
@@ -3412,6 +3413,449 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Get Google Keywords For Site data using DataForSEO Labs API
+     *
+     * @param string      $target                 Target domain (without https://)
+     * @param string|null $locationName           Location name (e.g., "United States")
+     * @param int|null    $locationCode           Location code (e.g., 2840)
+     * @param string|null $languageName           Language name (e.g., "English")
+     * @param string|null $languageCode           Language code (e.g., "en")
+     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeSubdomains      Include subdomains in search
+     * @param bool|null   $includeClickstreamData Include clickstream-based metrics
+     *                                            (with this parameter enabled, you will be charged double the price for the request)
+     * @param int|null    $limit                  Maximum number of keywords (max 1000)
+     * @param int|null    $offset                 Offset in results array
+     * @param string|null $offsetToken            Offset token for subsequent requests
+     * @param array|null  $filters                Array of filtering parameters
+     * @param array|null  $orderBy                Results sorting rules
+     * @param string|null $tag                    User-defined task identifier
+     * @param array       $additionalParams       Additional parameters
+     * @param string|null $attributes             Optional attributes to store with cache entry
+     * @param int         $amount                 Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleKeywordsForSiteLive(
+        string $target,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $includeSerp_info = null,
+        ?bool $includeSubdomains = null,
+        ?bool $includeClickstreamData = null,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?string $offsetToken = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate target domain is not empty
+        if (empty($target)) {
+            throw new \InvalidArgumentException('Target domain cannot be empty');
+        }
+
+        // Validate target format (domain without https://, www allowed per API documentation)
+        $this->validateDomainTarget($target, allowWww: true);
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter is non-negative
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('Offset must be non-negative');
+        }
+
+        // Validate filters array has maximum 8 filters
+        if ($filters !== null && count($filters) > 8) {
+            throw new \InvalidArgumentException('Maximum number of filters is 8');
+        }
+
+        // Validate orderBy array has maximum 3 sorting rules
+        if ($orderBy !== null && count($orderBy) > 3) {
+            throw new \InvalidArgumentException('Maximum number of sorting rules is 3');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Google Keywords For Site request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use target domain as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $target;
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/keywords_for_site/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Related Keywords data using DataForSEO Labs API
+     *
+     * @param string      $keyword                Target keyword (required)
+     * @param string|null $locationName           Location name (e.g., "United States")
+     * @param int|null    $locationCode           Location code (e.g., 2840)
+     * @param string|null $languageName           Language name (e.g., "English")
+     * @param string|null $languageCode           Language code (e.g., "en")
+     * @param int|null    $depth                  Keyword search depth (0-4, default: 1)
+     * @param bool|null   $includeSeedKeyword     Include data for the seed keyword
+     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeClickstreamData Include clickstream-based metrics
+     *                                            (with this parameter enabled, you will be charged double the price for the request)
+     * @param bool|null   $ignoreSynonyms         Ignore highly similar keywords
+     * @param bool|null   $replaceWithCoreKeyword Return data for core keyword
+     * @param array|null  $filters                Array of filtering parameters
+     * @param array|null  $orderBy                Results sorting rules
+     * @param int|null    $limit                  Maximum number of keywords (max 1000)
+     * @param int|null    $offset                 Offset in results array
+     * @param string|null $tag                    User-defined task identifier
+     * @param array       $additionalParams       Additional parameters
+     * @param string|null $attributes             Optional attributes to store with cache entry
+     * @param int         $amount                 Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleRelatedKeywordsLive(
+        string $keyword,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?int $depth = 1,
+        ?bool $includeSeedKeyword = null,
+        ?bool $includeSerp_info = null,
+        ?bool $includeClickstreamData = null,
+        ?bool $ignoreSynonyms = null,
+        ?bool $replaceWithCoreKeyword = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate keyword is not empty
+        if (empty($keyword)) {
+            throw new \InvalidArgumentException('Keyword cannot be empty');
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate depth parameter is within allowed range
+        if ($depth !== null && ($depth < 0 || $depth > 4)) {
+            throw new \InvalidArgumentException('Depth must be between 0 and 4');
+        }
+
+        // Validate filters array has maximum 8 filters
+        if ($filters !== null && count($filters) > 8) {
+            throw new \InvalidArgumentException('Maximum number of filters is 8');
+        }
+
+        // Validate orderBy array has maximum 3 sorting rules
+        if ($orderBy !== null && count($orderBy) > 3) {
+            throw new \InvalidArgumentException('Maximum number of sorting rules is 3');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter is non-negative
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('Offset must be non-negative');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Google Related Keywords request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use keyword as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/related_keywords/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Keyword Suggestions data using DataForSEO Labs API
+     *
+     * @param string      $keyword                Target keyword (required)
+     * @param string|null $locationName           Location name (e.g., "United States")
+     * @param int|null    $locationCode           Location code (e.g., 2840)
+     * @param string|null $languageName           Language name (e.g., "English")
+     * @param string|null $languageCode           Language code (e.g., "en")
+     * @param bool|null   $includeSeedKeyword     Include data for the seed keyword
+     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeClickstreamData Include clickstream-based metrics
+     *                                            (with this parameter enabled, you will be charged double the price for the request)
+     * @param bool|null   $exactMatch             Search for the exact phrase
+     * @param bool|null   $ignoreSynonyms         Ignore highly similar keywords
+     * @param array|null  $filters                Array of filtering parameters
+     * @param array|null  $orderBy                Results sorting rules
+     * @param int|null    $limit                  Maximum number of keywords (max 1000)
+     * @param int|null    $offset                 Offset in results array
+     * @param string|null $offsetToken            Offset token for subsequent requests
+     * @param string|null $tag                    User-defined task identifier
+     * @param array       $additionalParams       Additional parameters
+     * @param string|null $attributes             Optional attributes to store with cache entry
+     * @param int         $amount                 Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleKeywordSuggestionsLive(
+        string $keyword,
+        ?string $locationName = null,
+        ?int $locationCode = null,
+        ?string $languageName = null,
+        ?string $languageCode = null,
+        ?bool $includeSeedKeyword = null,
+        ?bool $includeSerp_info = null,
+        ?bool $includeClickstreamData = null,
+        ?bool $exactMatch = null,
+        ?bool $ignoreSynonyms = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?string $offsetToken = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate keyword is not empty
+        if (empty($keyword)) {
+            throw new \InvalidArgumentException('Keyword cannot be empty');
+        }
+
+        // Validate filters array has maximum 8 filters
+        if ($filters !== null && count($filters) > 8) {
+            throw new \InvalidArgumentException('Maximum number of filters is 8');
+        }
+
+        // Validate orderBy array has maximum 3 sorting rules
+        if ($orderBy !== null && count($orderBy) > 3) {
+            throw new \InvalidArgumentException('Maximum number of sorting rules is 3');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter is non-negative
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('Offset must be non-negative');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Google Keyword Suggestions request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use keyword as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = $keyword;
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/keyword_suggestions/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Keyword Ideas data using DataForSEO Labs API
+     *
+     * @param array       $keywords               Target keywords (required, max 200)
+     * @param string|null $locationName           Location name (e.g., "United States")
+     * @param int|null    $locationCode           Location code (e.g., 2840)
+     * @param string|null $languageName           Language name (e.g., "English")
+     * @param string|null $languageCode           Language code (e.g., "en")
+     * @param bool|null   $closelyVariants        Search mode (phrase-match vs broad-match)
+     * @param bool|null   $ignoreSynonyms         Ignore highly similar keywords
+     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeClickstreamData Include clickstream-based metrics
+     *                                            (with this parameter enabled, you will be charged double the price for the request)
+     * @param int|null    $limit                  Maximum number of keywords (max 1000)
+     * @param int|null    $offset                 Offset in results array
+     * @param string|null $offsetToken            Offset token for subsequent requests
+     * @param array|null  $filters                Array of filtering parameters
+     * @param array|null  $orderBy                Results sorting rules
+     * @param string|null $tag                    User-defined task identifier
+     * @param array       $additionalParams       Additional parameters
+     * @param string|null $attributes             Optional attributes to store with cache entry
+     * @param int         $amount                 Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleKeywordIdeasLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $closelyVariants = null,
+        ?bool $ignoreSynonyms = null,
+        ?bool $includeSerp_info = null,
+        ?bool $includeClickstreamData = null,
+        ?int $limit = null,
+        ?int $offset = null,
+        ?string $offsetToken = null,
+        ?array $filters = null,
+        ?array $orderBy = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Validate keywords array has maximum 200 keywords
+        if (count($keywords) > 200) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 200');
+        }
+
+        // Validate each keyword is not empty
+        foreach ($keywords as $keyword) {
+            if (empty($keyword)) {
+                throw new \InvalidArgumentException('Individual keywords cannot be empty');
+            }
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate limit parameter is within allowed range
+        if ($limit !== null && ($limit < 1 || $limit > 1000)) {
+            throw new \InvalidArgumentException('Limit must be between 1 and 1000');
+        }
+
+        // Validate offset parameter is non-negative
+        if ($offset !== null && $offset < 0) {
+            throw new \InvalidArgumentException('Offset must be non-negative');
+        }
+
+        // Validate filters array has maximum 8 filters
+        if ($filters !== null && count($filters) > 8) {
+            throw new \InvalidArgumentException('Maximum number of filters is 8');
+        }
+
+        // Validate orderBy array has maximum 3 sorting rules
+        if ($orderBy !== null && count($orderBy) > 3) {
+            throw new \InvalidArgumentException('Maximum number of sorting rules is 3');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Google Keyword Ideas request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/keyword_ideas/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
      * Get Google Bulk Keyword Difficulty data using DataForSEO Labs API
      *
      * @param array       $keywords         Target keywords (max 1000)
@@ -3476,6 +3920,254 @@ class DataForSeoApiClient extends BaseApiClient
         // Make the API request to the labs endpoint
         return $this->sendCachedRequest(
             'dataforseo_labs/google/bulk_keyword_difficulty/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Search Intent data using DataForSEO Labs API
+     *
+     * @param array       $keywords         Target keywords (required, max 1000)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleSearchIntentLive(
+        array $keywords,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Validate keywords array has maximum 1000 keywords
+        if (count($keywords) > 1000) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 1000');
+        }
+
+        // Validate each keyword is not empty
+        foreach ($keywords as $keyword) {
+            if (empty($keyword)) {
+                throw new \InvalidArgumentException('Individual keywords cannot be empty');
+            }
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Google Search Intent request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/search_intent/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Keyword Overview data using DataForSEO Labs API
+     *
+     * @param array       $keywords               Target keywords (required, max 700)
+     * @param string|null $locationName           Location name (e.g., "United States")
+     * @param int|null    $locationCode           Location code (e.g., 2840)
+     * @param string|null $languageName           Language name (e.g., "English")
+     * @param string|null $languageCode           Language code (e.g., "en")
+     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeClickstreamData Include clickstream-based metrics
+     *                                            (with this parameter enabled, you will be charged double the price for the request)
+     * @param string|null $tag                    User-defined task identifier
+     * @param array       $additionalParams       Additional parameters
+     * @param string|null $attributes             Optional attributes to store with cache entry
+     * @param int         $amount                 Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleKeywordOverviewLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?bool $includeSerp_info = null,
+        ?bool $includeClickstreamData = null,
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Validate keywords array has maximum 700 keywords
+        if (count($keywords) > 700) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 700');
+        }
+
+        // Validate each keyword is not empty
+        foreach ($keywords as $keyword) {
+            if (empty($keyword)) {
+                throw new \InvalidArgumentException('Individual keywords cannot be empty');
+            }
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Google Keyword Overview request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/keyword_overview/live',
+            $tasks,
+            'POST',
+            $attributes,
+            $amount
+        );
+    }
+
+    /**
+     * Get Google Historical Keyword Data using DataForSEO Labs API
+     *
+     * @param array       $keywords         Target keywords (required, max 700)
+     * @param string|null $locationName     Location name (e.g., "United States")
+     * @param int|null    $locationCode     Location code (e.g., 2840)
+     * @param string|null $languageName     Language name (e.g., "English")
+     * @param string|null $languageCode     Language code (e.g., "en")
+     * @param string|null $tag              User-defined task identifier
+     * @param array       $additionalParams Additional parameters
+     * @param string|null $attributes       Optional attributes to store with cache entry
+     * @param int         $amount           Amount to pass to incrementAttempts
+     *
+     * @return array The API response data
+     */
+    public function labsGoogleHistoricalKeywordDataLive(
+        array $keywords,
+        ?string $locationName = null,
+        ?int $locationCode = 2840,
+        ?string $languageName = null,
+        ?string $languageCode = 'en',
+        ?string $tag = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        // Validate keywords array is not empty
+        if (empty($keywords)) {
+            throw new \InvalidArgumentException('Keywords array cannot be empty');
+        }
+
+        // Validate keywords array has maximum 700 keywords
+        if (count($keywords) > 700) {
+            throw new \InvalidArgumentException('Maximum number of keywords is 700');
+        }
+
+        // Validate each keyword is not empty
+        foreach ($keywords as $keyword) {
+            if (empty($keyword)) {
+                throw new \InvalidArgumentException('Individual keywords cannot be empty');
+            }
+        }
+
+        // Validate that at least one location parameter is provided
+        if ($locationName === null && $locationCode === null) {
+            throw new \InvalidArgumentException('Either locationName or locationCode must be provided');
+        }
+
+        // Validate that at least one language parameter is provided
+        if ($languageName === null && $languageCode === null) {
+            throw new \InvalidArgumentException('Either languageName or languageCode must be provided');
+        }
+
+        // Validate that tag is within character limit if provided
+        if ($tag !== null && strlen($tag) > 255) {
+            throw new \InvalidArgumentException('Tag must be 255 characters or less');
+        }
+
+        Log::debug(
+            'Making DataForSEO Labs Google Historical Keyword Data request',
+            // Extract array count + all method params (excludes actual array to keep output readable)
+            ['keywords_count' => count($keywords)] + ReflectionUtils::extractArgs(__METHOD__, get_defined_vars(), ['keywords'])
+        );
+
+        $params = $this->buildApiParams($additionalParams, [], __METHOD__, get_defined_vars());
+
+        // DataForSEO API requires an array of tasks
+        $tasks = [$params];
+
+        // Use concatenation of keywords as attributes if attributes is not provided
+        if ($attributes === null) {
+            $attributes = implode(',', $keywords);
+        }
+
+        // Make the API request to the labs endpoint
+        return $this->sendCachedRequest(
+            'dataforseo_labs/google/historical_keyword_data/live',
             $tasks,
             'POST',
             $attributes,

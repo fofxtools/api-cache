@@ -443,7 +443,7 @@ class DataForSeoMerchantAmazonProductsProcessor
             }
 
             $itemData = array_merge($mergedData, [
-                'result_keyword'    => $mergedData['keyword'] ?? null, // Set result_keyword from merged keyword
+                'result_keyword'    => $mergedData['result_keyword'] ?? null,
                 'items_type'        => $item['type'] ?? null,
                 'rank_group'        => $item['rank_group'] ?? null,
                 'rank_absolute'     => $item['rank_absolute'] ?? null,

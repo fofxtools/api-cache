@@ -212,7 +212,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessor
     public function ensureDefaults(array $data): array
     {
         // Provide defaults for required fields
-        $data['se']            = $data['se'] ?? 'google_ads';
+        $data['se']            = $data['se'] ?? null;
         $data['location_code'] = $data['location_code'] ?? self::WORLDWIDE_LOCATION_CODE;
         $data['language_code'] = $data['language_code'] ?? self::WORLDWIDE_LANGUAGE_CODE;
 

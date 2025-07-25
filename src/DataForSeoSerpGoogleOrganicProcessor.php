@@ -217,6 +217,7 @@ class DataForSeoSerpGoogleOrganicProcessor
             'check_url'        => $result['check_url'] ?? null,
             'result_datetime'  => $result['datetime'] ?? null,
             'spell'            => $result['spell'] ?? null,
+            'refinement_chips' => $result['refinement_chips'] ?? null,
             'item_types'       => $result['item_types'] ?? null,
             'se_results_count' => $result['se_results_count'] ?? null,
             'items_count'      => $result['items_count'] ?? null,

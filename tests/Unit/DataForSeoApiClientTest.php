@@ -1455,6 +1455,43 @@ class DataForSeoApiClientTest extends TestCase
     }
 
     /**
+     * Test validateDomainTarget with allowWww parameter
+     */
+    public function test_validateDomainTarget_with_allowWww_false()
+    {
+        // Should reject www domains when allowWww is false (default)
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target domain must be specified without www.');
+
+        $this->client->validateDomainTarget('www.example.com', allowWww: false);
+    }
+
+    public function test_validateDomainTarget_with_allowWww_true()
+    {
+        // Should accept www domains when allowWww is true
+        $this->client->validateDomainTarget('www.example.com', allowWww: true);
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_validateDomainTarget_with_allowWww_true_still_rejects_protocols()
+    {
+        // Should still reject protocols even when allowWww is true
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target domain must be specified without https:// or http://');
+
+        $this->client->validateDomainTarget('https://www.example.com', allowWww: true);
+    }
+
+    public function test_validateDomainTarget_with_allowWww_true_still_validates_domain_format()
+    {
+        // Should still validate domain format even when allowWww is true
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Target must be a valid domain or subdomain');
+
+        $this->client->validateDomainTarget('www.invalid..domain', allowWww: true);
+    }
+
+    /**
      * Data provider for validateDomainOrPageTarget tests
      */
     public static function domainOrPageTargetDataProvider(): array

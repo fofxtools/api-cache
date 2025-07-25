@@ -157,6 +157,15 @@ function runDataForSeoTests(bool $compressionEnabled, bool $requestInfo = true, 
         echo "Error testing Amazon Ranked Keywords endpoint: {$e->getMessage()}\n";
     }
 
+    // Testing Google Keywords For Site endpoint
+    try {
+        echo "\nTesting Google Keywords For Site endpoint...\n";
+        $result = $client->labsGoogleKeywordsForSiteLive(target: 'apple.com', locationCode: 2840, languageCode: 'en', limit: 5);
+        echo format_api_response($result, $requestInfo, $responseInfo);
+    } catch (\Exception $e) {
+        echo "Error testing Google Keywords For Site endpoint: {$e->getMessage()}\n";
+    }
+
     // Testing OnPage Instant Pages endpoint with raw HTML
     try {
         echo "\nTesting OnPage Instant Pages endpoint with storeRawHtml true...\n";

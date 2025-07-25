@@ -571,13 +571,14 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
         ];
 
         $mergedData = [
-            'keyword'       => 'gaming keyboard',
-            'location_code' => 2840,
-            'language_code' => 'en_US',
-            'device'        => 'desktop',
-            'se_domain'     => 'amazon.com',
-            'task_id'       => 'task-123',
-            'response_id'   => 1,
+            'keyword'        => 'gaming keyboard',
+            'result_keyword' => 'mechanical gaming keyboard', // Different from keyword to test proper extraction
+            'location_code'  => 2840,
+            'language_code'  => 'en_US',
+            'device'         => 'desktop',
+            'se_domain'      => 'amazon.com',
+            'task_id'        => 'task-123',
+            'response_id'    => 1,
         ];
 
         $stats = $this->processor->processItems($items, $mergedData);
@@ -590,7 +591,7 @@ class DataForSeoMerchantAmazonProductsProcessorTest extends TestCase
         // Verify data was inserted with flattened rating and pretty-printed JSON
         $item = DB::table($this->itemsTable)->first();
         $this->assertEquals('gaming keyboard', $item->keyword);
-        $this->assertEquals('gaming keyboard', $item->result_keyword);
+        $this->assertEquals('mechanical gaming keyboard', $item->result_keyword); // Should preserve different result_keyword
         $this->assertEquals('amazon_serp', $item->items_type);
         $this->assertEquals(1, $item->rank_absolute);
         $this->assertEquals('B123456789', $item->data_asin);

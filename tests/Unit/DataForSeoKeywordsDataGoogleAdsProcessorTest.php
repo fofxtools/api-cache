@@ -300,7 +300,7 @@ class DataForSeoKeywordsDataGoogleAdsProcessorTest extends TestCase
 
         $expected = [
             'keyword'       => 'test',
-            'se'            => 'google_ads',
+            'se'            => null,
             'location_code' => self::WORLDWIDE_LOCATION_CODE,
             'language_code' => self::WORLDWIDE_LANGUAGE_CODE,
         ];

@@ -3420,7 +3420,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param int|null    $locationCode           Location code (e.g., 2840)
      * @param string|null $languageName           Language name (e.g., "English")
      * @param string|null $languageCode           Language code (e.g., "en")
-     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeSerpInfo        Include SERP data for each keyword
      * @param bool|null   $includeSubdomains      Include subdomains in search
      * @param bool|null   $includeClickstreamData Include clickstream-based metrics
      *                                            (with this parameter enabled, you will be charged double the price for the request)
@@ -3442,7 +3442,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?int $locationCode = 2840,
         ?string $languageName = null,
         ?string $languageCode = 'en',
-        ?bool $includeSerp_info = null,
+        ?bool $includeSerpInfo = null,
         ?bool $includeSubdomains = null,
         ?bool $includeClickstreamData = null,
         ?int $limit = null,
@@ -3528,7 +3528,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageCode           Language code (e.g., "en")
      * @param int|null    $depth                  Keyword search depth (0-4, default: 1)
      * @param bool|null   $includeSeedKeyword     Include data for the seed keyword
-     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeSerpInfo        Include SERP data for each keyword
      * @param bool|null   $includeClickstreamData Include clickstream-based metrics
      *                                            (with this parameter enabled, you will be charged double the price for the request)
      * @param bool|null   $ignoreSynonyms         Ignore highly similar keywords
@@ -3552,7 +3552,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $languageCode = 'en',
         ?int $depth = 1,
         ?bool $includeSeedKeyword = null,
-        ?bool $includeSerp_info = null,
+        ?bool $includeSerpInfo = null,
         ?bool $includeClickstreamData = null,
         ?bool $ignoreSynonyms = null,
         ?bool $replaceWithCoreKeyword = null,
@@ -3644,7 +3644,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageName           Language name (e.g., "English")
      * @param string|null $languageCode           Language code (e.g., "en")
      * @param bool|null   $includeSeedKeyword     Include data for the seed keyword
-     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeSerpInfo        Include SERP data for each keyword
      * @param bool|null   $includeClickstreamData Include clickstream-based metrics
      *                                            (with this parameter enabled, you will be charged double the price for the request)
      * @param bool|null   $exactMatch             Search for the exact phrase
@@ -3668,7 +3668,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $languageName = null,
         ?string $languageCode = null,
         ?bool $includeSeedKeyword = null,
-        ?bool $includeSerp_info = null,
+        ?bool $includeSerpInfo = null,
         ?bool $includeClickstreamData = null,
         ?bool $exactMatch = null,
         ?bool $ignoreSynonyms = null,
@@ -3747,7 +3747,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string|null $languageCode           Language code (e.g., "en")
      * @param bool|null   $closelyVariants        Search mode (phrase-match vs broad-match)
      * @param bool|null   $ignoreSynonyms         Ignore highly similar keywords
-     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeSerpInfo        Include SERP data for each keyword
      * @param bool|null   $includeClickstreamData Include clickstream-based metrics
      *                                            (with this parameter enabled, you will be charged double the price for the request)
      * @param int|null    $limit                  Maximum number of keywords (max 1000)
@@ -3770,7 +3770,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $languageCode = 'en',
         ?bool $closelyVariants = null,
         ?bool $ignoreSynonyms = null,
-        ?bool $includeSerp_info = null,
+        ?bool $includeSerpInfo = null,
         ?bool $includeClickstreamData = null,
         ?int $limit = null,
         ?int $offset = null,
@@ -4010,7 +4010,7 @@ class DataForSeoApiClient extends BaseApiClient
      * @param int|null    $locationCode           Location code (e.g., 2840)
      * @param string|null $languageName           Language name (e.g., "English")
      * @param string|null $languageCode           Language code (e.g., "en")
-     * @param bool|null   $includeSerp_info       Include SERP data for each keyword
+     * @param bool|null   $includeSerpInfo        Include SERP data for each keyword
      * @param bool|null   $includeClickstreamData Include clickstream-based metrics
      *                                            (with this parameter enabled, you will be charged double the price for the request)
      * @param string|null $tag                    User-defined task identifier
@@ -4026,7 +4026,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?int $locationCode = 2840,
         ?string $languageName = null,
         ?string $languageCode = 'en',
-        ?bool $includeSerp_info = null,
+        ?bool $includeSerpInfo = null,
         ?bool $includeClickstreamData = null,
         ?string $tag = null,
         array $additionalParams = [],

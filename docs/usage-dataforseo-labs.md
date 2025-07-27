@@ -14,7 +14,7 @@ Get keywords that a target domain ranks for in Google search results.
 - `target` - Target domain without https:// (required)
 - `locationCode` - Location code (default: 2840 for US)
 - `languageCode` - Language code (default: 'en')
-- `includeSerp_info` - Include SERP data for each keyword (default: false)
+- `includeSerpInfo` - Include SERP data for each keyword (default: false)
 - `includeSubdomains` - Include subdomains in search (default: true)
 - `includeClickstreamData` - Include clickstream-based metrics (default: false, costs double)
 - `limit` - Maximum number of keywords (max 1000, default: 100)
@@ -39,7 +39,7 @@ $result = $dfs->labsGoogleKeywordsForSiteLive(
     target: 'apple.com',
     locationCode: 2840,
     languageCode: 'en',
-    includeSerp_info: true,
+    includeSerpInfo: true,
     limit: 50,
     filters: [['keyword_info.search_volume', '>', 100]],
     orderBy: [['keyword_info.search_volume', 'desc']]

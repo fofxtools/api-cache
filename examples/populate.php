@@ -163,7 +163,19 @@ foreach ($keywordsSetA as $keyword) {
     echo "Response Body:\n";
     print_r($body);
 
+    $result   = $dfs->labsGoogleRelatedKeywordsLive($keyword, depth: 3, includeSeedKeyword: true, includeSerpInfo: true, includeClickstreamData: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->labsGoogleKeywordSuggestionsLive($keyword);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleKeywordSuggestionsLive($keyword, includeSeedKeyword: true, includeSerpInfo: true, includeClickstreamData: true, exactMatch: true, ignoreSynonyms: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";
@@ -238,6 +250,12 @@ foreach ($keywordsArrays as $keywordSet) {
     echo "Response Body:\n";
     print_r($body);
 
+    $result   = $dfs->labsGoogleKeywordIdeasLive($keywordSet, closelyVariants: true, ignoreSynonyms: true, includeSerpInfo: true, includeClickstreamData: true);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
     $result   = $dfs->labsGoogleBulkKeywordDifficultyLive($keywordSet);
     $response = $result['response'];
     $body     = $response->body();
@@ -251,6 +269,12 @@ foreach ($keywordsArrays as $keywordSet) {
     print_r($body);
 
     $result   = $dfs->labsGoogleKeywordOverviewLive($keywordSet);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleKeywordOverviewLive($keywordSet, includeSerpInfo: true, includeClickstreamData: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";
@@ -284,6 +308,12 @@ foreach ($domainArray as $domain) {
     print_r($body);
 
     $result   = $dfs->labsGoogleKeywordsForSiteLive($domain);
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->labsGoogleKeywordsForSiteLive($domain, includeSerpInfo: true, includeSubdomains: true, includeClickstreamData: true);
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";

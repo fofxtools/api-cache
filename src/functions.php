@@ -1971,3 +1971,320 @@ function create_dataforseo_merchant_amazon_asins_table(
         ]);
     }
 }
+
+/**
+ * Create DataForSEO Labs Google Keyword Research Items table
+ *
+ * @param Builder $schema       Schema builder instance
+ * @param string  $table        Table name
+ * @param bool    $dropExisting Whether to drop existing table
+ * @param bool    $verify       Whether to verify table structure
+ *
+ * @throws \RuntimeException When table creation fails
+ */
+function create_dataforseo_labs_google_keyword_research_items_table(
+    Builder $schema,
+    string $table = 'dataforseo_labs_google_keyword_research_items',
+    bool $dropExisting = false,
+    bool $verify = false
+): void {
+    if ($dropExisting && $schema->hasTable($table)) {
+        Log::debug('Dropping existing DataForSEO Labs Google Keyword Research Items table', [
+            'table' => $table,
+        ]);
+        $schema->dropIfExists($table);
+    }
+
+    $driver = $schema->getConnection()->getDriverName();
+
+    if (!$schema->hasTable($table)) {
+        Log::debug('Creating DataForSEO Labs Google Keyword Research Items table', [
+            'table' => $table,
+        ]);
+
+        $schema->create($table, function (Blueprint $table) use ($driver) {
+            $table->id();
+            $table->unsignedBigInteger('response_id')->nullable();
+            $table->string('task_id')->nullable();
+
+            // Core fields (unique index fields)
+            $table->string('keyword');
+            $table->string('se_type')->nullable();
+            $table->integer('location_code');
+            $table->string('language_code', 20);
+
+            // keyword_info fields
+            $table->string('keyword_info_se_type')->nullable();
+            $table->string('keyword_info_last_updated_time')->nullable();
+            $table->float('keyword_info_competition')->nullable();
+            $table->string('keyword_info_competition_level')->nullable();
+            $table->float('keyword_info_cpc')->nullable();
+            $table->integer('keyword_info_search_volume')->nullable();
+            $table->float('keyword_info_low_top_of_page_bid')->nullable();
+            $table->float('keyword_info_high_top_of_page_bid')->nullable();
+            $table->text('keyword_info_categories')->nullable();
+            $table->text('keyword_info_monthly_searches')->nullable();
+            $table->integer('keyword_info_search_volume_trend_monthly')->nullable();
+            $table->integer('keyword_info_search_volume_trend_quarterly')->nullable();
+            $table->integer('keyword_info_search_volume_trend_yearly')->nullable();
+
+            // keyword_info_normalized_with_bing fields
+            $table->string('keyword_info_normalized_with_bing_last_updated_time')->nullable();
+            $table->integer('keyword_info_normalized_with_bing_search_volume')->nullable();
+            $table->boolean('keyword_info_normalized_with_bing_is_normalized')->nullable();
+            $table->integer('keyword_info_normalized_with_bing_monthly_searches')->nullable();
+
+            // keyword_info_normalized_with_clickstream fields
+            $table->string('keyword_info_normalized_with_clickstream_last_updated_time')->nullable();
+            $table->integer('keyword_info_normalized_with_clickstream_search_volume')->nullable();
+            $table->boolean('keyword_info_normalized_with_clickstream_is_normalized')->nullable();
+            $table->integer('keyword_info_normalized_with_clickstream_monthly_searches')->nullable();
+
+            // clickstream_keyword_info fields
+            $table->integer('clickstream_keyword_info_search_volume')->nullable();
+            $table->string('clickstream_keyword_info_last_updated_time')->nullable();
+            $table->integer('clickstream_keyword_info_gender_distribution_female')->nullable();
+            $table->integer('clickstream_keyword_info_gender_distribution_male')->nullable();
+            $table->integer('clickstream_keyword_info_age_distribution_18_24')->nullable();
+            $table->integer('clickstream_keyword_info_age_distribution_25_34')->nullable();
+            $table->integer('clickstream_keyword_info_age_distribution_35_44')->nullable();
+            $table->integer('clickstream_keyword_info_age_distribution_45_54')->nullable();
+            $table->integer('clickstream_keyword_info_age_distribution_55_64')->nullable();
+            $table->text('clickstream_keyword_info_monthly_searches')->nullable();
+
+            // keyword_properties fields
+            $table->string('keyword_properties_se_type')->nullable();
+            $table->string('keyword_properties_core_keyword')->nullable();
+            $table->string('keyword_properties_synonym_clustering_algorithm')->nullable();
+            $table->integer('keyword_properties_keyword_difficulty')->nullable();
+            $table->string('keyword_properties_detected_language')->nullable();
+            $table->boolean('keyword_properties_is_another_language')->nullable();
+
+            // serp_info fields
+            $table->string('serp_info_se_type')->nullable();
+            $table->text('serp_info_check_url')->nullable();
+            $table->text('serp_info_serp_item_types')->nullable();
+            $table->integer('serp_info_se_results_count')->nullable();
+            $table->string('serp_info_last_updated_time')->nullable();
+            $table->string('serp_info_previous_updated_time')->nullable();
+
+            // avg_backlinks_info fields
+            $table->string('avg_backlinks_info_se_type')->nullable();
+            $table->float('avg_backlinks_info_backlinks')->nullable();
+            $table->float('avg_backlinks_info_dofollow')->nullable();
+            $table->float('avg_backlinks_info_referring_pages')->nullable();
+            $table->float('avg_backlinks_info_referring_domains')->nullable();
+            $table->float('avg_backlinks_info_referring_main_domains')->nullable();
+            $table->float('avg_backlinks_info_rank')->nullable();
+            $table->float('avg_backlinks_info_main_domain_rank')->nullable();
+            $table->string('avg_backlinks_info_last_updated_time')->nullable();
+
+            // search_intent_info fields
+            $table->string('search_intent_info_se_type')->nullable();
+            $table->string('search_intent_info_main_intent')->nullable();
+            $table->text('search_intent_info_foreign_intent')->nullable();
+            $table->string('search_intent_info_last_updated_time')->nullable();
+
+            // Additional fields
+            $table->text('related_keywords')->nullable();
+            $table->integer('keyword_difficulty')->nullable();
+
+            // keyword_intent fields
+            $table->string('keyword_intent_label')->nullable();
+            $table->float('keyword_intent_probability')->nullable();
+
+            // secondary_keyword_intents fields
+            $table->string('secondary_keyword_intents_label')->nullable();
+            $table->float('secondary_keyword_intents_probability')->nullable();
+
+            $table->timestamps();
+            $table->timestamp('processed_at')->nullable();
+            $table->text('processed_status')->nullable();
+
+            // Add indexes for better performance
+            // MySQL (64) and PostgreSQL (63) have character limits for index names, so we manually set them.
+            // For SQLite, we let Laravel auto-generate unique names since index names must be unique across all tables.
+            if ($driver === 'mysql' || $driver === 'pgsql') {
+                $table->index('response_id', 'dlgkri_response_id_idx');
+                $table->index('task_id', 'dlgkri_task_id_idx');
+
+                $table->index('keyword', 'dlgkri_keyword_idx');
+                $table->index('se_type', 'dlgkri_se_type_idx');
+                $table->index('location_code', 'dlgkri_location_code_idx');
+                $table->index('language_code', 'dlgkri_language_code_idx');
+
+                // keyword_info indexes
+                $table->index('keyword_info_competition', 'dlgkri_ki_competition_idx');
+                $table->index('keyword_info_competition_level', 'dlgkri_ki_comp_level_idx');
+                $table->index('keyword_info_cpc', 'dlgkri_ki_cpc_idx');
+                $table->index('keyword_info_search_volume', 'dlgkri_ki_search_vol_idx');
+                $table->index('keyword_info_low_top_of_page_bid', 'dlgkri_ki_low_bid_idx');
+                $table->index('keyword_info_high_top_of_page_bid', 'dlgkri_ki_high_bid_idx');
+                $table->index('keyword_info_search_volume_trend_monthly', 'dlgkri_ki_trend_m_idx');
+                $table->index('keyword_info_search_volume_trend_quarterly', 'dlgkri_ki_trend_q_idx');
+                $table->index('keyword_info_search_volume_trend_yearly', 'dlgkri_ki_trend_y_idx');
+
+                // keyword_info_normalized_with_bing indexes
+                $table->index('keyword_info_normalized_with_bing_last_updated_time', 'dlgkri_kinb_updated_idx');
+                $table->index('keyword_info_normalized_with_bing_search_volume', 'dlgkri_kinb_vol_idx');
+                $table->index('keyword_info_normalized_with_bing_is_normalized', 'dlgkri_kinb_norm_idx');
+                $table->index('keyword_info_normalized_with_bing_monthly_searches', 'dlgkri_kinb_monthly_idx');
+
+                // keyword_info_normalized_with_clickstream indexes
+                $table->index('keyword_info_normalized_with_clickstream_last_updated_time', 'dlgkri_kinc_updated_idx');
+                $table->index('keyword_info_normalized_with_clickstream_search_volume', 'dlgkri_kinc_vol_idx');
+                $table->index('keyword_info_normalized_with_clickstream_is_normalized', 'dlgkri_kinc_norm_idx');
+                $table->index('keyword_info_normalized_with_clickstream_monthly_searches', 'dlgkri_kinc_monthly_idx');
+
+                // clickstream_keyword_info indexes
+                $table->index('clickstream_keyword_info_search_volume', 'dlgkri_cki_vol_idx');
+                $table->index('clickstream_keyword_info_last_updated_time', 'dlgkri_cki_updated_idx');
+                $table->index('clickstream_keyword_info_gender_distribution_female', 'dlgkri_cki_gender_f_idx');
+                $table->index('clickstream_keyword_info_gender_distribution_male', 'dlgkri_cki_gender_m_idx');
+                $table->index('clickstream_keyword_info_age_distribution_18_24', 'dlgkri_cki_age_18_24_idx');
+                $table->index('clickstream_keyword_info_age_distribution_25_34', 'dlgkri_cki_age_25_34_idx');
+                $table->index('clickstream_keyword_info_age_distribution_35_44', 'dlgkri_cki_age_35_44_idx');
+                $table->index('clickstream_keyword_info_age_distribution_45_54', 'dlgkri_cki_age_45_54_idx');
+                $table->index('clickstream_keyword_info_age_distribution_55_64', 'dlgkri_cki_age_55_64_idx');
+
+                // keyword_properties indexes
+                $table->index('keyword_properties_keyword_difficulty', 'dlgkri_kp_difficulty_idx');
+
+                // serp_info indexes
+                $table->index('serp_info_se_results_count', 'dlgkri_si_results_idx');
+                $table->index('serp_info_last_updated_time', 'dlgkri_si_updated_idx');
+                $table->index('serp_info_previous_updated_time', 'dlgkri_si_prev_upd_idx');
+
+                // avg_backlinks_info indexes
+                $table->index('avg_backlinks_info_backlinks', 'dlgkri_abi_backlinks_idx');
+                $table->index('avg_backlinks_info_dofollow', 'dlgkri_abi_dofollow_idx');
+                $table->index('avg_backlinks_info_referring_pages', 'dlgkri_abi_ref_pages_idx');
+                $table->index('avg_backlinks_info_referring_domains', 'dlgkri_abi_ref_dom_idx');
+                $table->index('avg_backlinks_info_referring_main_domains', 'dlgkri_abi_ref_main_idx');
+                $table->index('avg_backlinks_info_rank', 'dlgkri_abi_rank_idx');
+                $table->index('avg_backlinks_info_main_domain_rank', 'dlgkri_abi_main_rank_idx');
+                $table->index('avg_backlinks_info_last_updated_time', 'dlgkri_abi_updated_idx');
+
+                // search_intent_info indexes
+                $table->index('search_intent_info_main_intent', 'dlgkri_sii_main_idx');
+                $table->index('search_intent_info_last_updated_time', 'dlgkri_sii_updated_idx');
+
+                // Additional field indexes
+                $table->index('keyword_difficulty', 'dlgkri_kw_difficulty_idx');
+                $table->index('keyword_intent_label', 'dlgkri_ki_label_idx');
+                $table->index('keyword_intent_probability', 'dlgkri_ki_prob_idx');
+                $table->index('secondary_keyword_intents_label', 'dlgkri_ski_label_idx');
+                $table->index('secondary_keyword_intents_probability', 'dlgkri_ski_prob_idx');
+
+                $table->index('processed_at', 'dlgkri_processed_at_idx');
+
+                $table->unique(['keyword', 'location_code', 'language_code'], 'dlgkri_keyword_location_language_unique');
+            } else {
+                $table->index('response_id');
+                $table->index('task_id');
+
+                $table->index('keyword');
+                $table->index('se_type');
+                $table->index('location_code');
+                $table->index('language_code');
+
+                // keyword_info indexes
+                $table->index('keyword_info_competition');
+                $table->index('keyword_info_competition_level');
+                $table->index('keyword_info_cpc');
+                $table->index('keyword_info_search_volume');
+                $table->index('keyword_info_low_top_of_page_bid');
+                $table->index('keyword_info_high_top_of_page_bid');
+                $table->index('keyword_info_search_volume_trend_monthly');
+                $table->index('keyword_info_search_volume_trend_quarterly');
+                $table->index('keyword_info_search_volume_trend_yearly');
+
+                // keyword_info_normalized_with_bing indexes
+                $table->index('keyword_info_normalized_with_bing_last_updated_time');
+                $table->index('keyword_info_normalized_with_bing_search_volume');
+                $table->index('keyword_info_normalized_with_bing_is_normalized');
+                $table->index('keyword_info_normalized_with_bing_monthly_searches');
+
+                // keyword_info_normalized_with_clickstream indexes
+                $table->index('keyword_info_normalized_with_clickstream_last_updated_time');
+                $table->index('keyword_info_normalized_with_clickstream_search_volume');
+                $table->index('keyword_info_normalized_with_clickstream_is_normalized');
+                $table->index('keyword_info_normalized_with_clickstream_monthly_searches');
+
+                // clickstream_keyword_info indexes
+                $table->index('clickstream_keyword_info_search_volume');
+                $table->index('clickstream_keyword_info_last_updated_time');
+                $table->index('clickstream_keyword_info_gender_distribution_female');
+                $table->index('clickstream_keyword_info_gender_distribution_male');
+                $table->index('clickstream_keyword_info_age_distribution_18_24');
+                $table->index('clickstream_keyword_info_age_distribution_25_34');
+                $table->index('clickstream_keyword_info_age_distribution_35_44');
+                $table->index('clickstream_keyword_info_age_distribution_45_54');
+                $table->index('clickstream_keyword_info_age_distribution_55_64');
+
+                // keyword_properties indexes
+                $table->index('keyword_properties_keyword_difficulty');
+
+                // serp_info indexes
+                $table->index('serp_info_se_results_count');
+                $table->index('serp_info_last_updated_time');
+                $table->index('serp_info_previous_updated_time');
+
+                // avg_backlinks_info indexes
+                $table->index('avg_backlinks_info_backlinks');
+                $table->index('avg_backlinks_info_dofollow');
+                $table->index('avg_backlinks_info_referring_pages');
+                $table->index('avg_backlinks_info_referring_domains');
+                $table->index('avg_backlinks_info_referring_main_domains');
+                $table->index('avg_backlinks_info_rank');
+                $table->index('avg_backlinks_info_main_domain_rank');
+                $table->index('avg_backlinks_info_last_updated_time');
+
+                // search_intent_info indexes
+                $table->index('search_intent_info_main_intent');
+                $table->index('search_intent_info_last_updated_time');
+
+                // Additional field indexes
+                $table->index('keyword_difficulty');
+                $table->index('keyword_intent_label');
+                $table->index('keyword_intent_probability');
+                $table->index('secondary_keyword_intents_label');
+                $table->index('secondary_keyword_intents_probability');
+
+                $table->index('processed_at');
+
+                $table->unique(['keyword', 'location_code', 'language_code']);
+            }
+        });
+
+        Log::debug('DataForSEO Labs Google Keyword Research Items table created successfully', [
+            'table' => $table,
+        ]);
+    }
+
+    // Verify table structure if requested
+    if ($verify) {
+        if (!$schema->hasTable($table)) {
+            throw new \RuntimeException("Table {$table} was not created successfully");
+        }
+
+        $pdo       = $schema->getConnection()->getPdo();
+        $driver    = $schema->getConnection()->getDriverName();
+        $tableInfo = [];
+        $indexInfo = [];
+
+        if ($driver === 'mysql') {
+            $result    = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
+            $tableInfo = $result['Create Table'] ?? null;
+        } elseif ($driver === 'sqlite') {
+            $tableInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetch(\PDO::FETCH_ASSOC);
+            $indexInfo = $pdo->query("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='{$table}'")->fetchAll(\PDO::FETCH_COLUMN);
+        }
+
+        Log::debug('Table verified', [
+            'table'     => $table,
+            'structure' => $tableInfo,
+            'indexes'   => $indexInfo,
+        ]);
+    }
+}

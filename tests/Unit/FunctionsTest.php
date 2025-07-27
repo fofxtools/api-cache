@@ -36,6 +36,7 @@ use function FOfX\ApiCache\create_dataforseo_backlinks_bulk_items_table;
 use function FOfX\ApiCache\create_dataforseo_merchant_amazon_products_listings_table;
 use function FOfX\ApiCache\create_dataforseo_merchant_amazon_products_items_table;
 use function FOfX\ApiCache\create_dataforseo_merchant_amazon_asins_table;
+use function FOfX\ApiCache\create_dataforseo_labs_google_keyword_research_items_table;
 
 class FunctionsTest extends TestCase
 {
@@ -55,6 +56,7 @@ class FunctionsTest extends TestCase
     protected string $testAmazonProductsListingsTable = 'dataforseo_merchant_amazon_products_listings_test';
     protected string $testAmazonProductsItemsTable    = 'dataforseo_merchant_amazon_products_items_test';
     protected string $testAmazonAsinsTable            = 'dataforseo_merchant_amazon_asins_test';
+    protected string $testKeywordResearchTable        = 'dataforseo_labs_google_keyword_research_items_test';
 
     protected string $clientName = 'demo';
     protected string $apiBaseUrl;
@@ -82,6 +84,7 @@ class FunctionsTest extends TestCase
         $this->testAmazonProductsListingsTable .= '_' . uniqid();
         $this->testAmazonProductsItemsTable .= '_' . uniqid();
         $this->testAmazonAsinsTable .= '_' . uniqid();
+        $this->testKeywordResearchTable .= '_' . uniqid();
 
         // Get base URL from config
         $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
@@ -1660,6 +1663,110 @@ class FunctionsTest extends TestCase
         create_dataforseo_merchant_amazon_asins_table($schema, $table, false, false);
         $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
         create_dataforseo_merchant_amazon_asins_table($schema, $table, true, false);
+        $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_labs_google_keyword_research_items_table_creates_table(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testKeywordResearchTable;
+        create_dataforseo_labs_google_keyword_research_items_table($schema, $table, true, true);
+        $this->assertTrue($schema->hasTable($table));
+
+        $columns = $schema->getColumnListing($table);
+        $this->assertContains('id', $columns);
+        $this->assertContains('response_id', $columns);
+        $this->assertContains('task_id', $columns);
+        $this->assertContains('se_type', $columns);
+        $this->assertContains('keyword', $columns);
+        $this->assertContains('location_code', $columns);
+        $this->assertContains('language_code', $columns);
+        $this->assertContains('keyword_info_se_type', $columns);
+        $this->assertContains('keyword_info_last_updated_time', $columns);
+        $this->assertContains('keyword_info_competition', $columns);
+        $this->assertContains('keyword_info_competition_level', $columns);
+        $this->assertContains('keyword_info_cpc', $columns);
+        $this->assertContains('keyword_info_search_volume', $columns);
+        $this->assertContains('keyword_info_low_top_of_page_bid', $columns);
+        $this->assertContains('keyword_info_high_top_of_page_bid', $columns);
+        $this->assertContains('keyword_info_categories', $columns);
+        $this->assertContains('keyword_info_monthly_searches', $columns);
+        $this->assertContains('keyword_info_search_volume_trend_monthly', $columns);
+        $this->assertContains('keyword_info_search_volume_trend_quarterly', $columns);
+        $this->assertContains('keyword_info_search_volume_trend_yearly', $columns);
+        $this->assertContains('keyword_info_normalized_with_bing_last_updated_time', $columns);
+        $this->assertContains('keyword_info_normalized_with_bing_search_volume', $columns);
+        $this->assertContains('keyword_info_normalized_with_bing_is_normalized', $columns);
+        $this->assertContains('keyword_info_normalized_with_bing_monthly_searches', $columns);
+        $this->assertContains('keyword_info_normalized_with_clickstream_last_updated_time', $columns);
+        $this->assertContains('keyword_info_normalized_with_clickstream_search_volume', $columns);
+        $this->assertContains('keyword_info_normalized_with_clickstream_is_normalized', $columns);
+        $this->assertContains('keyword_info_normalized_with_clickstream_monthly_searches', $columns);
+        $this->assertContains('clickstream_keyword_info_search_volume', $columns);
+        $this->assertContains('clickstream_keyword_info_last_updated_time', $columns);
+        $this->assertContains('clickstream_keyword_info_gender_distribution_female', $columns);
+        $this->assertContains('clickstream_keyword_info_gender_distribution_male', $columns);
+        $this->assertContains('clickstream_keyword_info_age_distribution_18_24', $columns);
+        $this->assertContains('clickstream_keyword_info_age_distribution_25_34', $columns);
+        $this->assertContains('clickstream_keyword_info_age_distribution_35_44', $columns);
+        $this->assertContains('clickstream_keyword_info_age_distribution_45_54', $columns);
+        $this->assertContains('clickstream_keyword_info_age_distribution_55_64', $columns);
+        $this->assertContains('clickstream_keyword_info_monthly_searches', $columns);
+        $this->assertContains('keyword_properties_se_type', $columns);
+        $this->assertContains('keyword_properties_core_keyword', $columns);
+        $this->assertContains('keyword_properties_synonym_clustering_algorithm', $columns);
+        $this->assertContains('keyword_properties_keyword_difficulty', $columns);
+        $this->assertContains('keyword_properties_detected_language', $columns);
+        $this->assertContains('keyword_properties_is_another_language', $columns);
+        $this->assertContains('serp_info_se_type', $columns);
+        $this->assertContains('serp_info_check_url', $columns);
+        $this->assertContains('serp_info_serp_item_types', $columns);
+        $this->assertContains('serp_info_se_results_count', $columns);
+        $this->assertContains('serp_info_last_updated_time', $columns);
+        $this->assertContains('serp_info_previous_updated_time', $columns);
+        $this->assertContains('avg_backlinks_info_se_type', $columns);
+        $this->assertContains('avg_backlinks_info_backlinks', $columns);
+        $this->assertContains('avg_backlinks_info_dofollow', $columns);
+        $this->assertContains('avg_backlinks_info_referring_pages', $columns);
+        $this->assertContains('avg_backlinks_info_referring_domains', $columns);
+        $this->assertContains('avg_backlinks_info_referring_main_domains', $columns);
+        $this->assertContains('avg_backlinks_info_rank', $columns);
+        $this->assertContains('avg_backlinks_info_main_domain_rank', $columns);
+        $this->assertContains('avg_backlinks_info_last_updated_time', $columns);
+        $this->assertContains('search_intent_info_se_type', $columns);
+        $this->assertContains('search_intent_info_main_intent', $columns);
+        $this->assertContains('search_intent_info_foreign_intent', $columns);
+        $this->assertContains('search_intent_info_last_updated_time', $columns);
+        $this->assertContains('related_keywords', $columns);
+        $this->assertContains('keyword_difficulty', $columns);
+        $this->assertContains('keyword_intent_label', $columns);
+        $this->assertContains('keyword_intent_probability', $columns);
+        $this->assertContains('secondary_keyword_intents_label', $columns);
+        $this->assertContains('secondary_keyword_intents_probability', $columns);
+        $this->assertContains('created_at', $columns);
+        $this->assertContains('updated_at', $columns);
+        $this->assertContains('processed_at', $columns);
+        $this->assertContains('processed_status', $columns);
+        $schema->dropIfExists($table);
+    }
+
+    public function test_create_dataforseo_labs_google_keyword_research_items_table_respects_drop_existing_parameter(): void
+    {
+        $schema = \Illuminate\Support\Facades\Schema::connection(null);
+        $table  = $this->testKeywordResearchTable;
+        create_dataforseo_labs_google_keyword_research_items_table($schema, $table, true, false);
+        \Illuminate\Support\Facades\DB::table($table)->insert([
+            'keyword'       => 'test keyword',
+            'location_code' => 2840,
+            'language_code' => 'en',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_labs_google_keyword_research_items_table($schema, $table, false, false);
+        $this->assertEquals(1, \Illuminate\Support\Facades\DB::table($table)->count());
+        create_dataforseo_labs_google_keyword_research_items_table($schema, $table, true, false);
         $this->assertEquals(0, \Illuminate\Support\Facades\DB::table($table)->count());
         $schema->dropIfExists($table);
     }

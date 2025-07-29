@@ -529,17 +529,23 @@ function normalize_params(array $params, int $depth = 0): array
  * Summarize parameters by truncating each parameter to a configurable character limit. Return as JSON key-value pairs.
  * Arrays will be single-line JSON, truncated at the specified character limit.
  *
- * @param array $params         Parameters to summarize
- * @param bool  $normalize      Whether to normalize the parameters first (optional)
- * @param bool  $prettyPrint    Whether to pretty print the JSON (optional)
- * @param int   $characterLimit The character limit for truncating values (default: 100)
+ * @param array $params           Parameters to summarize
+ * @param bool  $normalize        Whether to normalize the parameters first (optional)
+ * @param bool  $prettyPrint      Whether to pretty print the JSON (optional)
+ * @param int   $characterLimit   The character limit for truncating values (default: 100)
+ * @param bool  $detectTaskArrays Whether to detect and flatten single-element task arrays (default: true)
  *
  * @throws \InvalidArgumentException If JSON encoding fails
  *
  * @return string Summarized parameters as JSON string with proper key-value structure
  */
-function summarize_params(array $params, bool $normalize = true, bool $prettyPrint = true, int $characterLimit = 100): string
+function summarize_params(array $params, bool $normalize = true, bool $prettyPrint = true, int $characterLimit = 100, bool $detectTaskArrays = true): string
 {
+    // Detect single-element numeric array containing parameters (e.g., DataForSEO task arrays)
+    if ($detectTaskArrays && count($params) === 1 && isset($params[0]) && is_array($params[0])) {
+        $params = $params[0];
+    }
+
     // Optionally normalize (remove nulls, sort keys, etc.)
     if ($normalize) {
         $params = normalize_params($params);
@@ -1722,7 +1728,7 @@ function create_dataforseo_merchant_amazon_products_items_table(
             $table->boolean('is_amazon_choice')->nullable();
             $table->boolean('is_best_seller')->nullable();
             $table->text('delivery_info')->nullable(); // JSON, should be pretty printed
-            $table->text('nested_items')->nullable(); // JSON, should be pretty printed. From result.items.items
+            $table->text('nested_items')->nullable(); // JSON, should be pretty printed. From tasks.result.items.items
 
             $table->timestamps();
             $table->timestamp('processed_at')->nullable();
@@ -2010,8 +2016,9 @@ function create_dataforseo_labs_google_keyword_research_items_table(
             // Core fields (unique index fields)
             $table->string('keyword');
             $table->string('se_type')->nullable();
-            $table->integer('location_code');
-            $table->string('language_code', 20);
+            // Add default value to avoid null in unique index for optional fields
+            $table->integer('location_code')->default(0); // 0 = worldwide/all locations
+            $table->string('language_code', 20)->default('none'); // 'none' = no specific language (worldwide)
 
             // keyword_info fields
             $table->string('keyword_info_se_type')->nullable();
@@ -2019,29 +2026,29 @@ function create_dataforseo_labs_google_keyword_research_items_table(
             $table->float('keyword_info_competition')->nullable();
             $table->string('keyword_info_competition_level')->nullable();
             $table->float('keyword_info_cpc')->nullable();
-            $table->integer('keyword_info_search_volume')->nullable();
+            $table->unsignedBigInteger('keyword_info_search_volume')->nullable();
             $table->float('keyword_info_low_top_of_page_bid')->nullable();
             $table->float('keyword_info_high_top_of_page_bid')->nullable();
-            $table->text('keyword_info_categories')->nullable();
-            $table->text('keyword_info_monthly_searches')->nullable();
+            $table->text('keyword_info_categories')->nullable(); // JSON, should be pretty printed
+            $table->text('keyword_info_monthly_searches')->nullable(); // JSON, should be pretty printed
             $table->integer('keyword_info_search_volume_trend_monthly')->nullable();
             $table->integer('keyword_info_search_volume_trend_quarterly')->nullable();
             $table->integer('keyword_info_search_volume_trend_yearly')->nullable();
 
             // keyword_info_normalized_with_bing fields
             $table->string('keyword_info_normalized_with_bing_last_updated_time')->nullable();
-            $table->integer('keyword_info_normalized_with_bing_search_volume')->nullable();
+            $table->unsignedBigInteger('keyword_info_normalized_with_bing_search_volume')->nullable();
             $table->boolean('keyword_info_normalized_with_bing_is_normalized')->nullable();
-            $table->integer('keyword_info_normalized_with_bing_monthly_searches')->nullable();
+            $table->text('keyword_info_normalized_with_bing_monthly_searches')->nullable(); // JSON, should be pretty printed
 
             // keyword_info_normalized_with_clickstream fields
             $table->string('keyword_info_normalized_with_clickstream_last_updated_time')->nullable();
-            $table->integer('keyword_info_normalized_with_clickstream_search_volume')->nullable();
+            $table->unsignedBigInteger('keyword_info_normalized_with_clickstream_search_volume')->nullable();
             $table->boolean('keyword_info_normalized_with_clickstream_is_normalized')->nullable();
-            $table->integer('keyword_info_normalized_with_clickstream_monthly_searches')->nullable();
+            $table->text('keyword_info_normalized_with_clickstream_monthly_searches')->nullable(); // JSON, should be pretty printed
 
             // clickstream_keyword_info fields
-            $table->integer('clickstream_keyword_info_search_volume')->nullable();
+            $table->unsignedBigInteger('clickstream_keyword_info_search_volume')->nullable();
             $table->string('clickstream_keyword_info_last_updated_time')->nullable();
             $table->integer('clickstream_keyword_info_gender_distribution_female')->nullable();
             $table->integer('clickstream_keyword_info_gender_distribution_male')->nullable();
@@ -2050,7 +2057,7 @@ function create_dataforseo_labs_google_keyword_research_items_table(
             $table->integer('clickstream_keyword_info_age_distribution_35_44')->nullable();
             $table->integer('clickstream_keyword_info_age_distribution_45_54')->nullable();
             $table->integer('clickstream_keyword_info_age_distribution_55_64')->nullable();
-            $table->text('clickstream_keyword_info_monthly_searches')->nullable();
+            $table->text('clickstream_keyword_info_monthly_searches')->nullable(); // JSON, should be pretty printed
 
             // keyword_properties fields
             $table->string('keyword_properties_se_type')->nullable();
@@ -2063,8 +2070,8 @@ function create_dataforseo_labs_google_keyword_research_items_table(
             // serp_info fields
             $table->string('serp_info_se_type')->nullable();
             $table->text('serp_info_check_url')->nullable();
-            $table->text('serp_info_serp_item_types')->nullable();
-            $table->integer('serp_info_se_results_count')->nullable();
+            $table->text('serp_info_serp_item_types')->nullable(); // JSON, should be pretty printed
+            $table->unsignedBigInteger('serp_info_se_results_count')->nullable();
             $table->string('serp_info_last_updated_time')->nullable();
             $table->string('serp_info_previous_updated_time')->nullable();
 
@@ -2082,11 +2089,11 @@ function create_dataforseo_labs_google_keyword_research_items_table(
             // search_intent_info fields
             $table->string('search_intent_info_se_type')->nullable();
             $table->string('search_intent_info_main_intent')->nullable();
-            $table->text('search_intent_info_foreign_intent')->nullable();
+            $table->text('search_intent_info_foreign_intent')->nullable(); // JSON, should be pretty printed
             $table->string('search_intent_info_last_updated_time')->nullable();
 
             // Additional fields
-            $table->text('related_keywords')->nullable();
+            $table->text('related_keywords')->nullable(); // JSON, should be pretty printed
             $table->integer('keyword_difficulty')->nullable();
 
             // keyword_intent fields
@@ -2094,8 +2101,10 @@ function create_dataforseo_labs_google_keyword_research_items_table(
             $table->float('keyword_intent_probability')->nullable();
 
             // secondary_keyword_intents fields
-            $table->string('secondary_keyword_intents_label')->nullable();
-            $table->float('secondary_keyword_intents_probability')->nullable();
+            $table->float('secondary_keyword_intents_probability_informational')->nullable();
+            $table->float('secondary_keyword_intents_probability_navigational')->nullable();
+            $table->float('secondary_keyword_intents_probability_commercial')->nullable();
+            $table->float('secondary_keyword_intents_probability_transactional')->nullable();
 
             $table->timestamps();
             $table->timestamp('processed_at')->nullable();
@@ -2128,13 +2137,11 @@ function create_dataforseo_labs_google_keyword_research_items_table(
                 $table->index('keyword_info_normalized_with_bing_last_updated_time', 'dlgkri_kinb_updated_idx');
                 $table->index('keyword_info_normalized_with_bing_search_volume', 'dlgkri_kinb_vol_idx');
                 $table->index('keyword_info_normalized_with_bing_is_normalized', 'dlgkri_kinb_norm_idx');
-                $table->index('keyword_info_normalized_with_bing_monthly_searches', 'dlgkri_kinb_monthly_idx');
 
                 // keyword_info_normalized_with_clickstream indexes
                 $table->index('keyword_info_normalized_with_clickstream_last_updated_time', 'dlgkri_kinc_updated_idx');
                 $table->index('keyword_info_normalized_with_clickstream_search_volume', 'dlgkri_kinc_vol_idx');
                 $table->index('keyword_info_normalized_with_clickstream_is_normalized', 'dlgkri_kinc_norm_idx');
-                $table->index('keyword_info_normalized_with_clickstream_monthly_searches', 'dlgkri_kinc_monthly_idx');
 
                 // clickstream_keyword_info indexes
                 $table->index('clickstream_keyword_info_search_volume', 'dlgkri_cki_vol_idx');
@@ -2173,8 +2180,10 @@ function create_dataforseo_labs_google_keyword_research_items_table(
                 $table->index('keyword_difficulty', 'dlgkri_kw_difficulty_idx');
                 $table->index('keyword_intent_label', 'dlgkri_ki_label_idx');
                 $table->index('keyword_intent_probability', 'dlgkri_ki_prob_idx');
-                $table->index('secondary_keyword_intents_label', 'dlgkri_ski_label_idx');
-                $table->index('secondary_keyword_intents_probability', 'dlgkri_ski_prob_idx');
+                $table->index('secondary_keyword_intents_probability_informational', 'dlgkri_ski_prob_info_idx');
+                $table->index('secondary_keyword_intents_probability_navigational', 'dlgkri_ski_prob_nav_idx');
+                $table->index('secondary_keyword_intents_probability_commercial', 'dlgkri_ski_prob_comm_idx');
+                $table->index('secondary_keyword_intents_probability_transactional', 'dlgkri_ski_prob_trans_idx');
 
                 $table->index('processed_at', 'dlgkri_processed_at_idx');
 
@@ -2248,8 +2257,10 @@ function create_dataforseo_labs_google_keyword_research_items_table(
                 $table->index('keyword_difficulty');
                 $table->index('keyword_intent_label');
                 $table->index('keyword_intent_probability');
-                $table->index('secondary_keyword_intents_label');
-                $table->index('secondary_keyword_intents_probability');
+                $table->index('secondary_keyword_intents_probability_informational');
+                $table->index('secondary_keyword_intents_probability_navigational');
+                $table->index('secondary_keyword_intents_probability_commercial');
+                $table->index('secondary_keyword_intents_probability_transactional');
 
                 $table->index('processed_at');
 

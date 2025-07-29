@@ -434,14 +434,6 @@ class DataForSeoMerchantAmazonProductsProcessor
                 continue;
             }
 
-            // Skip items that have nested items if we're processing those separately
-            if (isset($item['items']) && !$this->skipNestedItems) {
-                // Process nested items recursively
-                $nestedStats = $this->processItems($item['items'], $mergedData);
-                // Note: We don't accumulate nested stats in this implementation
-                // as they would be processed as separate items
-            }
-
             $itemData = array_merge($mergedData, [
                 'result_keyword'    => $mergedData['result_keyword'] ?? null,
                 'items_type'        => $item['type'] ?? null,

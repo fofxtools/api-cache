@@ -583,6 +583,39 @@ class FunctionsTest extends TestCase
                 'expected'    => "{\n    \"key\": \"value\"\n}",
                 'prettyPrint' => true,
             ],
+
+            // Task array detection tests
+            'single task array - should flatten' => [
+                'input' => [
+                    [
+                        'keyword'       => 'test',
+                        'location_code' => 2840,
+                        'language_code' => 'en',
+                    ],
+                ],
+                'expected' => '{"keyword":"test","language_code":"en","location_code":2840}',
+            ],
+
+            'multi task array - should not flatten' => [
+                'input' => [
+                    ['keyword' => 'first'],
+                    ['keyword' => 'second'],
+                ],
+                'expected' => '["{\\"keyword\\":\\"first\\"}","{\\"keyword\\":\\"second\\"}"]',
+            ],
+
+            'single non-array element - should not flatten' => [
+                'input'    => [0 => 'just a string'],
+                'expected' => '["just a string"]',
+            ],
+
+            'mixed keys with numeric 0 - should not flatten' => [
+                'input' => [
+                    0       => ['param' => 'value'],
+                    'other' => 'data',
+                ],
+                'expected' => '{"0":"{\\"param\\":\\"value\\"}","other":"data"}',
+            ],
         ];
     }
 
@@ -624,6 +657,56 @@ class FunctionsTest extends TestCase
         $this->assertEquals(42, $decoded['number']); // Numbers preserved as-is
         $this->assertEquals(true, $decoded['boolean']); // Booleans preserved as-is
         $this->assertLessThanOrEqual($characterLimit + 5, mb_strlen($decoded['array'])); // Add 5 for the ellipsis, quote, and closing brace
+    }
+
+    public function test_summarize_params_task_array_detection_enabled(): void
+    {
+        $taskArray = [
+            [
+                'keyword'       => 'test keyword',
+                'location_code' => 2840,
+                'language_code' => 'en',
+                'amount'        => 1,
+            ],
+        ];
+
+        // Test with detection enabled (default)
+        $result  = summarize_params($taskArray);
+        $decoded = json_decode($result, true);
+
+        // Should flatten the task array and show individual parameters
+        $this->assertArrayHasKey('keyword', $decoded);
+        $this->assertArrayHasKey('location_code', $decoded);
+        $this->assertArrayHasKey('language_code', $decoded);
+        $this->assertArrayHasKey('amount', $decoded);
+        $this->assertEquals('test keyword', $decoded['keyword']);
+        $this->assertEquals(2840, $decoded['location_code']);
+        $this->assertEquals('en', $decoded['language_code']);
+        $this->assertEquals(1, $decoded['amount']);
+    }
+
+    public function test_summarize_params_task_array_detection_disabled(): void
+    {
+        $taskArray = [
+            [
+                'keyword'       => 'test keyword',
+                'location_code' => 2840,
+                'language_code' => 'en',
+                'amount'        => 1,
+            ],
+        ];
+
+        // Test with detection disabled
+        $result  = summarize_params($taskArray, true, true, 100, false);
+        $decoded = json_decode($result, true);
+
+        // Should treat as array with one element (not flattened)
+        $this->assertIsArray($decoded);
+        $this->assertCount(1, $decoded);
+        $this->assertIsString($decoded[0]);
+        $this->assertStringContainsString('keyword', $decoded[0]);
+        $this->assertStringContainsString('location_code', $decoded[0]);
+        $this->assertStringContainsString('test keyword', $decoded[0]);
     }
 
     /**
@@ -1742,8 +1825,10 @@ class FunctionsTest extends TestCase
         $this->assertContains('keyword_difficulty', $columns);
         $this->assertContains('keyword_intent_label', $columns);
         $this->assertContains('keyword_intent_probability', $columns);
-        $this->assertContains('secondary_keyword_intents_label', $columns);
-        $this->assertContains('secondary_keyword_intents_probability', $columns);
+        $this->assertContains('secondary_keyword_intents_probability_informational', $columns);
+        $this->assertContains('secondary_keyword_intents_probability_navigational', $columns);
+        $this->assertContains('secondary_keyword_intents_probability_commercial', $columns);
+        $this->assertContains('secondary_keyword_intents_probability_transactional', $columns);
         $this->assertContains('created_at', $columns);
         $this->assertContains('updated_at', $columns);
         $this->assertContains('processed_at', $columns);

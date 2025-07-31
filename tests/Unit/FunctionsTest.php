@@ -354,6 +354,7 @@ class FunctionsTest extends TestCase
         $this->assertContains('error_type', $columns);
         $this->assertContains('log_level', $columns);
         $this->assertContains('error_message', $columns);
+        $this->assertContains('api_message', $columns);
         $this->assertContains('response_preview', $columns);
         $this->assertContains('context_data', $columns);
         $this->assertContains('created_at', $columns);
@@ -408,10 +409,36 @@ class FunctionsTest extends TestCase
             'error_type'    => 'cache_rejected',
             'log_level'     => 'warning',
             'error_message' => 'Test warning message',
+            'api_message'   => 'API specific error message',
             'created_at'    => now(),
         ]);
 
         $this->assertEquals(1, DB::table($this->testErrorsTable)->count());
+
+        // Verify api_message column can store data
+        $record = DB::table($this->testErrorsTable)->first();
+        $this->assertEquals('API specific error message', $record->api_message);
+    }
+
+    public function test_create_errors_table_api_message_nullable(): void
+    {
+        $schema = Schema::connection(null);
+        create_errors_table($schema, $this->testErrorsTable);
+
+        // Insert a record without api_message to verify it's nullable
+        DB::table($this->testErrorsTable)->insert([
+            'api_client'    => 'test-client',
+            'error_type'    => 'http_error',
+            'log_level'     => 'error',
+            'error_message' => 'Test error without api_message',
+            'created_at'    => now(),
+        ]);
+
+        $this->assertEquals(1, DB::table($this->testErrorsTable)->count());
+
+        // Verify api_message is null when not provided
+        $record = DB::table($this->testErrorsTable)->first();
+        $this->assertNull($record->api_message);
     }
 
     public static function normalize_params_provider(): array

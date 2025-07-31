@@ -29,7 +29,7 @@ $dfs = new DataForSeoApiClient();
 
 $result = $dfs->serpGoogleAutocompleteLiveAdvanced('apple iphone');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 **YouTube Search Autocomplete:**
@@ -57,6 +57,9 @@ $result = $dfs->serpGoogleAutocompleteLiveAdvanced(
 ```
 
 **Advanced Usage:**
+
+`cursorPointer` can be used to simulate autocomplete suggestions as the user types. For example, if the keyword is "apple iphone" and the cursor is after "apple", the `cursorPointer` would be 5.
+
 ```php
 $result = $dfs->serpGoogleAutocompleteLiveAdvanced(
     keyword: 'apple iphone',
@@ -113,6 +116,7 @@ $result = $dfs->serpGoogleAutocompleteTaskPost(
     locationCode: 2840,
     priority: 2
 );
+$taskId = $result['response']['tasks'][0]['id'];
 ```
 
 ### serpGoogleAutocompleteTaskGetAdvanced()
@@ -142,6 +146,10 @@ The `DataForSeoSerpGoogleAutocompleteProcessor` class processes API responses an
 
 ```php
 $processor = new DataForSeoSerpGoogleAutocompleteProcessor();
+
+// Optionally reset processed columns and clear tables
+//$processor->resetProcessed();
+//$processor->clearProcessedTables();
 
 // Process responses and extract autocomplete suggestions
 $stats = $processor->processResponses(limit: 100);

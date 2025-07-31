@@ -47,7 +47,7 @@ Read and parse content from any URL:
 $url = 'https://www.fiverr.com/categories';
 $result = $client->reader($url);
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### Search API (SERP)

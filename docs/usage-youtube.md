@@ -46,7 +46,7 @@ Search for YouTube content:
 ```php
 $result = $client->search('How to cook pasta');
 $response = $result['response'];
-$data = json_decode($response->body(), true);
+$json = $response->json();
 ```
 
 #### Search Options

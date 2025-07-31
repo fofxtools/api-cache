@@ -9,6 +9,7 @@ use FOfX\ApiCache\DataForSeoApiClient;
 use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class DataForSeoApiClientTest extends TestCase
@@ -228,6 +229,93 @@ class DataForSeoApiClientTest extends TestCase
 
         $shouldCache = $this->client->shouldCache($responseJson);
         $this->assertTrue($shouldCache);
+    }
+
+    public function test_logCacheRejected_extracts_dataforseo_api_message(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.cache_rejected' => true]);
+        config(['api-cache.error_logging.levels.cache_rejected' => 'error']);
+
+        $message  = 'Cache rejected due to errors';
+        $context  = ['test' => 'context'];
+        $response = json_encode([
+            'version'        => '0.1.20250724',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'             => '07301005-3399-0398-2000-2dfcc054fb24',
+                    'status_code'    => 40501,
+                    'status_message' => 'Invalid Field: \'order_by\'.',
+                    'result'         => null,
+                ],
+            ],
+        ]);
+
+        $this->client->logCacheRejected($message, $context, $response);
+
+        $this->assertDatabaseHas('api_cache_errors', [
+            'api_client'    => 'dataforseo',
+            'error_type'    => 'cache_rejected',
+            'log_level'     => 'error',
+            'error_message' => $message,
+            'api_message'   => 'Invalid Field: \'order_by\'.',
+        ]);
+    }
+
+    public function test_logCacheRejected_handles_missing_task_message(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.cache_rejected' => true]);
+        config(['api-cache.error_logging.levels.cache_rejected' => 'error']);
+
+        $message  = 'Cache rejected';
+        $context  = ['test' => 'context'];
+        $response = json_encode([
+            'version'        => '0.1.20250724',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks_count'    => 1,
+            'tasks_error'    => 1,
+            'tasks'          => [
+                [
+                    'id'          => '07301005-3399-0398-2000-2dfcc054fb24',
+                    'status_code' => 40501,
+                    // No status_message in task
+                    'result' => null,
+                ],
+            ],
+        ]);
+
+        $this->client->logCacheRejected($message, $context, $response);
+
+        $record = DB::table('api_cache_errors')->first();
+        $this->assertEquals('dataforseo', $record->api_client);
+        $this->assertEquals('cache_rejected', $record->error_type);
+        $this->assertEquals($message, $record->error_message);
+        $this->assertNull($record->api_message);
+    }
+
+    public function test_logCacheRejected_handles_invalid_json_response(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.cache_rejected' => true]);
+        config(['api-cache.error_logging.levels.cache_rejected' => 'error']);
+
+        $message  = 'Cache rejected';
+        $context  = ['test' => 'context'];
+        $response = 'invalid json response';
+
+        $this->client->logCacheRejected($message, $context, $response);
+
+        $record = DB::table('api_cache_errors')->first();
+        $this->assertEquals('dataforseo', $record->api_client);
+        $this->assertEquals('cache_rejected', $record->error_type);
+        $this->assertEquals($message, $record->error_message);
+        $this->assertNull($record->api_message);
     }
 
     public function test_buildApiParams_converts_camel_case_to_snake_case()

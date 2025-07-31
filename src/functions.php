@@ -425,6 +425,7 @@ function create_errors_table(
             $table->string('error_type')->index();      // http_error, cache_rejected, etc.
             $table->string('log_level')->index();                // error, warning, info, etc.
             $table->text('error_message')->nullable();              // Error message
+            $table->string('api_message')->nullable();  // API-specific error message
             $table->text('response_preview')->nullable(); // First 500 chars of response
             $table->text('context_data')->nullable();   // Additional context
             $table->timestamps();
@@ -861,7 +862,7 @@ function create_dataforseo_serp_google_organic_listings_table(
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('refinement_chips')->nullable(); // JSON, should be pretty printed
             $table->text('item_types')->nullable(); // JSON, should be pretty printed
-            $table->integer('se_results_count')->nullable()->index();
+            $table->unsignedBigInteger('se_results_count')->nullable()->index();
             $table->integer('items_count')->nullable()->index();
 
             $table->timestamps();
@@ -1560,7 +1561,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
             $table->string('result_datetime')->nullable(); // From tasks.result.datetime
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('item_types')->nullable(); // JSON, should be pretty printed
-            $table->integer('se_results_count')->nullable();
+            $table->unsignedBigInteger('se_results_count')->nullable();
             $table->text('categories')->nullable(); // JSON, should be pretty printed
             $table->integer('items_count')->nullable();
 

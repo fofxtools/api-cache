@@ -27,7 +27,7 @@ $dfs = new DataForSeoApiClient();
 
 $result = $dfs->serpGoogleOrganicLiveRegular('apple iphone');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### serpGoogleOrganicLiveAdvanced()
@@ -37,7 +37,6 @@ Get immediate Google organic search results with advanced configuration options.
 **Optional Parameters:**
 - `peopleAlsoAskClickDepth` - People Also Ask click depth (1-4, incurs extra charges)
 - `loadAsyncAiOverview` - Load AI overview (incurs extra charges)
-- `expandAiOverview` - Expand AI overview content
 - `calculateRectangles` - Calculate pixel rankings for SERP elements
 - `browserScreenWidth` - Browser screen width for pixel rankings
 - `browserScreenHeight` - Browser screen height for pixel rankings
@@ -47,8 +46,7 @@ Get immediate Google organic search results with advanced configuration options.
 $result = $dfs->serpGoogleOrganicLiveAdvanced(
     keyword: 'apple iphone',
     peopleAlsoAskClickDepth: 4,
-    loadAsyncAiOverview: true,
-    expandAiOverview: true
+    loadAsyncAiOverview: true
 );
 ```
 
@@ -116,6 +114,7 @@ $result = $dfs->serpGoogleOrganicTaskPost(
     locationCode: 2840,
     priority: 2
 );
+$taskId = $result['response']['tasks'][0]['id'];
 ```
 
 ### serpGoogleOrganicTaskGetRegular()
@@ -163,6 +162,10 @@ The `DataForSeoSerpGoogleOrganicProcessor` class processes API responses and ext
 
 ```php
 $processor = new DataForSeoSerpGoogleOrganicProcessor();
+
+// Optionally reset processed columns and clear tables
+//$processor->resetProcessed();
+//$processor->clearProcessedTables();
 
 // Process responses and extract organic items
 $stats = $processor->processResponses(limit: 100, processPaas: true);

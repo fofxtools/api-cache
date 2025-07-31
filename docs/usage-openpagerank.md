@@ -51,7 +51,7 @@ $result = $client->getPageRank(['google.com']);
 $result = $client->getPageRank(['google.com', 'apple.com', 'example.com']);
 
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 **Parameters:**
@@ -62,10 +62,10 @@ $data = $response->body();
 ```php
 $result = $client->getPageRank(['cnn.com', 'britannica.com', 'nasa.gov']);
 $response = $result['response'];
-$data = json_decode($response->body(), true);
+$json = $response->json();
 
 // Access PageRank data
-foreach ($data['response'] as $domain) {
+foreach ($json['response'] as $domain) {
     echo "Domain: " . $domain['domain'] . "\n";
     echo "PageRank: " . $domain['page_rank_integer'] . "\n";
     echo "Rank: " . $domain['rank'] . "\n";

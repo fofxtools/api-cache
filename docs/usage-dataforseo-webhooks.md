@@ -54,9 +54,11 @@ php -S 0.0.0.0:8000 -t public
 ```php
 $result = $dfs->serpGoogleOrganicStandardRegular(
     keyword: 'desktop computers',
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
+$response = $result['response'];
+$json = $response->json();
 ```
 
 **Standard Advanced**
@@ -66,7 +68,7 @@ $result = $dfs->serpGoogleOrganicStandardAdvanced(
     peopleAlsoAskClickDepth: 4,
     loadAsyncAiOverview: true,
     expandAiOverview: true,
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -77,7 +79,7 @@ $result = $dfs->serpGoogleOrganicStandardAdvanced(
 ```php
 $result = $dfs->serpGoogleAutocompleteStandardAdvanced(
     keyword: 'notebook computers',
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -88,7 +90,7 @@ $result = $dfs->serpGoogleAutocompleteStandardAdvanced(
 ```php
 $result = $dfs->keywordsDataGoogleAdsSearchVolumeStandard(
     keywords: ['laptop', 'computer', 'notebook'],
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -97,7 +99,7 @@ $result = $dfs->keywordsDataGoogleAdsSearchVolumeStandard(
 ```php
 $result = $dfs->keywordsDataGoogleAdsKeywordsForSiteStandard(
     target: 'example.com',
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -106,7 +108,7 @@ $result = $dfs->keywordsDataGoogleAdsKeywordsForSiteStandard(
 ```php
 $result = $dfs->keywordsDataGoogleAdsKeywordsForKeywordsStandard(
     keywords: ['digital marketing', 'seo'],
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -117,7 +119,7 @@ $result = $dfs->keywordsDataGoogleAdsAdTrafficByKeywordsStandard(
     keywords: ['buy laptop', 'laptop deals'],
     bid: 2.50,
     match: 'exact',
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -128,7 +130,7 @@ $result = $dfs->keywordsDataGoogleAdsAdTrafficByKeywordsStandard(
 ```php
 $result = $dfs->merchantAmazonProductsStandardAdvanced(
     keyword: 'wireless headphones',
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -137,7 +139,7 @@ $result = $dfs->merchantAmazonProductsStandardAdvanced(
 ```php
 $result = $dfs->merchantAmazonAsinStandardAdvanced(
     asin: 'B09B8V1LZ3',
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```
@@ -146,7 +148,7 @@ $result = $dfs->merchantAmazonAsinStandardAdvanced(
 ```php
 $result = $dfs->merchantAmazonSellersStandardAdvanced(
     asin: 'B09B8V1LZ3',
-    usePingback: true,
+    usePostback: true,
     postTaskIfNotCached: true
 );
 ```

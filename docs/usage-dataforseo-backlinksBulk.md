@@ -21,7 +21,7 @@ $dfs = new DataForSeoApiClient();
 $targets = ['example.com', 'google.com', 'facebook.com'];
 $result = $dfs->backlinksBulkRanksLive($targets);
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### backlinksBulkBacklinksLive()
@@ -36,7 +36,7 @@ Get total backlinks count for multiple targets in a single request.
 $targets = ['example.com', 'google.com', 'facebook.com'];
 $result = $dfs->backlinksBulkBacklinksLive($targets);
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### backlinksBulkSpamScoreLive()
@@ -51,7 +51,7 @@ Get spam scores for multiple targets in a single request.
 $targets = ['example.com', 'suspicious-site.com', 'trusted-site.org'];
 $result = $dfs->backlinksBulkSpamScoreLive($targets);
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### backlinksBulkReferringDomainsLive()
@@ -66,7 +66,7 @@ Get referring domains count for multiple targets in a single request.
 $targets = ['example.com', 'competitor1.com', 'competitor2.com'];
 $result = $dfs->backlinksBulkReferringDomainsLive($targets);
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### backlinksBulkNewLostBacklinksLive()
@@ -82,7 +82,7 @@ Get new and lost backlinks data for multiple targets within a specified date ran
 $targets = ['example.com', 'competitor1.com'];
 $result = $dfs->backlinksBulkNewLostBacklinksLive($targets, '2025-06-01');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### backlinksBulkNewLostReferringDomainsLive()
@@ -98,7 +98,7 @@ Get new and lost referring domains data for multiple targets within a specified 
 $targets = ['example.com', 'competitor1.com'];
 $result = $dfs->backlinksBulkNewLostReferringDomainsLive($targets, '2025-06-01');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### backlinksBulkPagesSummaryLive()
@@ -115,7 +115,7 @@ Get comprehensive backlink summary data for multiple pages, domains, or subdomai
 $targets = ['example.com', 'http://example.com/page1', 'http://example.com/page2'];
 $result = $dfs->backlinksBulkPagesSummaryLive($targets, true, 'one_thousand');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ## Response Item Processor
@@ -126,6 +126,10 @@ The `DataForSeoBacklinksBulkProcessor` class processes API responses and extract
 
 ```php
 $processor = new DataForSeoBacklinksBulkProcessor();
+
+// Optionally reset processed columns and clear tables
+//$processor->resetProcessed();
+//$processor->clearProcessedTables();
 
 // Process responses and extract bulk items
 $stats = $processor->processResponses(limit: 100);

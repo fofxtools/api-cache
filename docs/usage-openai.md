@@ -47,7 +47,7 @@ Generate conversational responses using modern chat models:
 // Simple string prompt
 $result = $client->chatCompletions('What is Laravel?');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 #### With Custom Parameters

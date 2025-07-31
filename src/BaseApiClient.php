@@ -357,11 +357,12 @@ class BaseApiClient
      * @param string|null $message     Error message
      * @param array       $context     Additional context data
      * @param string|null $response    Response body (will be truncated to 2000 chars)
+     * @param string|null $apiMessage  API-specific error message
      * @param bool        $prettyPrint Whether to pretty print the context data
      *
      * @return void
      */
-    public function logApiError(string $errorType, ?string $message, array $context = [], ?string $response = null, bool $prettyPrint = true): void
+    public function logApiError(string $errorType, ?string $message, array $context = [], ?string $response = null, ?string $apiMessage = null, bool $prettyPrint = true): void
     {
         // Add class and method name to the log context
         Log::withContext([
@@ -397,6 +398,7 @@ class BaseApiClient
                     'error_type'       => $errorType,
                     'log_level'        => $logLevel,
                     'error_message'    => $message,
+                    'api_message'      => $apiMessage,
                     'response_preview' => $responsePreview,
                     'context_data'     => $contextData,
                     'created_at'       => now(),

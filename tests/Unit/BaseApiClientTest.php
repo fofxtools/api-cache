@@ -440,7 +440,7 @@ class BaseApiClientTest extends TestCase
         $response  = 'Test response body';
 
         // Test with prettyPrint = true (explicit)
-        $this->client->logApiError($errorType, $message, $context, $response, true);
+        $this->client->logApiError($errorType, $message, $context, $response, null, true);
 
         // Verify context_data contains formatted JSON with newlines and indentation
         $record = DB::table('api_cache_errors')->first();
@@ -462,7 +462,7 @@ class BaseApiClientTest extends TestCase
         $response  = 'Test response body';
 
         // Test with prettyPrint = false
-        $this->client->logApiError($errorType, $message, $context, $response, false);
+        $this->client->logApiError($errorType, $message, $context, $response, null, false);
 
         // Verify context_data contains compact JSON without newlines
         $record = DB::table('api_cache_errors')->first();
@@ -489,6 +489,49 @@ class BaseApiClientTest extends TestCase
         $record = DB::table('api_cache_errors')->first();
         $this->assertStringContainsString("\n", $record->context_data); // Has newlines
         $this->assertStringContainsString('    ', $record->context_data); // Has indentation
+    }
+
+    public function test_logApiError_stores_api_message_when_provided(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.test_error' => true]);
+        config(['api-cache.error_logging.levels.test_error' => 'error']);
+
+        $errorType  = 'test_error';
+        $message    = 'Test error message';
+        $context    = ['test' => 'data'];
+        $response   = 'Test response body';
+        $apiMessage = 'API specific error message';
+
+        $this->client->logApiError($errorType, $message, $context, $response, $apiMessage, true);
+
+        $this->assertDatabaseHas('api_cache_errors', [
+            'api_client'    => $this->clientName,
+            'error_type'    => $errorType,
+            'log_level'     => 'error',
+            'error_message' => $message,
+            'api_message'   => $apiMessage,
+        ]);
+    }
+
+    public function test_logApiError_stores_null_api_message_when_not_provided(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.test_error' => true]);
+        config(['api-cache.error_logging.levels.test_error' => 'error']);
+
+        $errorType = 'test_error';
+        $message   = 'Test error message';
+        $context   = ['test' => 'data'];
+        $response  = 'Test response body';
+
+        $this->client->logApiError($errorType, $message, $context, $response);
+
+        $record = DB::table('api_cache_errors')->first();
+        $this->assertEquals($this->clientName, $record->api_client);
+        $this->assertEquals($errorType, $record->error_type);
+        $this->assertEquals($message, $record->error_message);
+        $this->assertNull($record->api_message);
     }
 
     public function test_sendCachedRequest_respects_shouldCache_result(): void

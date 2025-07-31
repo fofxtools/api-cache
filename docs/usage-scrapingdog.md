@@ -46,7 +46,7 @@ Scrape any URL:
 ```php
 $result = $client->scrape('https://fiverr.com');
 $response = $result['response'];
-$data = $response->body();
+$body = $response->body();
 ```
 
 ### Dynamic Scraping

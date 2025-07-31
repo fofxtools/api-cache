@@ -29,7 +29,7 @@ $dfs = new DataForSeoApiClient();
 
 $result = $dfs->labsGoogleKeywordsForSiteLive('apple.com');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 **Advanced Usage with Filters:**
@@ -41,8 +41,8 @@ $result = $dfs->labsGoogleKeywordsForSiteLive(
     languageCode: 'en',
     includeSerpInfo: true,
     limit: 50,
-    filters: [['keyword_info.search_volume', '>', 100]],
-    orderBy: [['keyword_info.search_volume', 'desc']]
+    filters: ['keyword_info.search_volume', '>', 100],
+    orderBy: ['keyword_info.search_volume,desc']
 );
 ```
 
@@ -64,7 +64,7 @@ $dfs = new DataForSeoApiClient();
 $keywords = ['apple iphone', 'samsung galaxy', 'google pixel'];
 $result = $dfs->labsGoogleBulkKeywordDifficultyLive($keywords);
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ## Amazon Methods

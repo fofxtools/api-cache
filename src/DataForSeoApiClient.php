@@ -164,6 +164,30 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Log a cache rejection event with DataForSEO-specific error information
+     *
+     * @param string|null $message  Error message
+     * @param array       $context  Additional context data
+     * @param string|null $response Response body
+     *
+     * @return void
+     */
+    public function logCacheRejected(?string $message = null, array $context = [], ?string $response = null): void
+    {
+        $apiMessage = null;
+
+        // Extract DataForSEO task-level error message from response
+        if ($response !== null) {
+            $data = json_decode($response, true);
+            if ($data && isset($data['tasks'][0]['status_message'])) {
+                $apiMessage = $data['tasks'][0]['status_message'];
+            }
+        }
+
+        $this->logApiError('cache_rejected', $message, $context, $response, $apiMessage);
+    }
+
+    /**
      * Build API parameters from method arguments
      *
      * @param array       $additionalParams       Additional parameters to merge from the result

@@ -33,7 +33,7 @@ $result = $dfs->backlinksSummaryLive('example.com');
 $result = $dfs->backlinksSummaryLive('https://example.com/page');
 
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 ### backlinksHistoryLive()

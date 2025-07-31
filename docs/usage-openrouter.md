@@ -48,7 +48,7 @@ Generate text completions based on a prompt:
 $prompt = 'What is 2+2?';
 $result = $client->completions($prompt);
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 #### Completions Options

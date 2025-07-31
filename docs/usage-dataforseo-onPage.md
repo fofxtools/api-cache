@@ -41,7 +41,7 @@ $dfs = new DataForSeoApiClient();
 
 $result = $dfs->onPageInstantPages('https://example.com');
 $response = $result['response'];
-$data = $response->body();
+$json = $response->json();
 ```
 
 **Advanced Usage:**
@@ -50,6 +50,7 @@ $result = $dfs->onPageInstantPages(
     url: 'https://example.com',
     browserPreset: 'desktop',
     enableJavascript: true,
+    enableBrowserRendering: true,
     loadResources: true,
     validateMicromarkup: true
 );
@@ -111,7 +112,7 @@ $result = $dfs->onPageTaskPost(
     target: 'example.com',
     maxCrawlPages: 100
 );
-$taskId = $result['response']->body()['tasks'][0]['id'];
+$taskId = $result['response']['tasks'][0]['id'];
 ```
 
 **Advanced Usage:**
@@ -131,14 +132,16 @@ $result = $dfs->onPageTaskPost(
 
 Get summary information for a completed onPage task.
 
+The `OnPage API` has no specific `Task GET` endpoint. So there is no `onPageTaskGet` method.
+
+Other endpoints like `Summary`, `Pages` etc. can be used with the task ID instead.
+
 **Parameters:**
 - `id` - Task ID from Task POST response (required)
 
 **Usage:**
 ```php
 $result = $dfs->onPageSummary($taskId);
-$response = $result['response'];
-$summary = $response->body();
 ```
 
 ### onPagePages()
@@ -156,8 +159,6 @@ Get detailed page analysis results for a completed task.
 **Basic Usage:**
 ```php
 $result = $dfs->onPagePages($taskId);
-$response = $result['response'];
-$pages = $response->body();
 ```
 
 **Advanced Usage:**
@@ -167,12 +168,11 @@ $result = $dfs->onPagePages(
     limit: 50,
     offset: 0,
     filters: [
-        ['is_broken', '=', false],
-        ['status_code', '=', 200]
+        ["resource_type", "=", "html"],
+        'and',
+        ["meta.scripts_count", ">", 40]
     ],
-    orderBy: [
-        ['page_timing.time_to_interactive', 'desc']
-    ]
+    orderBy: ['meta.content.plain_text_word_count,desc']
 );
 ```
 
@@ -197,7 +197,6 @@ $result = $dfs->onPageResources(
     url: 'https://example.com/page',
     limit: 100
 );
-$resources = $result['response']->body();
 ```
 
 ### onPageWaterfall()
@@ -211,7 +210,6 @@ Get waterfall chart data for page loading performance.
 **Usage:**
 ```php
 $result = $dfs->onPageWaterfall($taskId, 'https://example.com');
-$waterfall = $result['response']->body();
 ```
 
 ### onPageKeywordDensity()
@@ -233,7 +231,6 @@ $result = $dfs->onPageKeywordDensity(
     keywordLength: 2,
     url: 'https://example.com'
 );
-$keywords = $result['response']->body();
 ```
 
 ### onPageRawHtml()
@@ -247,7 +244,6 @@ Get raw HTML content of crawled pages.
 **Usage:**
 ```php
 $result = $dfs->onPageRawHtml($taskId, 'https://example.com');
-$html = $result['response']->body();
 ```
 
 ### onPageContentParsing()
@@ -266,7 +262,6 @@ $result = $dfs->onPageContentParsing(
     id: $taskId,
     markdownView: true
 );
-$content = $result['response']->body();
 ```
 
 ## Typical Workflow
@@ -283,21 +278,20 @@ $url = 'yahoo.com';
 
 // Submit task
 $result = $dfs->onPageTaskPost($url, 3, acceptLanguage: 'en');
-$responseBody = json_decode($result['response']->body(), true);
-$taskId = $responseBody['tasks'][0]['id'];
+$taskId = $result['response']['tasks'][0]['id'];
 
 // Wait until crawl completed. Can take a long time.
 
 // Check status
-$summary = $dfs->onPageSummary($taskId);
+$result = $dfs->onPageSummary($taskId);
 
 // Get detailed results
-$pages = $dfs->onPagePages($taskId);
-$resources = $dfs->onPageResources($taskId);
-$keywordDensity = $dfs->onPageKeywordDensity($taskId, 2);
+$result = $dfs->onPagePages($taskId);
+$result = $dfs->onPageResources($taskId);
+$result = $dfs->onPageKeywordDensity($taskId, 2);
 
 // Use full URL for Waterfall, Raw HTML and Content Parsing endpoints
-$waterfall = $dfs->onPageWaterfall($taskId, 'https://www.' . $url);
-$rawHtml = $dfs->onPageRawHtml($taskId, 'https://www.' . $url);
-$contentParsing = $dfs->onPageContentParsing(url: 'https://www.' . $url, id: $taskId);
+$result = $dfs->onPageWaterfall($taskId, 'https://www.' . $url);
+$result = $dfs->onPageRawHtml($taskId, 'https://www.' . $url);
+$result = $dfs->onPageContentParsing(url: 'https://www.' . $url, id: $taskId);
 ```

@@ -50,7 +50,7 @@ Search for images on Pixabay:
 ```php
 $result = $client->searchImages('yellow flowers');
 $response = $result['response'];
-$data = json_decode($response->body(), true);
+$json = $response->json();
 ```
 
 #### Image Search Options

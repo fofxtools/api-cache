@@ -296,6 +296,20 @@ class CacheRepository
     }
 
     /**
+     * Clear all cached responses for a client
+     *
+     * @param string $clientName Client name
+     *
+     * @return void
+     */
+    public function clearTable(string $clientName): void
+    {
+        $table = $this->getTableName($clientName);
+
+        $this->db->table($table)->truncate();
+    }
+
+    /**
      * Store the response in the cache
      *
      * Algorithm:
@@ -363,7 +377,9 @@ class CacheRepository
         // Add response size to metadata
         $metadata['response_size'] = strlen($preparedResponseBody);
 
-        $this->db->table($table)->insert([
+        // Use insert() rather than insertOrIgnore() to fail fast
+        // insertOrIgnore() can hide data integrity issues like violations of NOT NULL constraints
+        $inserted = $this->db->table($table)->insert([
             'client'                 => $clientName,
             'key'                    => $key,
             'version'                => $metadata['version'],
@@ -393,6 +409,7 @@ class CacheRepository
             'table'         => $table,
             'expires_at'    => $expiresAt,
             'response_size' => $metadata['response_size'],
+            'inserted'      => $inserted,
         ]);
     }
 

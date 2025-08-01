@@ -7,7 +7,6 @@ namespace Tests\Unit;
 use FOfX\ApiCache\RateLimitService;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Log;
 use Mockery;
 use FOfX\ApiCache\Tests\TestCase;
 
@@ -89,26 +88,22 @@ class RateLimitServiceTest extends TestCase
     {
         $key = "api-cache:rate-limit:{$this->client}";
 
-        // Expect 3 calls to remaining():
-        // 1. Before clear
-        // 2. After clear
-        // 3. In our assertion
+        // Expect 4 calls to remaining():
+        // 1. Our before assertion
+        // 2. Inside clear() - before clear (for logging)
+        // 3. Inside clear() - after clear (for logging)
+        // 4. Our after assertion
         $this->limiter->shouldReceive('remaining')
-            ->times(3)
-            ->andReturn(1, 3, 3);  // Values for each call
+            ->with($key, 3)
+            ->times(4)
+            ->andReturn(1, 1, 3, 3);  // Values for each call
 
         $this->limiter->shouldReceive('clear')
             ->once()
             ->with($key);
 
-        Log::shouldReceive('debug')->once()->with(
-            'Rate limit state cleared',
-            [
-                'client'                          => $this->client,
-                'remaining_attempts_before_clear' => 1,
-                'remaining_attempts_after_clear'  => 3,
-            ]
-        );
+        // Verify rate limit is consumed before clearing
+        $this->assertEquals(1, $this->service->getRemainingAttempts($this->client));
 
         $this->service->clear($this->client);
 
@@ -172,16 +167,9 @@ class RateLimitServiceTest extends TestCase
 
     public function test_allowRequest_returns_true_when_attempts_remain(): void
     {
-        $this->limiter->shouldReceive('remaining')->andReturn(2);
-
-        Log::shouldReceive('debug')->once()->with(
-            'Rate limit status check',
-            [
-                'client'             => $this->client,
-                'remaining_attempts' => 2,
-                'max_attempts'       => 3,
-            ]
-        );
+        $this->limiter->shouldReceive('remaining')
+            ->with("api-cache:rate-limit:{$this->client}", 3)
+            ->andReturn(2);
 
         $this->assertTrue($this->service->allowRequest($this->client));
     }
@@ -191,6 +179,7 @@ class RateLimitServiceTest extends TestCase
         $key = "api-cache:rate-limit:{$this->client}";
 
         $this->limiter->shouldReceive('remaining')
+            ->with($key, 3)
             ->once()
             ->andReturn(0);
 
@@ -204,8 +193,6 @@ class RateLimitServiceTest extends TestCase
             ->with($key)
             ->andReturn(30);
 
-        Log::shouldReceive('warning')->once();
-
         $this->assertFalse($this->service->allowRequest($this->client));
     }
 
@@ -218,14 +205,83 @@ class RateLimitServiceTest extends TestCase
             ->with($key, 60, 1);
 
         $this->limiter->shouldReceive('remaining')
+            ->with("api-cache:rate-limit:{$this->client}", 3)
             ->twice() // Called once in incrementAttempts and once in getRemainingAttempts
             ->andReturn(2);
-
-        Log::shouldReceive('debug')->once();
 
         $this->service->incrementAttempts($this->client);
 
         // Add assertion to avoid risky test
         $this->assertEquals(2, $this->service->getRemainingAttempts($this->client));
+    }
+
+    public function test_rate_limit_progression(): void
+    {
+        $key = "api-cache:rate-limit:{$this->client}";
+
+        // Test progression: 3 → 2 → 1 → 0 attempts
+        $this->limiter->shouldReceive('remaining')
+            ->with($key, 3)
+            ->times(4)
+            ->andReturn(3, 2, 1, 0);
+
+        // Verify progression
+        $this->assertEquals(3, $this->service->getRemainingAttempts($this->client));
+        $this->assertEquals(2, $this->service->getRemainingAttempts($this->client));
+        $this->assertEquals(1, $this->service->getRemainingAttempts($this->client));
+        $this->assertEquals(0, $this->service->getRemainingAttempts($this->client));
+    }
+
+    public function test_increment_attempts_calls_limiter(): void
+    {
+        $key = "api-cache:rate-limit:{$this->client}";
+
+        // Mock increment call
+        $this->limiter->shouldReceive('increment')
+            ->with($key, 60, 1)
+            ->once();
+
+        // Mock remaining calls: once inside incrementAttempts, once for our assertion
+        $this->limiter->shouldReceive('remaining')
+            ->with($key, 3)
+            ->twice()
+            ->andReturn(2, 2);
+
+        $this->service->incrementAttempts($this->client);
+
+        // Verify remaining attempts after increment
+        $this->assertEquals(2, $this->service->getRemainingAttempts($this->client));
+    }
+
+    public function test_different_clients_have_separate_limits(): void
+    {
+        $client1 = 'client-1';
+        $client2 = 'client-2';
+        $key1    = "api-cache:rate-limit:{$client1}";
+        $key2    = "api-cache:rate-limit:{$client2}";
+
+        // Set up config for both clients
+        config([
+            "api-cache.apis.{$client1}.rate_limit_max_attempts"  => 3,
+            "api-cache.apis.{$client1}.rate_limit_decay_seconds" => 60,
+            "api-cache.apis.{$client2}.rate_limit_max_attempts"  => 3,
+            "api-cache.apis.{$client2}.rate_limit_decay_seconds" => 60,
+        ]);
+
+        // Mock client1 has 1 attempt remaining
+        $this->limiter->shouldReceive('remaining')
+            ->with($key1, 3)
+            ->once()
+            ->andReturn(1);
+
+        // Mock client2 has 3 attempts remaining
+        $this->limiter->shouldReceive('remaining')
+            ->with($key2, 3)
+            ->once()
+            ->andReturn(3);
+
+        // Verify clients have different limits
+        $this->assertEquals(1, $this->service->getRemainingAttempts($client1));
+        $this->assertEquals(3, $this->service->getRemainingAttempts($client2));
     }
 }

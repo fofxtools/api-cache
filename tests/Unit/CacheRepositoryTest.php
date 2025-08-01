@@ -282,6 +282,27 @@ class CacheRepositoryTest extends TestCase
         $this->assertEquals($jsonBody, $retrieved);
     }
 
+    #[DataProvider('clientNamesProvider')]
+    public function test_clearTable_removes_all_data(string $clientName): void
+    {
+        // Store some test data first
+        $this->repository->store($clientName, 'key1', $this->testData);
+        $this->repository->store($clientName, 'key2', $this->testData);
+
+        // Verify data exists
+        $this->assertNotNull($this->repository->get($clientName, 'key1'));
+        $this->assertNotNull($this->repository->get($clientName, 'key2'));
+        $this->assertEquals(2, $this->repository->countTotalResponses($clientName));
+
+        // Clear the table
+        $this->repository->clearTable($clientName);
+
+        // Verify all data is gone
+        $this->assertNull($this->repository->get($clientName, 'key1'));
+        $this->assertNull($this->repository->get($clientName, 'key2'));
+        $this->assertEquals(0, $this->repository->countTotalResponses($clientName));
+    }
+
     public function test_store_validates_required_fields_without_compression(): void
     {
         $this->expectException(\InvalidArgumentException::class);

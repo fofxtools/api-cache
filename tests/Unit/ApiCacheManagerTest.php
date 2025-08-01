@@ -137,21 +137,30 @@ class ApiCacheManagerTest extends TestCase
         $this->assertEquals(5, $this->manager->getRemainingAttempts($this->clientName));
     }
 
-    public function test_clearRateLimit_clears_rate_limit(): void
+    public function test_clearRateLimit_called(): void
     {
-        // Setup - Check remaining attempts before clear
-        $this->rateLimiter->shouldReceive('getRemainingAttempts')
-            ->twice()
-            ->with($this->clientName)
-            ->andReturn(1, 3);  // First call returns 1 (before clear), second returns 3 (after clear)
+        // This test only verifies delegation to RateLimitService.
+        // The actual rate limiting functionality is tested in RateLimitServiceTest
+        $this->expectNotToPerformAssertions();
 
         $this->rateLimiter->shouldReceive('clear')
             ->once()
             ->with($this->clientName);
 
-        $this->assertEquals(1, $this->manager->getRemainingAttempts($this->clientName));
         $this->manager->clearRateLimit($this->clientName);
-        $this->assertEquals(3, $this->manager->getRemainingAttempts($this->clientName));
+    }
+
+    public function test_clearTable_called(): void
+    {
+        // This test only verifies delegation to CacheRepository.
+        // The actual clearing functionality is tested in CacheRepositoryTest
+        $this->expectNotToPerformAssertions();
+
+        $this->repository->shouldReceive('clearTable')
+            ->once()
+            ->with($this->clientName);
+
+        $this->manager->clearTable($this->clientName);
     }
 
     public static function apiResponseProvider(): array

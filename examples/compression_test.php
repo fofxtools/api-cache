@@ -10,11 +10,14 @@ require_once __DIR__ . '/bootstrap.php';
 $clientName = 'demo';
 config()->set("api-cache.apis.{$clientName}.compression_enabled", true);
 
-// Create response tables for the test client
-createClientTables($clientName);
-
 // Get repository instance from container
 $repository = app(CacheRepository::class);
+
+// Create response tables for the client if not existing
+createClientTables($clientName);
+
+// Clear response table for the client, in case table exists from previous tests
+$repository->clearTable($clientName);
 
 echo "\nTesting Compression...\n";
 echo "-------------------\n";
@@ -40,8 +43,9 @@ foreach ($testCases as $name => $test) {
     echo "Description: {$test['description']}\n";
 
     $metadata = [
-        'endpoint'      => '/test',
-        'response_body' => $test['data'],
+        'endpoint'             => '/test',
+        'response_body'        => $test['data'],
+        'response_status_code' => 200,
     ];
 
     // Store the data
@@ -61,7 +65,19 @@ foreach ($testCases as $name => $test) {
     echo "Compression ratio: {$ratio}:1\n";
 
     // Verify data integrity
-    $matches = $test['data'] === $retrieved['response_body'];
+    // For JSON data, compare the parsed structure rather than raw strings
+    // since pretty printing changes formatting but preserves data
+    $originalJson  = json_decode($test['data'], true);
+    $retrievedJson = json_decode($retrieved['response_body'], true);
+
+    if ($originalJson !== null && $retrievedJson !== null) {
+        // Both are valid JSON - compare data structure
+        $matches = $originalJson === $retrievedJson;
+    } else {
+        // Not JSON or invalid JSON - compare raw strings
+        $matches = $test['data'] === $retrieved['response_body'];
+    }
+
     echo 'Data integrity check: ' . ($matches ? 'PASSED' : 'FAILED') . "\n";
 }
 
@@ -69,11 +85,15 @@ foreach ($testCases as $name => $test) {
 echo "\n\nTesting with compression disabled...\n";
 config()->set("api-cache.apis.{$clientName}.compression_enabled", false);
 
+// We are using a different table after disabling compression, so call clearTable() again
+$repository->clearTable($clientName);
+
 $key      = 'no-compression-test';
 $data     = str_repeat('This should not be compressed. ', 50);
 $metadata = [
-    'endpoint'      => '/test',
-    'response_body' => $data,
+    'endpoint'             => '/test',
+    'response_body'        => $data,
+    'response_status_code' => 200,
 ];
 
 $repository->store($clientName, $key, $metadata);

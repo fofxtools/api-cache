@@ -100,6 +100,18 @@ class ApiCacheManager
     }
 
     /**
+     * Clear all cached responses for a client
+     *
+     * @param string $clientName The API client identifier
+     *
+     * @return void
+     */
+    public function clearTable(string $clientName): void
+    {
+        $this->repository->clearTable($clientName);
+    }
+
+    /**
      * Cache the API response
      *
      * Algorithm:
@@ -143,20 +155,20 @@ class ApiCacheManager
         $metadata = [
             'endpoint'               => $endpoint,
             'version'                => $version,
-            'base_url'               => $apiResult['request']['base_url'],
-            'full_url'               => $apiResult['request']['full_url'],
-            'method'                 => $apiResult['request']['method'],
+            'base_url'               => $apiResult['request']['base_url'] ?? null,
+            'full_url'               => $apiResult['request']['full_url'] ?? null,
+            'method'                 => $apiResult['request']['method'] ?? null,
             'attributes'             => $attributes,
             'credits'                => $credits,
-            'cost'                   => $apiResult['request']['cost'],
+            'cost'                   => $apiResult['request']['cost'] ?? null,
             'request_params_summary' => summarize_params($params),
-            'request_headers'        => $apiResult['request']['headers'],
-            'request_body'           => $apiResult['request']['body'],
+            'request_headers'        => $apiResult['request']['headers'] ?? null,
+            'request_body'           => $apiResult['request']['body'] ?? null,
             'response_headers'       => $response->headers(),
             'response_body'          => $response->body(),
             'response_status_code'   => $response->status(),
             'response_size'          => strlen($response->body()),
-            'response_time'          => $apiResult['response_time'],
+            'response_time'          => $apiResult['response_time'] ?? null,
         ];
 
         $this->repository->store($clientName, $cacheKey, $metadata, $ttl);

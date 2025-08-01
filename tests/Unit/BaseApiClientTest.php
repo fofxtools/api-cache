@@ -126,6 +126,13 @@ class BaseApiClientTest extends TestCase
         $this->assertTrue($this->client->getUseCache());
     }
 
+    public function test_getCacheManager_returns_cache_manager(): void
+    {
+        $cacheManager = $this->client->getCacheManager();
+        $this->assertInstanceOf(ApiCacheManager::class, $cacheManager);
+        $this->assertSame($this->cacheManager, $cacheManager);
+    }
+
     public function test_getAuthHeaders_returns_default_headers(): void
     {
         $headers = $this->client->getAuthHeaders();
@@ -219,13 +226,28 @@ class BaseApiClientTest extends TestCase
 
     public function test_clearRateLimit_called(): void
     {
+        // This test only verifies delegation to ApiCacheManager.
+        // The actual rate limiting functionality is tested in RateLimitServiceTest
+        $this->expectNotToPerformAssertions();
+
         $this->cacheManager->shouldReceive('clearRateLimit')
             ->once()
             ->with($this->clientName);
 
         $this->client->clearRateLimit();
-        // @phpstan-ignore-next-line
-        $this->assertTrue(true);
+    }
+
+    public function test_clearTable_called(): void
+    {
+        // This test only verifies delegation to CacheRepository.
+        // The actual clearing functionality is tested in CacheRepositoryTest
+        $this->expectNotToPerformAssertions();
+
+        $this->cacheManager->shouldReceive('clearTable')
+            ->once()
+            ->with($this->clientName);
+
+        $this->client->clearTable();
     }
 
     public function test_builds_url_with_leading_slash(): void

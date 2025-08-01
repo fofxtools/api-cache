@@ -15,8 +15,11 @@ config()->set("api-cache.apis.{$clientName}.rate_limit_max_attempts", 3);
 config()->set("api-cache.apis.{$clientName}.rate_limit_decay_seconds", 5);
 config()->set("api-cache.apis.{$clientName}.compression_enabled", false);
 
-// Create response tables for the test client
+// Create response tables for the client if not existing
 createClientTables($clientName);
+
+// Clear response table for the client, in case table exists from previous tests
+$manager->clearTable($clientName);
 
 echo "Testing ApiCacheManager...\n";
 echo "------------------------\n";

@@ -10,11 +10,14 @@ require_once __DIR__ . '/bootstrap.php';
 $clientName = 'demo';
 config()->set("api-cache.apis.{$clientName}.compression_enabled", false);
 
-// Create response tables for the test client
-createClientTables($clientName);
-
 // Get repository instance from container
 $repository = app(CacheRepository::class);
+
+// Create response tables for the client if not existing
+createClientTables($clientName);
+
+// Clear response table for the client, in case table exists from previous tests
+$repository->clearTable($clientName);
 
 echo "\nTesting CacheRepository...\n";
 echo "----------------------\n";

@@ -146,6 +146,16 @@ class BaseApiClient
     }
 
     /**
+     * Get the cache manager instance
+     *
+     * @return ApiCacheManager The cache manager instance
+     */
+    public function getCacheManager(): ApiCacheManager
+    {
+        return $this->cacheManager;
+    }
+
+    /**
      * Get authentication headers for the API request
      *
      * Child classes can override this to provide their own auth headers
@@ -281,6 +291,14 @@ class BaseApiClient
     public function clearRateLimit(): void
     {
         $this->cacheManager->clearRateLimit($this->clientName);
+    }
+
+    /**
+     * Clear all cached responses for the client
+     */
+    public function clearTable(): void
+    {
+        $this->cacheManager->clearTable($this->clientName);
     }
 
     /**

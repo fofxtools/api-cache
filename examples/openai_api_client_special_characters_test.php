@@ -35,7 +35,7 @@ function runOpenAISpecialCharactersTests(bool $compressionEnabled, bool $request
 
     // Create client instance. Clear rate limit since we might have run tests before.
     $client = new OpenAIApiClient();
-    $client->setTimeout(10);
+    $client->setTimeout(30);
     $client->clearRateLimit();
 
     // Test cases with special characters

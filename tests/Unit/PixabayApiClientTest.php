@@ -453,6 +453,238 @@ class PixabayApiClientTest extends TestCase
         $this->assertDatabaseCount($this->imagesTableName, 0); // Table should still be cleared
     }
 
+    public function test_resetFileInfo()
+    {
+        // Arrange
+        $now = now();
+
+        // Insert test images with file info
+        DB::table($this->imagesTableName)->insert([
+            [
+                'id'                       => 111222,
+                'pageURL'                  => 'https://example.com/111222',
+                'user'                     => 'testuser1',
+                'file_contents_preview'    => 'preview file content',
+                'file_contents_webformat'  => 'webformat file content',
+                'file_contents_largeImage' => 'large image file content',
+                'filesize_preview'         => 1024,
+                'filesize_webformat'       => 2048,
+                'filesize_largeImage'      => 4096,
+                'created_at'               => $now,
+                'updated_at'               => $now,
+            ],
+            [
+                'id'                       => 333444,
+                'pageURL'                  => 'https://example.com/333444',
+                'user'                     => 'testuser2',
+                'file_contents_preview'    => 'another preview content',
+                'file_contents_webformat'  => 'another webformat content',
+                'file_contents_largeImage' => 'another large content',
+                'filesize_preview'         => 512,
+                'filesize_webformat'       => 1536,
+                'filesize_largeImage'      => 3072,
+                'created_at'               => $now,
+                'updated_at'               => $now,
+            ],
+        ]);
+
+        // Verify data exists with file info
+        $this->assertDatabaseHas($this->imagesTableName, [
+            'id'                       => 111222,
+            'file_contents_preview'    => 'preview file content',
+            'file_contents_webformat'  => 'webformat file content',
+            'file_contents_largeImage' => 'large image file content',
+            'filesize_preview'         => 1024,
+            'filesize_webformat'       => 2048,
+            'filesize_largeImage'      => 4096,
+        ]);
+
+        // Act
+        $updatedCount = $this->client->resetFileInfo();
+
+        // Assert
+        $this->assertEquals(2, $updatedCount);
+
+        // Verify file info is reset to null
+        $this->assertDatabaseHas($this->imagesTableName, [
+            'id'                       => 111222,
+            'file_contents_preview'    => null,
+            'file_contents_webformat'  => null,
+            'file_contents_largeImage' => null,
+            'filesize_preview'         => null,
+            'filesize_webformat'       => null,
+            'filesize_largeImage'      => null,
+        ]);
+
+        $this->assertDatabaseHas($this->imagesTableName, [
+            'id'                       => 333444,
+            'file_contents_preview'    => null,
+            'file_contents_webformat'  => null,
+            'file_contents_largeImage' => null,
+            'filesize_preview'         => null,
+            'filesize_webformat'       => null,
+            'filesize_largeImage'      => null,
+        ]);
+    }
+
+    public function test_resetStorageFilepaths()
+    {
+        // Arrange
+        $now = now();
+
+        // Insert test images with storage filepaths
+        DB::table($this->imagesTableName)->insert([
+            [
+                'id'                          => 123456,
+                'pageURL'                     => 'https://example.com/123456',
+                'user'                        => 'testuser1',
+                'storage_filepath_preview'    => '/path/to/preview.jpg',
+                'storage_filepath_webformat'  => '/path/to/webformat.jpg',
+                'storage_filepath_largeImage' => '/path/to/large.jpg',
+                'created_at'                  => $now,
+                'updated_at'                  => $now,
+            ],
+            [
+                'id'                          => 789012,
+                'pageURL'                     => 'https://example.com/789012',
+                'user'                        => 'testuser2',
+                'storage_filepath_preview'    => '/path/to/preview2.jpg',
+                'storage_filepath_webformat'  => '/path/to/webformat2.jpg',
+                'storage_filepath_largeImage' => '/path/to/large2.jpg',
+                'created_at'                  => $now,
+                'updated_at'                  => $now,
+            ],
+        ]);
+
+        // Verify data exists with filepaths
+        $this->assertDatabaseHas($this->imagesTableName, [
+            'id'                          => 123456,
+            'storage_filepath_preview'    => '/path/to/preview.jpg',
+            'storage_filepath_webformat'  => '/path/to/webformat.jpg',
+            'storage_filepath_largeImage' => '/path/to/large.jpg',
+        ]);
+
+        // Act
+        $updatedCount = $this->client->resetStorageFilepaths();
+
+        // Assert
+        $this->assertEquals(2, $updatedCount);
+
+        // Verify filepaths are reset to null
+        $this->assertDatabaseHas($this->imagesTableName, [
+            'id'                          => 123456,
+            'storage_filepath_preview'    => null,
+            'storage_filepath_webformat'  => null,
+            'storage_filepath_largeImage' => null,
+        ]);
+
+        $this->assertDatabaseHas($this->imagesTableName, [
+            'id'                          => 789012,
+            'storage_filepath_preview'    => null,
+            'storage_filepath_webformat'  => null,
+            'storage_filepath_largeImage' => null,
+        ]);
+    }
+
+    public function test_resetImagesFolder()
+    {
+        // Arrange
+        $testPath = storage_path('app/public/test_images');
+
+        // Create test directory and files
+        if (!is_dir($testPath)) {
+            mkdir($testPath, 0755, true);
+        }
+
+        $testFiles = [
+            $testPath . '/test1.jpg',
+            $testPath . '/test2.png',
+            $testPath . '/test3.gif',
+        ];
+
+        foreach ($testFiles as $file) {
+            file_put_contents($file, 'test content');
+        }
+
+        // Verify files exist
+        foreach ($testFiles as $file) {
+            $this->assertFileExists($file);
+        }
+
+        // Act
+        $result = $this->client->resetImagesFolder($testPath);
+
+        // Assert
+        $this->assertTrue($result);
+
+        // Verify files are deleted
+        foreach ($testFiles as $file) {
+            $this->assertFileDoesNotExist($file);
+        }
+
+        // Verify directory still exists
+        $this->assertDirectoryExists($testPath);
+
+        // Clean up
+        rmdir($testPath);
+    }
+
+    public function test_resetImagesFolder_with_default_path()
+    {
+        // Arrange
+        $defaultPath = storage_path('app/public/images');
+
+        // Create default directory and files
+        if (!is_dir($defaultPath)) {
+            mkdir($defaultPath, 0755, true);
+        }
+
+        $testFiles = [
+            $defaultPath . '/default1.jpg',
+            $defaultPath . '/default2.png',
+        ];
+
+        foreach ($testFiles as $file) {
+            file_put_contents($file, 'default test content');
+        }
+
+        // Verify files exist
+        foreach ($testFiles as $file) {
+            $this->assertFileExists($file);
+        }
+
+        // Act
+        $result = $this->client->resetImagesFolder();
+
+        // Assert
+        $this->assertTrue($result);
+
+        // Verify files are deleted
+        foreach ($testFiles as $file) {
+            $this->assertFileDoesNotExist($file);
+        }
+
+        // Verify directory still exists
+        $this->assertDirectoryExists($defaultPath);
+    }
+
+    public function test_resetImagesFolder_with_nonexistent_directory()
+    {
+        // Arrange
+        $nonexistentPath = storage_path('app/public/nonexistent_folder');
+
+        // Ensure directory doesn't exist
+        if (is_dir($nonexistentPath)) {
+            rmdir($nonexistentPath);
+        }
+
+        // Act
+        $result = $this->client->resetImagesFolder($nonexistentPath);
+
+        // Assert
+        $this->assertTrue($result); // Should return true for nonexistent directory
+    }
+
     public function test_processResponses()
     {
         // Arrange

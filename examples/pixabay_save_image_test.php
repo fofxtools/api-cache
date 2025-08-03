@@ -27,35 +27,29 @@ $clientName   = 'pixabay';
 createClientTables($clientName, $dropExisting);
 createProcessedResponseTables(schema: $capsule->schema(), dropExisting: $dropExisting);
 
-// Whether to reset storage_filepath_* columns
-// Use ternary operator to avoid PHPStan error
-$resetStorageFilepaths = getenv('RESET_STORAGE_FILEPATHS') ?: false;
-if ($resetStorageFilepaths) {
-    DB::table($clientName . '_images')->update([
-        'storage_filepath_preview'    => null,
-        'storage_filepath_webformat'  => null,
-        'storage_filepath_largeImage' => null,
-    ]);
-}
-
 // Initialize client
 $client = new PixabayApiClient();
 
-// Test image IDs
-$imageIds = [4384750, 6353123, null];
+$client->resetStorageFilepaths();
+$client->resetImagesFolder();
+
+// Get image ID of first and second rows
+$firstImageId  = DB::table('pixabay_images')->first()->id;
+$secondImageId = DB::table('pixabay_images')->skip(1)->first()->id;
+$imageIds      = [$firstImageId, $secondImageId, null];
 
 // Process each image
 foreach ($imageIds as $id) {
     try {
         $savedCount = $client->saveImageToFile($id);
         echo sprintf(
-            "Saved %d images for ID: %s\n",
+            "\nSaved %d images for ID: %s\n",
             $savedCount,
             $id ?? 'next unsaved'
         );
     } catch (\Exception $e) {
         echo sprintf(
-            "Error saving images for ID: %s: %s\n",
+            "\nError saving images for ID: %s: %s\n",
             $id ?? 'next unsaved',
             $e->getMessage()
         );

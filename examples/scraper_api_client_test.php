@@ -31,7 +31,7 @@ function runScraperApiTests(bool $compressionEnabled, bool $requestInfo = true, 
 
     // Create client instance. Clear rate limit since we might have run tests before.
     $client = new ScraperApiClient();
-    $client->setTimeout(30);
+    $client->setTimeout(120);
     $client->clearRateLimit();
 
     // Get ApiCacheManager instance
@@ -41,7 +41,7 @@ function runScraperApiTests(bool $compressionEnabled, bool $requestInfo = true, 
     $testUrls = [
         'https://www.example.com'         => 1,
         'https://www.httpbin.org/headers' => 1,
-        'https://www.walmart.com'         => 5,
+        'https://www.amazon.com'          => 5,
     ];
 
     $options = [];

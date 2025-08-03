@@ -35,7 +35,7 @@ function runDemoApiClientTest(bool $compression): void
     echo "Status code: {$result['response']->status()}\n";
     echo "Response time: {$result['response_time']}s\n";
     echo 'Is cached: ' . ($result['is_cached'] ? 'Yes' : 'No') . "\n\n";
-    echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
+    print_r($result['response']->json());
     echo "\n";
 
     // Test cached predictions with same parameters
@@ -49,7 +49,7 @@ function runDemoApiClientTest(bool $compression): void
     echo "Stored size: {$responseSize} bytes\n";
     echo "Uncompressed size: {$uncompressedSize} bytes\n";
     echo 'Compression ratio: ' . round(($responseSize / $uncompressedSize), 2) . ":1\n\n";
-    echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
+    print_r($result['response']->json());
     echo "\n";
 
     // Test reports endpoint
@@ -58,15 +58,15 @@ function runDemoApiClientTest(bool $compression): void
     echo "Status code: {$result['response']->status()}\n";
     echo "Response time: {$result['response_time']}s\n";
     echo 'Is cached: ' . ($result['is_cached'] ? 'Yes' : 'No') . "\n\n";
-    echo json_encode(json_decode($result['response']->body()), JSON_PRETTY_PRINT);
+    print_r($result['response']->json());
     echo "\n";
 
     // Test error handling
     echo "\nTesting error handling...\n";
     $result = $client->predictions('', 0); // Invalid parameters
     echo "Status code: {$result['response']->status()}\n";
-    $body = json_decode($result['response']->body(), true);
-    echo "Error message: {$body['error']}\n";
+    $json = $result['response']->json();
+    echo "Error message: {$json['error']}\n";
 }
 
 // Run tests for both compression scenarios

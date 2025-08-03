@@ -34,7 +34,7 @@ function runScrapingdogTests(bool $compressionEnabled, bool $requestInfo = true,
 
     // Create client instance. Clear rate limit since we might have run tests before.
     $client = new ScrapingdogApiClient();
-    $client->setTimeout(30);
+    $client->setTimeout(120);
     $client->clearRateLimit();
 
     // Get ApiCacheManager instance

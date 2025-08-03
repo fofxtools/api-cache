@@ -19,7 +19,7 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing autocomplete table
+// Drop existing autocomplete table if it exists
 create_dataforseo_serp_google_autocomplete_items_table($capsule->schema(), dropExisting: true);
 
 $processor = new DataForSeoSerpGoogleAutocompleteProcessor();

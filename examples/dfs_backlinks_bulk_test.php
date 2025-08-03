@@ -19,7 +19,7 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing bulk items table
+// Drop existing bulk items table if it exists
 create_dataforseo_backlinks_bulk_items_table($capsule->schema(), dropExisting: true);
 
 $processor = new DataForSeoBacklinksBulkProcessor();

@@ -19,7 +19,7 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing Amazon products tables to test skipNestedItems
+// Drop existing Amazon products tables if they exist
 create_dataforseo_merchant_amazon_products_listings_table($capsule->schema(), dropExisting: true);
 create_dataforseo_merchant_amazon_products_items_table($capsule->schema(), dropExisting: true);
 

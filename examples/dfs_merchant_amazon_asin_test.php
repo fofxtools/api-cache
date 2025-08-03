@@ -19,7 +19,7 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing Amazon ASIN table to test fresh processing
+// Drop existing Amazon ASIN table if it exists
 create_dataforseo_merchant_amazon_asins_table($capsule->schema(), dropExisting: true);
 
 $processor = new DataForSeoMerchantAmazonAsinProcessor();

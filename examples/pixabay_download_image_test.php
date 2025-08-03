@@ -29,50 +29,45 @@ createProcessedResponseTables(schema: $capsule->schema(), dropExisting: $dropExi
 
 $client = new PixabayApiClient();
 
-// Use a real Pixabay image ID
-$imageId    = 4384750;
-$imageIdAll = 6353123;
+// Get image IDs
+$firstImageId  = DB::table('pixabay_images')->first()->id;
+$secondImageId = DB::table('pixabay_images')->skip(1)->first()->id;
+$thirdImageId  = DB::table('pixabay_images')->skip(2)->first()->id;
+
 // Optional: 'http://proxy.example.com:8080'
 $proxy = null;
 
-// Whether to reset file_contents_* and filesize_* columns
-// Use ternary operator to avoid PHPStan error
-$resetImages = getenv('RESET_IMAGES') ?: false;
-if ($resetImages) {
-    DB::table('api_cache_' . $clientName . '_images')->update([
-        'file_contents_preview'    => null,
-        'file_contents_webformat'  => null,
-        'file_contents_largeImage' => null,
-        'filesize_preview'         => null,
-        'filesize_webformat'       => null,
-        'filesize_largeImage'      => null,
-    ]);
-}
+$client->resetFileInfo();
 
-// Test downloading a specific image
-echo "Testing download of preview for image ID: $imageId\n";
-$downloadedCount = $client->downloadImage($imageId, 'preview', $proxy);
+// Test downloading first image, preview only
+echo "Testing download of preview for image ID: $firstImageId\n";
+$downloadedCount = $client->downloadImage($firstImageId, 'preview', $proxy);
 echo "Downloaded $downloadedCount images\n\n";
 
-// Test downloading next undownloaded image
+// Test downloading next undownloaded image, webformat only
 echo "Testing download of next webformat image\n";
 $downloadedCount = $client->downloadImage(null, 'webformat', $proxy);
 echo "Downloaded $downloadedCount images\n\n";
 
-// Test downloading of next image of all types
+// Test downloading of next undownloaded image, all types
 echo "Testing download of next image of all types\n";
 $downloadedCount = $client->downloadImage(null, 'all', $proxy);
 echo "Downloaded $downloadedCount images\n\n";
 
-// Test downloading all types for other image ID
-echo "Testing download of all types for image ID: $imageIdAll\n";
-$downloadedCount = $client->downloadImage($imageIdAll, 'all', $proxy);
+// Test downloading second image ID, all types
+echo "Testing download of all types for image ID: $secondImageId\n";
+$downloadedCount = $client->downloadImage($secondImageId, 'all', $proxy);
+echo "Downloaded $downloadedCount images\n\n";
+
+// Test downloading third image ID, all types
+echo "Testing download of all types for image ID: $thirdImageId\n";
+$downloadedCount = $client->downloadImage($thirdImageId, 'all', $proxy);
 echo "Downloaded $downloadedCount images\n\n";
 
 // Test invalid image type
 try {
     echo "Testing invalid image type\n";
-    $client->downloadImage($imageId, 'invalid_type', $proxy);
+    $client->downloadImage($firstImageId, 'invalid_type', $proxy);
 } catch (\Exception $e) {
     echo 'Error: ' . $e->getMessage() . "\n";
 }

@@ -19,7 +19,7 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing Labs Google Keyword Research items table to test fresh
+// Drop existing Labs Google Keyword Research items table if it exists
 create_dataforseo_labs_google_keyword_research_items_table($capsule->schema(), dropExisting: true);
 
 $processor = new DataForSeoLabsGoogleKeywordResearchProcessor();

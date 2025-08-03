@@ -19,7 +19,7 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing organic and PAA tables
+// Drop existing organic and PAA tables if they exist
 create_dataforseo_serp_google_organic_listings_table($capsule->schema(), dropExisting: true);
 create_dataforseo_serp_google_organic_items_table($capsule->schema(), dropExisting: true);
 create_dataforseo_serp_google_organic_paa_items_table($capsule->schema(), dropExisting: true);

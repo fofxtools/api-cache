@@ -19,7 +19,7 @@ $capsule->addConnection(
 // Create response tables for the test client without dropping existing tables
 createClientTables('dataforseo', false);
 
-// Drop existing keywords data google ads items table
+// Drop existing keywords data google ads items table if it exists
 create_dataforseo_keywords_data_google_ads_items_table($capsule->schema(), dropExisting: true);
 
 $processor = new DataForSeoKeywordsDataGoogleAdsProcessor();

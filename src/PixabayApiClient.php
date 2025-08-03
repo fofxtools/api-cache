@@ -7,6 +7,7 @@ namespace FOfX\ApiCache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Filesystem\Filesystem;
 
 class PixabayApiClient extends BaseApiClient
 {
@@ -302,6 +303,89 @@ class PixabayApiClient extends BaseApiClient
         ]);
 
         return $count;
+    }
+
+    /**
+     * Reset file info values to null
+     *
+     * @return int Number of records updated
+     */
+    public function resetFileInfo(): int
+    {
+        $updated = DB::table($this->imagesTableName)
+            ->update([
+                'file_contents_preview'    => null,
+                'file_contents_webformat'  => null,
+                'file_contents_largeImage' => null,
+                'filesize_preview'         => null,
+                'filesize_webformat'       => null,
+                'filesize_largeImage'      => null,
+            ]);
+
+        Log::info('Reset file info for Pixabay images', [
+            'updated_count' => $updated,
+        ]);
+
+        return $updated;
+    }
+
+    /**
+     * Reset storage filepath values to null
+     *
+     * @return int Number of records updated
+     */
+    public function resetStorageFilepaths(): int
+    {
+        $updated = DB::table($this->imagesTableName)
+            ->update([
+                'storage_filepath_preview'    => null,
+                'storage_filepath_webformat'  => null,
+                'storage_filepath_largeImage' => null,
+            ]);
+
+        Log::info('Reset storage filepaths for Pixabay images', [
+            'updated_count' => $updated,
+        ]);
+
+        return $updated;
+    }
+
+    /**
+     * Delete and recreate the images folder
+     *
+     * @param string|null $path Optional path to reset, defaults to storage/app/public/images
+     *
+     * @return bool True if successful, false otherwise
+     */
+    public function resetImagesFolder(?string $path = null): bool
+    {
+        $imagesPath = $path ?: storage_path('app/public/images');
+        $filesystem = new Filesystem();
+
+        if (!$filesystem->isDirectory($imagesPath)) {
+            Log::info('Images folder does not exist', ['path' => $imagesPath]);
+
+            return true; // Consider it successful if directory doesn't exist
+        }
+
+        try {
+            // Delete and recreate directory to refresh 'Date created' metadata
+            $filesystem->deleteDirectory($imagesPath);
+            $filesystem->makeDirectory($imagesPath, 0755, true);
+
+            Log::info('Reset images folder', [
+                'path' => $imagesPath,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to reset images folder', [
+                'path'  => $imagesPath,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     /**

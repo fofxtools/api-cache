@@ -67,6 +67,152 @@ class CacheRepositoryTest extends TestCase
         $this->assertEquals('api_cache_' . $this->compressedClient . '_responses_compressed', $tableName);
     }
 
+    public function test_getTableName_with_compression_override_true(): void
+    {
+        $tableName = $this->repository->getTableName($this->uncompressedClient, true);
+        $this->assertEquals('api_cache_' . $this->uncompressedClient . '_responses_compressed', $tableName);
+    }
+
+    public function test_getTableName_with_compression_override_false(): void
+    {
+        $tableName = $this->repository->getTableName($this->compressedClient, false);
+        $this->assertEquals('api_cache_' . $this->compressedClient . '_responses', $tableName);
+    }
+
+    public function test_getTableName_with_compression_override_null(): void
+    {
+        // Should behave the same as without the parameter
+        $tableNameWithNull     = $this->repository->getTableName($this->compressedClient, null);
+        $tableNameWithoutParam = $this->repository->getTableName($this->compressedClient);
+        $this->assertEquals($tableNameWithoutParam, $tableNameWithNull);
+        $this->assertEquals('api_cache_' . $this->compressedClient . '_responses_compressed', $tableNameWithNull);
+    }
+
+    public static function tableNameVariationsProvider(): array
+    {
+        return [
+            'simple name compressed' => [
+                'clientName'   => 'demo',
+                'isCompressed' => true,
+                'expected'     => 'api_cache_demo_responses_compressed',
+            ],
+            'simple name uncompressed' => [
+                'clientName'   => 'demo',
+                'isCompressed' => false,
+                'expected'     => 'api_cache_demo_responses',
+            ],
+            'long name compressed' => [
+                'clientName'   => str_repeat('a', 64),
+                'isCompressed' => true,
+                'expected'     => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed',
+            ],
+            'long name uncompressed' => [
+                'clientName'   => str_repeat('a', 64),
+                'isCompressed' => false,
+                'expected'     => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses',
+            ],
+            'name with dashes compressed' => [
+                'clientName'   => 'data-for-seo',
+                'isCompressed' => true,
+                'expected'     => 'api_cache_data_for_seo_responses_compressed',
+            ],
+            'name with dashes uncompressed' => [
+                'clientName'   => 'data-for-seo',
+                'isCompressed' => false,
+                'expected'     => 'api_cache_data_for_seo_responses',
+            ],
+            'numbers only compressed' => [
+                'clientName'   => '1234567890',
+                'isCompressed' => true,
+                'expected'     => 'api_cache_1234567890_responses_compressed',
+            ],
+            'numbers only uncompressed' => [
+                'clientName'   => '1234567890',
+                'isCompressed' => false,
+                'expected'     => 'api_cache_1234567890_responses',
+            ],
+        ];
+    }
+
+    #[DataProvider('tableNameVariationsProvider')]
+    public function test_get_table_name_handles_variations(
+        string $clientName,
+        bool $isCompressed,
+        string $expected
+    ): void {
+        // Configure compression for this client
+        config()->set("api-cache.apis.{$clientName}.compression_enabled", $isCompressed);
+
+        // Use existing repository
+        $this->assertEquals($expected, $this->repository->getTableName($clientName));
+    }
+
+    public static function compressionOverrideProvider(): array
+    {
+        return [
+            'uncompressed client with compression override true' => [
+                'clientName'          => self::UNCOMPRESSED_CLIENT,
+                'compressionOverride' => true,
+                'expected'            => 'api_cache_' . self::UNCOMPRESSED_CLIENT . '_responses_compressed',
+            ],
+            'compressed client with compression override false' => [
+                'clientName'          => self::COMPRESSED_CLIENT,
+                'compressionOverride' => false,
+                'expected'            => 'api_cache_' . self::COMPRESSED_CLIENT . '_responses',
+            ],
+            'uncompressed client with compression override false' => [
+                'clientName'          => self::UNCOMPRESSED_CLIENT,
+                'compressionOverride' => false,
+                'expected'            => 'api_cache_' . self::UNCOMPRESSED_CLIENT . '_responses',
+            ],
+            'compressed client with compression override true' => [
+                'clientName'          => self::COMPRESSED_CLIENT,
+                'compressionOverride' => true,
+                'expected'            => 'api_cache_' . self::COMPRESSED_CLIENT . '_responses_compressed',
+            ],
+        ];
+    }
+
+    #[DataProvider('compressionOverrideProvider')]
+    public function test_get_table_name_with_compression_override(
+        string $clientName,
+        bool $compressionOverride,
+        string $expected
+    ): void {
+        $this->assertEquals($expected, $this->repository->getTableName($clientName, $compressionOverride));
+    }
+
+    public static function invalidTableNameProvider(): array
+    {
+        return [
+            'name with dots' => [
+                'clientName' => 'api.client.v1',
+            ],
+            'name with spaces' => [
+                'clientName' => 'open ai',
+            ],
+            'chinese characters' => [
+                'clientName' => 'chinese-天气-api',
+            ],
+            'unicode characters' => [
+                'clientName' => 'über-api',
+            ],
+            'special characters' => [
+                'clientName' => '!@#$%^&*()',
+            ],
+            'empty string' => [
+                'clientName' => '',
+            ],
+        ];
+    }
+
+    #[DataProvider('invalidTableNameProvider')]
+    public function test_get_table_name_throws_exception_for_invalid_names(string $clientName): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->repository->getTableName($clientName);
+    }
+
     public function test_prepareHeaders_pretty_prints_json_by_default(): void
     {
         $clientName     = $this->uncompressedClient;
@@ -98,6 +244,14 @@ class CacheRepositoryTest extends TestCase
         $result = $this->repository->retrieveHeaders($this->uncompressedClient, null);
 
         $this->assertNull($result);
+    }
+
+    public static function clientNamesProvider(): array
+    {
+        return [
+            'uncompressed client' => [self::UNCOMPRESSED_CLIENT],
+            'compressed client'   => [self::COMPRESSED_CLIENT],
+        ];
     }
 
     #[DataProvider('clientNamesProvider')]
@@ -327,14 +481,6 @@ class CacheRepositoryTest extends TestCase
         $this->repository->store($this->compressedClient, $this->key, $invalidData);
     }
 
-    public static function clientNamesProvider(): array
-    {
-        return [
-            'uncompressed client' => [self::UNCOMPRESSED_CLIENT],
-            'compressed client'   => [self::COMPRESSED_CLIENT],
-        ];
-    }
-
     #[DataProvider('clientNamesProvider')]
     public function test_get_respects_ttl(string $clientName): void
     {
@@ -343,96 +489,6 @@ class CacheRepositoryTest extends TestCase
         usleep(1100000);
 
         $this->assertNull($this->repository->get($clientName, $this->key));
-    }
-
-    public static function tableNameVariationsProvider(): array
-    {
-        return [
-            'simple name compressed' => [
-                'clientName'   => 'demo',
-                'isCompressed' => true,
-                'expected'     => 'api_cache_demo_responses_compressed',
-            ],
-            'simple name uncompressed' => [
-                'clientName'   => 'demo',
-                'isCompressed' => false,
-                'expected'     => 'api_cache_demo_responses',
-            ],
-            'long name compressed' => [
-                'clientName'   => str_repeat('a', 64),
-                'isCompressed' => true,
-                'expected'     => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses_compressed',
-            ],
-            'long name uncompressed' => [
-                'clientName'   => str_repeat('a', 64),
-                'isCompressed' => false,
-                'expected'     => 'api_cache_' . substr(str_repeat('a', 64), 0, 33) . '_responses',
-            ],
-            'name with dashes compressed' => [
-                'clientName'   => 'data-for-seo',
-                'isCompressed' => true,
-                'expected'     => 'api_cache_data_for_seo_responses_compressed',
-            ],
-            'name with dashes uncompressed' => [
-                'clientName'   => 'data-for-seo',
-                'isCompressed' => false,
-                'expected'     => 'api_cache_data_for_seo_responses',
-            ],
-            'numbers only compressed' => [
-                'clientName'   => '1234567890',
-                'isCompressed' => true,
-                'expected'     => 'api_cache_1234567890_responses_compressed',
-            ],
-            'numbers only uncompressed' => [
-                'clientName'   => '1234567890',
-                'isCompressed' => false,
-                'expected'     => 'api_cache_1234567890_responses',
-            ],
-        ];
-    }
-
-    #[DataProvider('tableNameVariationsProvider')]
-    public function test_get_table_name_handles_variations(
-        string $clientName,
-        bool $isCompressed,
-        string $expected
-    ): void {
-        // Configure compression for this client
-        config()->set("api-cache.apis.{$clientName}.compression_enabled", $isCompressed);
-
-        // Use existing repository
-        $this->assertEquals($expected, $this->repository->getTableName($clientName));
-    }
-
-    public static function invalidTableNameProvider(): array
-    {
-        return [
-            'name with dots' => [
-                'clientName' => 'api.client.v1',
-            ],
-            'name with spaces' => [
-                'clientName' => 'open ai',
-            ],
-            'chinese characters' => [
-                'clientName' => 'chinese-天气-api',
-            ],
-            'unicode characters' => [
-                'clientName' => 'über-api',
-            ],
-            'special characters' => [
-                'clientName' => '!@#$%^&*()',
-            ],
-            'empty string' => [
-                'clientName' => '',
-            ],
-        ];
-    }
-
-    #[DataProvider('invalidTableNameProvider')]
-    public function test_get_table_name_throws_exception_for_invalid_names(string $clientName): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->repository->getTableName($clientName);
     }
 
     #[DataProvider('clientNamesProvider')]

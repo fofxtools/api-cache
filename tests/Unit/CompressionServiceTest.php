@@ -87,4 +87,40 @@ class CompressionServiceTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->service->decompress($this->clientName, 'invalid compressed data');
     }
+
+    public function test_forceCompress_compresses_regardless_of_config(): void
+    {
+        // Compression is disabled by default in setUp()
+        $data       = 'test data for force compression';
+        $compressed = $this->service->forceCompress($this->clientName, $data);
+
+        $this->assertNotEquals($data, $compressed);
+        $this->assertEquals($data, $this->service->forceDecompress($this->clientName, $compressed));
+    }
+
+    public function test_forceCompress_handles_empty_data(): void
+    {
+        $this->assertEquals('', $this->service->forceCompress($this->clientName, ''));
+    }
+
+    public function test_forceDecompress_decompresses_regardless_of_config(): void
+    {
+        // Compression is disabled by default in setUp()
+        $data         = 'test data for force decompression';
+        $compressed   = $this->service->forceCompress($this->clientName, $data);
+        $decompressed = $this->service->forceDecompress($this->clientName, $compressed);
+
+        $this->assertEquals($data, $decompressed);
+    }
+
+    public function test_forceDecompress_handles_empty_data(): void
+    {
+        $this->assertEquals('', $this->service->forceDecompress($this->clientName, ''));
+    }
+
+    public function test_forceDecompress_throws_on_invalid_data(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->service->forceDecompress($this->clientName, 'invalid compressed data');
+    }
 }

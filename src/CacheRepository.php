@@ -23,13 +23,14 @@ class CacheRepository
     /**
      * Get the table name for the client
      *
-     * @param string $clientName Client name
+     * @param string    $clientName         Client name
+     * @param bool|null $compressionEnabled Optional override for compression setting
      *
      * @throws \InvalidArgumentException When sanitization fails
      *
      * @return string Valid table name with appropriate prefix and suffix
      */
-    public function getTableName(string $clientName): string
+    public function getTableName(string $clientName, ?bool $compressionEnabled = null): string
     {
         // Validate that $clientName only contains alphanumeric characters, hyphens, and underscores
         Helper\validate_identifier($clientName);
@@ -51,7 +52,11 @@ class CacheRepository
         }
 
         // If compression is enabled, add the compressed suffix
-        if ($this->compression->isEnabled($clientName)) {
+        $isCompressionEnabled = $compressionEnabled !== null
+            ? $compressionEnabled
+            : $this->compression->isEnabled($clientName);
+
+        if ($isCompressionEnabled) {
             $suffix = $compressed_string;
         } else {
             $suffix = '';

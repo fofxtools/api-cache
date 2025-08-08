@@ -9,6 +9,7 @@ use FOfX\ApiCache\CacheRepository;
 use FOfX\ApiCache\CompressionService;
 use FOfX\ApiCache\ResponsesTableDecompressionConverter;
 use FOfX\ApiCache\Tests\TestCase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use stdClass;
 
@@ -487,6 +488,116 @@ class ResponsesTableDecompressionConverterTest extends TestCase
         $this->assertSame(0, $result['error_count']);
     }
 
+    public function testConvertBatchUsesClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call convertBatch without parameters - should use class batch size
+        $result = $this->converter->convertBatch();
+
+        $this->assertArrayHasKey('total_count', $result);
+        $this->assertArrayHasKey('processed_count', $result);
+        $this->assertArrayHasKey('skipped_count', $result);
+        $this->assertArrayHasKey('error_count', $result);
+        $this->assertGreaterThanOrEqual(0, $result['total_count']);
+        $this->assertGreaterThanOrEqual(0, $result['processed_count']);
+        $this->assertGreaterThanOrEqual(0, $result['skipped_count']);
+        $this->assertGreaterThanOrEqual(0, $result['error_count']);
+    }
+
+    public function testConvertBatchCanOverrideClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call convertBatch with explicit batch size - should override class batch size
+        $result = $this->converter->convertBatch(50);
+
+        $this->assertArrayHasKey('total_count', $result);
+        $this->assertArrayHasKey('processed_count', $result);
+        $this->assertArrayHasKey('skipped_count', $result);
+        $this->assertArrayHasKey('error_count', $result);
+        $this->assertGreaterThanOrEqual(0, $result['total_count']);
+        $this->assertGreaterThanOrEqual(0, $result['processed_count']);
+        $this->assertGreaterThanOrEqual(0, $result['skipped_count']);
+        $this->assertGreaterThanOrEqual(0, $result['error_count']);
+    }
+
+    public function testConvertBatchActuallyUsesBatchSize(): void
+    {
+        // First create compressed data to decompress
+        // Create 5 test records in uncompressed table
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "decomp-batch-key{$i}", $testData);
+        }
+
+        // Compress them first using compression converter
+        $compressor = new \FOfX\ApiCache\ResponsesTableCompressionConverter($this->clientName);
+        $compressor->convertAll();
+
+        // Clear uncompressed table to test decompression
+        $uncompressedTable = $this->cacheRepository->getTableName($this->clientName, false);
+        DB::table($uncompressedTable)->truncate();
+
+        // Now test decompression with batch size 2
+        $this->converter->setBatchSize(2);
+
+        // Call convertBatch() - should process exactly 2 rows
+        $result = $this->converter->convertBatch();
+
+        $this->assertSame(2, $result['total_count']);
+        $this->assertSame(2, $result['processed_count']);
+
+        // Verify 2 rows exist in uncompressed table
+        $uncompressedCount = $this->converter->getUncompressedRowCount();
+        $this->assertSame(2, $uncompressedCount);
+    }
+
+    public function testConvertBatchActuallyUsesOverrideBatchSize(): void
+    {
+        // First create compressed data to decompress
+        // Create 5 test records in uncompressed table
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "decomp-override-key{$i}", $testData);
+        }
+
+        // Compress them first using compression converter
+        $compressor = new \FOfX\ApiCache\ResponsesTableCompressionConverter($this->clientName);
+        $compressor->convertAll();
+
+        // Clear uncompressed table to test decompression
+        $uncompressedTable = $this->cacheRepository->getTableName($this->clientName, false);
+        DB::table($uncompressedTable)->truncate();
+
+        // Set batch size to 10 (but override with 3)
+        $this->converter->setBatchSize(10);
+
+        // Call convertBatch(3) - should process exactly 3 rows, not 10
+        $result = $this->converter->convertBatch(3);
+
+        $this->assertSame(3, $result['total_count']);
+        $this->assertSame(3, $result['processed_count']);
+
+        // Verify 3 rows exist in uncompressed table
+        $uncompressedCount = $this->converter->getUncompressedRowCount();
+        $this->assertSame(3, $uncompressedCount);
+    }
+
     public function testConvertAll(): void
     {
         $result = $this->converter->convertAll();
@@ -509,6 +620,106 @@ class ResponsesTableDecompressionConverterTest extends TestCase
         $this->assertArrayHasKey('mismatch_count', $result);
         $this->assertArrayHasKey('error_count', $result);
         $this->assertSame(0, $result['validated_count']);
+        $this->assertSame(0, $result['mismatch_count']);
+        $this->assertSame(0, $result['error_count']);
+    }
+
+    public function testValidateBatchUsesClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call validateBatch without parameters - should use class batch size
+        $result = $this->converter->validateBatch();
+
+        $this->assertArrayHasKey('validated_count', $result);
+        $this->assertArrayHasKey('mismatch_count', $result);
+        $this->assertArrayHasKey('error_count', $result);
+        $this->assertGreaterThanOrEqual(0, $result['validated_count']);
+        $this->assertGreaterThanOrEqual(0, $result['mismatch_count']);
+        $this->assertGreaterThanOrEqual(0, $result['error_count']);
+    }
+
+    public function testValidateBatchCanOverrideClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call validateBatch with explicit batch size - should override class batch size
+        $result = $this->converter->validateBatch(50);
+
+        $this->assertArrayHasKey('validated_count', $result);
+        $this->assertArrayHasKey('mismatch_count', $result);
+        $this->assertArrayHasKey('error_count', $result);
+        $this->assertGreaterThanOrEqual(0, $result['validated_count']);
+        $this->assertGreaterThanOrEqual(0, $result['mismatch_count']);
+        $this->assertGreaterThanOrEqual(0, $result['error_count']);
+    }
+
+    public function testValidateBatchActuallyUsesBatchSize(): void
+    {
+        // Create test data and compress/decompress it first
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "validate-decomp-key{$i}", $testData);
+        }
+
+        // Compress them first
+        $compressor = new \FOfX\ApiCache\ResponsesTableCompressionConverter($this->clientName);
+        $compressor->convertAll();
+
+        // Clear uncompressed table and then decompress all records
+        $uncompressedTable = $this->cacheRepository->getTableName($this->clientName, false);
+        DB::table($uncompressedTable)->truncate();
+        $this->converter->convertAll();
+
+        // Set batch size to 2
+        $this->converter->setBatchSize(2);
+
+        // Call validateBatch() - should validate exactly 2 rows
+        $result = $this->converter->validateBatch();
+
+        $this->assertSame(2, $result['validated_count']);
+        $this->assertSame(0, $result['mismatch_count']);
+        $this->assertSame(0, $result['error_count']);
+    }
+
+    public function testValidateBatchActuallyUsesOverrideBatchSize(): void
+    {
+        // Create test data and compress/decompress it first
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "validate-override-decomp-key{$i}", $testData);
+        }
+
+        // Compress them first
+        $compressor = new \FOfX\ApiCache\ResponsesTableCompressionConverter($this->clientName);
+        $compressor->convertAll();
+
+        // Clear uncompressed table and then decompress all records
+        $uncompressedTable = $this->cacheRepository->getTableName($this->clientName, false);
+        DB::table($uncompressedTable)->truncate();
+        $this->converter->convertAll();
+
+        // Set batch size to 10 (but override with 3)
+        $this->converter->setBatchSize(10);
+
+        // Call validateBatch(3) - should validate exactly 3 rows, not 10
+        $result = $this->converter->validateBatch(3);
+
+        $this->assertSame(3, $result['validated_count']);
         $this->assertSame(0, $result['mismatch_count']);
         $this->assertSame(0, $result['error_count']);
     }

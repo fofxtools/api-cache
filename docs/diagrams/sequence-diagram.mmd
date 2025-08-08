@@ -8,54 +8,93 @@ sequenceDiagram
     participant ApiEndpoint
     
     %% 1) Client calls BaseApiClient
-    Client->>+BaseApiClient: sendCachedRequest(endpoint, params, method)
+    Client->>BaseApiClient: sendCachedRequest(endpoint, params, method)
 
     %% 2) Generate cache key
-    BaseApiClient->>+ApiCacheManager: generateCacheKey(clientName, endpoint, params, method, version)
+    BaseApiClient->>ApiCacheManager: generateCacheKey(clientName, endpoint, params, method, version)
     ApiCacheManager-->>BaseApiClient: cacheKey
 
-    %% 3) Check cache
-    BaseApiClient->>+ApiCacheManager: getCachedResponse(clientName, cacheKey)
-    ApiCacheManager->>+CacheRepository: get(clientName, cacheKey)
-    CacheRepository->>+CompressionService: decompress() (if needed)
-    CompressionService-->>CacheRepository: decompressed data
-    CacheRepository-->>ApiCacheManager: cached result
-    ApiCacheManager-->>BaseApiClient: cached result
+    %% 3) Check if caching is enabled
+    BaseApiClient->>BaseApiClient: check useCache flag
+    
+    alt Cache Enabled
+        %% 3A) Check cache
+        BaseApiClient->>ApiCacheManager: getCachedResponse(clientName, cacheKey)
+        ApiCacheManager->>CacheRepository: get(clientName, cacheKey)
+        CacheRepository->>CompressionService: decompress() (if needed)
+        CompressionService-->>CacheRepository: decompressed data
+        CacheRepository-->>ApiCacheManager: cached result or null
+        ApiCacheManager-->>BaseApiClient: cached result or null
 
-    alt Cache Hit
-        %% 3A) Cache hit: return cached immediately
-        BaseApiClient-->>Client: return cached response
-    else Cache Miss
-        %% 3B) Check rate limit
-        BaseApiClient->>+ApiCacheManager: allowRequest(clientName)
-        ApiCacheManager->>RateLimitService: allowRequest(clientName)
-        RateLimitService-->>ApiCacheManager: boolean
-        ApiCacheManager-->>BaseApiClient: boolean
+        alt Cache Hit
+            %% 3B) Cache hit: return cached immediately
+            BaseApiClient-->>Client: return cached response
+        else Cache Miss
+            BaseApiClient->>BaseApiClient: continue to rate limit check
+        end
+    else Cache Disabled
+        BaseApiClient->>BaseApiClient: skip cache check
+    end
 
-        alt Rate Limited
-            %% 4A) Rate limit triggered
-            BaseApiClient->>ApiCacheManager: getAvailableIn(clientName)
-            ApiCacheManager-->>BaseApiClient: seconds
-            BaseApiClient-->>Client: throw RateLimitException
-        else Request Allowed
-            %% 4B) Make real API call
-            BaseApiClient->>ApiEndpoint: HTTP request
+    %% 4) Check rate limit
+    BaseApiClient->>ApiCacheManager: allowRequest(clientName)
+    ApiCacheManager->>RateLimitService: allowRequest(clientName)
+    RateLimitService-->>ApiCacheManager: boolean
+    ApiCacheManager-->>BaseApiClient: boolean
+
+    alt Rate Limited
+        %% 4A) Rate limit triggered
+        BaseApiClient->>ApiCacheManager: getAvailableIn(clientName)
+        ApiCacheManager-->>BaseApiClient: seconds
+        BaseApiClient-->>Client: throw RateLimitException
+    else Request Allowed
+        %% 4B) Make real API call with error handling
+        BaseApiClient->>ApiEndpoint: HTTP request
+        
+        alt Connection/Request Error
+            ApiEndpoint-->>BaseApiClient: throw ConnectionException/RequestException
+            BaseApiClient->>BaseApiClient: logHttpError() and re-throw
+            BaseApiClient-->>Client: throw exception
+        else Request Success
             ApiEndpoint-->>BaseApiClient: HTTP response
             
-            %% 5) Track rate limit usage
-            BaseApiClient->>ApiCacheManager: incrementAttempts(clientName)
-            ApiCacheManager->>RateLimitService: incrementAttempts(clientName)
+            %% 5) Track rate limit usage (always happens after successful request)
+            BaseApiClient->>ApiCacheManager: incrementAttempts(clientName, amount)
+            ApiCacheManager->>RateLimitService: incrementAttempts(clientName, amount)
             RateLimitService-->>ApiCacheManager: void
-            
-            %% 6) Cache the fresh response
-            BaseApiClient->>+ApiCacheManager: storeResponse(clientName, cacheKey, apiResult)
-            ApiCacheManager->>+CacheRepository: store(clientName, cacheKey, metadata)
-            CacheRepository->>+CompressionService: compress() (if needed)
-            CompressionService-->>CacheRepository: compressed data
-            CacheRepository-->>ApiCacheManager: void
             ApiCacheManager-->>BaseApiClient: void
             
-            %% 7) Return result
-            BaseApiClient-->>Client: return final API response
+            %% 6) Check response success
+            BaseApiClient->>BaseApiClient: check response.successful()
+            
+            alt Response Unsuccessful
+                BaseApiClient->>BaseApiClient: logHttpError()
+                alt Cache Enabled
+                    BaseApiClient->>BaseApiClient: log cache storage failure
+                end
+                BaseApiClient-->>Client: return failed response
+            else Response Successful
+                alt Cache Enabled
+                    %% 7A) Validate if response should be cached
+                    BaseApiClient->>BaseApiClient: shouldCache(responseBody)
+                    
+                    alt shouldCache Returns True
+                        %% 7B) Cache the fresh response
+                        BaseApiClient->>ApiCacheManager: storeResponse(clientName, cacheKey, apiResult)
+                        ApiCacheManager->>CacheRepository: store(clientName, cacheKey, metadata)
+                        CacheRepository->>CompressionService: compress() (if needed)
+                        CompressionService-->>CacheRepository: compressed data
+                        CacheRepository-->>ApiCacheManager: void
+                        ApiCacheManager-->>BaseApiClient: void
+                    else shouldCache Returns False
+                        BaseApiClient->>BaseApiClient: logCacheRejected()
+                    end
+                else Cache Disabled
+                    BaseApiClient->>BaseApiClient: skip caching
+                end
+                
+                %% 8) Return result
+                BaseApiClient-->>Client: return final API response
+            end
         end
     end

@@ -1,17 +1,41 @@
 flowchart TD
     Start([Client Request]) --> GenKey[Generate Cache Key]
-    GenKey --> CheckCache{Check Cache}
-    
+    GenKey --> CheckCacheEnabled{Cache Enabled?}
+
+    CheckCacheEnabled -->|No| CheckLimit[Check Rate Limit]
+    CheckCacheEnabled -->|Yes| CheckCache{Check Cache}
+
     CheckCache -->|Hit| ReturnCache[Return Cached Response]
     ReturnCache --> End([End])
-    
+
     CheckCache -->|Miss| CheckLimit{Check Rate Limit}
-    
+
     CheckLimit -->|Rate Limited| ThrowLimit[Throw RateLimitException]
     ThrowLimit --> End
-    
+
     CheckLimit -->|Allowed| MakeRequest[Make API Request]
-    MakeRequest --> TrackLimit[Track Rate Limit Usage]
-    TrackLimit --> Store[Store in Cache]
-    Store --> ReturnNew[Return New Response]
-    ReturnNew --> End
+    MakeRequest --> HandleErrors{Request successful?}
+
+    HandleErrors -->|Yes| LogConnError[Log Error & Re-throw]
+    LogConnError --> End
+
+    HandleErrors -->|No| TrackLimit[Track Rate Limit Usage]
+    TrackLimit --> CheckSuccess{Response Successful?}
+
+    CheckSuccess -->|No| LogHttpError[Log HTTP Error]
+    LogHttpError --> CheckCacheEnabledFail{Cache Enabled?}
+    CheckCacheEnabledFail -->|Yes| LogCacheFail[Log Cache Storage Failure]
+    CheckCacheEnabledFail -->|No| ReturnResponse[Return Response]
+    LogCacheFail --> ReturnResponse
+
+    CheckSuccess -->|Yes| CheckCacheEnabledSuccess{Cache Enabled?}
+
+    CheckCacheEnabledSuccess -->|No| ReturnResponse
+    CheckCacheEnabledSuccess -->|Yes| CheckShouldCache{shouldCache Valid?}
+
+    CheckShouldCache -->|No| LogRejected[Log Cache Rejected]
+    LogRejected --> ReturnResponse
+
+    CheckShouldCache -->|Yes| StoreCache[Store in Cache]
+    StoreCache --> ReturnResponse
+    ReturnResponse --> End

@@ -1,8 +1,6 @@
 # API Cache Library
 
-**🚧 Under Construction 🚧**
-
-A Laravel-based PHP library for caching API responses. Currently in early development.
+A Laravel-based PHP library for caching API responses from various services (OpenAI, DataForSEO, Pixabay, YouTube, and more). Provides intelligent caching, rate limiting, compression, and response management through a unified interface.
 
 ## Requirements
 
@@ -26,14 +24,15 @@ php -S 0.0.0.0:8000 -t public
 ## Documentation
 
 Please see the [docs](docs) folder for:
-- [Technical Specification](docs/technical-specification.md)
-- [Usage](docs/usage.md)
-- [Code Skeleton](docs/code-skeleton.md)
+- [Laravel Integration Guide](docs/laravel-integration.md) - How to use this library in a full Laravel project
+- [Usage](docs/usage-intro.md) - Basic setup guide
+- [Database Migrations](docs/database-migrations.md) - Explanation of unconventional approach to database migrations
+- [Rate Limiting](docs/rate-limiting.md) - Rate limiting with Redis
+- [Cloudflare Tunnel](docs/cloudflare-tunnel.md) - Usage of Cloudflare Tunnel for local development
 
 ### Diagrams
-- [Class Diagram](docs/diagrams/class-diagram.mmd)
-- [Sequence Diagram](docs/diagrams/sequence-diagram.mmd)
 - [Workflow Diagram](docs/diagrams/workflow-diagram.mmd)
+- [Sequence Diagram](docs/diagrams/sequence-diagram.mmd)
 
 ## Features
 
@@ -64,59 +63,54 @@ echo format_api_response($response, true);
 $client->setUseCache(true);
 ```
 
-## Rate Limiting with Redis
+## Rate Limiting
 
-The package uses Redis for distributed rate limiting, allowing rate limits to be shared across multiple application instances. This ensures consistent rate limiting even when your application is running on multiple servers or processes.
+Redis-based distributed rate limiting is implemented to ensure consitent rate limiting across multiple application instances.
 
-### Implementation
-
-Rate limits are stored in Redis using Laravel's cache system. Since the RateLimitService is registered as singleton in this library's service provider, changing the default cache driver would affect all parts of the application. To avoid state cross-contamination between different cache drivers, use named stores:
-
-```php
-// Instead of:
-Config::set('cache.default', 'array');
-$arrayService = new RateLimitService(new RateLimiter(app('cache')->driver()));
-Config::set('cache.default', 'redis');
-$redisService = new RateLimitService(new RateLimiter(app('cache')->driver()));
-
-// Use:
-// Create two services with different cache stores
-$arrayStore = app('cache')->store('array');
-$arrayService = new RateLimitService(new RateLimiter($arrayStore));
-
-$redisStore = app('cache')->store('redis');
-$redisService = new RateLimitService(new RateLimiter($redisStore));
-
-// Each service maintains its own state
-$arrayService->incrementAttempts('client1');  // Only affects array store
-$redisService->incrementAttempts('client1');  // Only affects Redis store
-
-// Create another Redis service (simulating a different server/process)
-$redisService2 = new RateLimitService(new RateLimiter($redisStore));
-// Warning: This service shares rate limit state with $redisService
-```
-
-This ensures proper isolation between different cache stores while allowing rate limits to be shared across multiple instances using the same Redis store.
+See [Rate Limiting Documentation](docs/rate-limiting.md) for details.
 
 ## Database Migrations
 
 This library takes an unconventional approach to database migrations in order to follow the DRY principle and simplify maintenance across multiple clients, while maintaining consistency between tables.
 
-Instead of duplicating table creation logic in each migration file, we use shared helper functions defined in `src/functions.php`:
+For more details, see [Database Migrations Documentation](docs/database-migrations.md).
 
-- `create_responses_table()`: Creates tables for storing API responses
-- `create_errors_table()`: Creates table for storing error logs
-- Other tables for saving processed data from API responses
+## Laravel Integration
 
-Example migration:
-```php
-public function up(): void
-{
-    $schema = Schema::connection($this->getConnection());
-    create_responses_table($schema, 'api_cache_demo_responses', false);
-}
-```
+To use this library in a full Laravel project, see the [Laravel Integration Guide](docs/laravel-integration.md) for step-by-step setup instructions including installation, configuration, and usage examples.
+
+## Usage
+
+### Getting Started
+- [Usage Introduction](docs/usage-intro.md) - Basic setup and usage guide
+
+### API Clients
+- [Jina AI](docs/usage-jina.md)
+- [OpenAI](docs/usage-openai.md)
+- [OpenPageRank](docs/usage-openpagerank.md)
+- [OpenRouter](docs/usage-openrouter.md)
+- [Pixabay](docs/usage-pixabay.md)
+- [ScraperAPI](docs/usage-scraperapi.md)
+- [ScrapingDog](docs/usage-scrapingdog.md)
+- [YouTube](docs/usage-youtube.md)
+
+### DataForSEO API
+- [DataForSEO Setup](docs/usage-dataforseo-setup.md)
+- [DataForSEO Webhooks](docs/usage-dataforseo-webhooks.md)
+- [SERP Google Organic](docs/usage-dataforseo-serpGoogleOrganic.md)
+- [SERP Google Autocomplete](docs/usage-dataforseo-serpGoogleAutocomplete.md)
+- [Keywords Data Google Ads](docs/usage-dataforseo-keywordsDataGoogleAds.md)
+- [Labs](docs/usage-dataforseo-labs.md)
+- [Labs Google](docs/usage-dataforseo-labsGoogle.md)
+- [Merchant Amazon Products](docs/usage-dataforseo-merchantAmazonProducts.md)
+- [Merchant Amazon ASIN](docs/usage-dataforseo-merchantAmazonAsin.md)
+- [On Page](docs/usage-dataforseo-onPage.md)
+- [Backlinks](docs/usage-dataforseo-backlinks.md)
+- [Backlinks Bulk](docs/usage-dataforseo-backlinksBulk.md)
+
+### Utilities
+- [Responses Table Converters](docs/usage-responses-table-converters.md) - Can be used to convert between compressed and uncompressed response tables
 
 ## License
 
-MIT 
+MIT

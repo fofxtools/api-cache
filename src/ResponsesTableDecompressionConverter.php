@@ -212,13 +212,15 @@ class ResponsesTableDecompressionConverter
     /**
      * Convert a batch of rows from compressed to uncompressed table
      *
-     * @param int $batchSize Batch size (default: 100)
-     * @param int $offset    Starting offset (default: 0)
+     * @param int|null $batchSize Batch size (uses class property if null)
+     * @param int      $offset    Starting offset (default: 0)
      *
      * @return array Conversion statistics: total_count, processed_count, skipped_count, error_count
      */
-    public function convertBatch(int $batchSize = 100, int $offset = 0): array
+    public function convertBatch(?int $batchSize = null, int $offset = 0): array
     {
+        $batchSize = $batchSize ?? $this->batchSize;
+
         $stats = [
             'total_count'     => 0,
             'processed_count' => 0,
@@ -469,13 +471,15 @@ class ResponsesTableDecompressionConverter
     /**
      * Validate a batch of rows by comparing compressed and uncompressed versions
      *
-     * @param int $batchSize Batch size (default: 100)
-     * @param int $offset    Starting offset (default: 0)
+     * @param int|null $batchSize Batch size (uses class property if null)
+     * @param int      $offset    Starting offset (default: 0)
      *
      * @return array Validation statistics: validated_count, mismatch_count, error_count
      */
-    public function validateBatch(int $batchSize = 100, int $offset = 0): array
+    public function validateBatch(?int $batchSize = null, int $offset = 0): array
     {
+        $batchSize = $batchSize ?? $this->batchSize;
+
         $stats = [
             'validated_count' => 0,
             'mismatch_count'  => 0,

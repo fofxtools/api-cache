@@ -352,6 +352,98 @@ class ResponsesTableCompressionConverterTest extends TestCase
         $this->assertSame(0, $stats4['total_count']);
     }
 
+    public function testConvertBatchUsesClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call convertBatch without parameters - should use class batch size
+        $stats = $this->converter->convertBatch();
+
+        $this->assertArrayHasKey('total_count', $stats);
+        $this->assertArrayHasKey('processed_count', $stats);
+        $this->assertArrayHasKey('skipped_count', $stats);
+        $this->assertArrayHasKey('error_count', $stats);
+        $this->assertGreaterThanOrEqual(0, $stats['total_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['processed_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['skipped_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['error_count']);
+    }
+
+    public function testConvertBatchCanOverrideClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call convertBatch with explicit batch size - should override class batch size
+        $stats = $this->converter->convertBatch(50);
+
+        $this->assertArrayHasKey('total_count', $stats);
+        $this->assertArrayHasKey('processed_count', $stats);
+        $this->assertArrayHasKey('skipped_count', $stats);
+        $this->assertArrayHasKey('error_count', $stats);
+        $this->assertGreaterThanOrEqual(0, $stats['total_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['processed_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['skipped_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['error_count']);
+    }
+
+    public function testConvertBatchActuallyUsesBatchSize(): void
+    {
+        // Create 5 test records
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "batch-test-key{$i}", $testData);
+        }
+
+        // Set batch size to 2
+        $this->converter->setBatchSize(2);
+
+        // Call convertBatch() - should process exactly 2 rows
+        $stats = $this->converter->convertBatch();
+
+        $this->assertSame(2, $stats['total_count']);
+        $this->assertSame(2, $stats['processed_count']);
+
+        // Verify 2 rows exist in compressed table
+        $compressedCount = $this->converter->getCompressedRowCount();
+        $this->assertSame(2, $compressedCount);
+    }
+
+    public function testConvertBatchActuallyUsesOverrideBatchSize(): void
+    {
+        // Create 5 test records
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "override-test-key{$i}", $testData);
+        }
+
+        // Set batch size to 10 (but override with 3)
+        $this->converter->setBatchSize(10);
+
+        // Call convertBatch(3) - should process exactly 3 rows, not 10
+        $stats = $this->converter->convertBatch(3);
+
+        $this->assertSame(3, $stats['total_count']);
+        $this->assertSame(3, $stats['processed_count']);
+
+        // Verify 3 rows exist in compressed table
+        $compressedCount = $this->converter->getCompressedRowCount();
+        $this->assertSame(3, $compressedCount);
+    }
+
     public function testConfigurationStateRestoration(): void
     {
         // Set initial compression state to false
@@ -679,6 +771,94 @@ class ResponsesTableCompressionConverterTest extends TestCase
         $stats = $this->converter->validateBatch(10, 0);
 
         $this->assertSame(0, $stats['validated_count']);
+        $this->assertSame(0, $stats['mismatch_count']);
+        $this->assertSame(0, $stats['error_count']);
+    }
+
+    public function testValidateBatchUsesClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call validateBatch without parameters - should use class batch size
+        $stats = $this->converter->validateBatch();
+
+        $this->assertArrayHasKey('validated_count', $stats);
+        $this->assertArrayHasKey('mismatch_count', $stats);
+        $this->assertArrayHasKey('error_count', $stats);
+        $this->assertGreaterThanOrEqual(0, $stats['validated_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['mismatch_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['error_count']);
+    }
+
+    public function testValidateBatchCanOverrideClassBatchSize(): void
+    {
+        // Set custom batch size on the converter
+        $this->converter->setBatchSize(250);
+
+        // Call validateBatch with explicit batch size - should override class batch size
+        $stats = $this->converter->validateBatch(50);
+
+        $this->assertArrayHasKey('validated_count', $stats);
+        $this->assertArrayHasKey('mismatch_count', $stats);
+        $this->assertArrayHasKey('error_count', $stats);
+        $this->assertGreaterThanOrEqual(0, $stats['validated_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['mismatch_count']);
+        $this->assertGreaterThanOrEqual(0, $stats['error_count']);
+    }
+
+    public function testValidateBatchActuallyUsesBatchSize(): void
+    {
+        // Create and convert 5 test records first
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "validate-test-key{$i}", $testData);
+        }
+
+        // Convert all records first
+        $this->converter->convertAll();
+
+        // Set batch size to 2
+        $this->converter->setBatchSize(2);
+
+        // Call validateBatch() - should validate exactly 2 rows
+        $stats = $this->converter->validateBatch();
+
+        $this->assertSame(2, $stats['validated_count']);
+        $this->assertSame(0, $stats['mismatch_count']);
+        $this->assertSame(0, $stats['error_count']);
+    }
+
+    public function testValidateBatchActuallyUsesOverrideBatchSize(): void
+    {
+        // Create and convert 5 test records first
+        $testData = [
+            'endpoint'             => '/test',
+            'method'               => 'GET',
+            'response_body'        => 'test response',
+            'response_status_code' => 200,
+        ];
+
+        for ($i = 1; $i <= 5; $i++) {
+            $this->cacheRepository->store($this->clientName, "validate-override-key{$i}", $testData);
+        }
+
+        // Convert all records first
+        $this->converter->convertAll();
+
+        // Set batch size to 10 (but override with 3)
+        $this->converter->setBatchSize(10);
+
+        // Call validateBatch(3) - should validate exactly 3 rows, not 10
+        $stats = $this->converter->validateBatch(3);
+
+        $this->assertSame(3, $stats['validated_count']);
         $this->assertSame(0, $stats['mismatch_count']);
         $this->assertSame(0, $stats['error_count']);
     }

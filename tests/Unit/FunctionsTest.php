@@ -13,19 +13,15 @@ use Illuminate\Support\Facades\Schema;
 use FOfX\Helper;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 use function FOfX\ApiCache\check_server_status;
 use function FOfX\ApiCache\resolve_cache_manager;
 use function FOfX\ApiCache\create_responses_table;
 use function FOfX\ApiCache\format_api_response;
-use function FOfX\ApiCache\get_tables;
 use function FOfX\ApiCache\create_pixabay_images_table;
 use function FOfX\ApiCache\normalize_params;
 use function FOfX\ApiCache\summarize_params;
-use function FOfX\ApiCache\download_public_suffix_list;
-use function FOfX\ApiCache\extract_registrable_domain;
 use function FOfX\ApiCache\create_errors_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_listings_table;
 use function FOfX\ApiCache\create_dataforseo_serp_google_organic_items_table;
@@ -870,179 +866,6 @@ class FunctionsTest extends TestCase
         $this->assertStringContainsString('Response time (seconds): N/A', $output);
         $this->assertStringContainsString('Response size (bytes): N/A', $output);
         $this->assertStringContainsString('Is cached: N/A', $output);
-    }
-
-    public function test_get_tables_returns_array_of_tables(): void
-    {
-        // Create some test tables
-        Schema::create('test_table1', function ($table) {
-            $table->id();
-        });
-        Schema::create('test_table2', function ($table) {
-            $table->id();
-        });
-
-        $tables = get_tables();
-
-        $this->assertContains('test_table1', $tables);
-        $this->assertContains('test_table2', $tables);
-    }
-
-    public function test_get_tables_throws_exception_for_unsupported_driver(): void
-    {
-        // Create a mock connection that will return an unsupported driver name
-        $mockConnection = \Mockery::mock();
-        $mockConnection->shouldReceive('getDriverName')
-            ->once()
-            ->andReturn('unsupportedDriverName');
-
-        // Ensure getSchemaBuilder() exists, even if not used
-        $mockConnection->shouldReceive('getSchemaBuilder')->andReturnSelf();
-
-        // Mock Schema facade to prevent errors related to dropIfExists()
-        Schema::shouldReceive('dropIfExists')->andReturnTrue();
-
-        // Mock DB facade to return the mock connection
-        DB::shouldReceive('connection')
-            ->andReturn($mockConnection);
-
-        // Ensure DB::select() is never called since the exception should occur first
-        $mockConnection->shouldNotReceive('select');
-
-        // Expect an exception when calling get_tables()
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Unsupported database driver: unsupported');
-
-        get_tables();
-    }
-
-    public function test_download_public_suffix_list_returns_path_when_file_exists(): void
-    {
-        // Create a test file
-        $expectedPath    = storage_path('app/public_suffix_list.dat');
-        $expectedContent = 'public suffix list content';
-        file_put_contents($expectedPath, $expectedContent);
-
-        $path = download_public_suffix_list();
-
-        $this->assertSame($expectedPath, $path);
-        $this->assertFileExists($path);
-        $this->assertSame($expectedContent, file_get_contents($path));
-    }
-
-    public function test_download_public_suffix_list_downloads_when_file_does_not_exist(): void
-    {
-        // Create a test file
-        $expectedPath    = storage_path('app/public_suffix_list.dat');
-        $expectedContent = 'public suffix list content';
-
-        // Ensure file doesn't exist
-        if (file_exists($expectedPath)) {
-            unlink($expectedPath);
-        }
-
-        Http::fake([
-            'publicsuffix.org/list/public_suffix_list.dat' => Http::response($expectedContent),
-        ]);
-
-        $path = download_public_suffix_list();
-
-        $this->assertSame($expectedPath, $path);
-        $this->assertFileExists($path);
-        $this->assertSame($expectedContent, file_get_contents($path));
-    }
-
-    public function test_download_public_suffix_list_throws_exception_on_download_failure(): void
-    {
-        $expectedPath = storage_path('app/public_suffix_list.dat');
-
-        // Ensure file doesn't exist
-        if (file_exists($expectedPath)) {
-            unlink($expectedPath);
-        }
-
-        Http::fake([
-            'publicsuffix.org/list/public_suffix_list.dat' => Http::response('', 500),
-        ]);
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Failed to download public suffix list');
-
-        download_public_suffix_list();
-    }
-
-    public static function provideExtractRegistrableDomainTestCases(): array
-    {
-        return [
-            // php-domain-parser already strips www for example.com
-            'simple domain' => [
-                'url'      => 'example.com',
-                'expected' => 'example.com',
-            ],
-            'domain with www' => [
-                'url'      => 'www.example.com',
-                'expected' => 'example.com',
-            ],
-            'domain with www and stripWww false' => [
-                'url'      => 'www.example.com',
-                'expected' => 'example.com',
-                'stripWww' => false,
-            ],
-
-            // php-domain-parser keeps www for httpbin.org
-            'www.httpbin.org' => [
-                'url'      => 'www.httpbin.org',
-                'expected' => 'httpbin.org',
-            ],
-            'www.httpbin.org with stripWww false' => [
-                'url'      => 'www.httpbin.org',
-                'expected' => 'www.httpbin.org',
-                'stripWww' => false,
-            ],
-
-            // URLs with protocols
-            'http url' => [
-                'url'      => 'http://example.com',
-                'expected' => 'example.com',
-            ],
-            'https url' => [
-                'url'      => 'https://example.com',
-                'expected' => 'example.com',
-            ],
-            'https url with www' => [
-                'url'      => 'https://www.example.com',
-                'expected' => 'example.com',
-            ],
-            'https httpbin.org with www' => [
-                'url'      => 'https://www.httpbin.org',
-                'expected' => 'httpbin.org',
-            ],
-
-            // URLs with paths and queries
-            'url with path' => [
-                'url'      => 'https://example.com/path/to/page',
-                'expected' => 'example.com',
-            ],
-            'url with query' => [
-                'url'      => 'https://example.com?param=value',
-                'expected' => 'example.com',
-            ],
-            'url with path and query' => [
-                'url'      => 'https://example.com/path?param=value',
-                'expected' => 'example.com',
-            ],
-            'httpbin.org with path' => [
-                'url'      => 'https://www.httpbin.org/path',
-                'expected' => 'httpbin.org',
-            ],
-        ];
-    }
-
-    #[DataProvider('provideExtractRegistrableDomainTestCases')]
-    public function testExtractRegistrableDomain(string $url, string $expected, bool $stripWww = true): void
-    {
-        $actual = extract_registrable_domain($url, $stripWww);
-        $this->assertEquals($expected, $actual);
     }
 
     public function test_create_dataforseo_serp_google_organic_listings_table_creates_table(): void

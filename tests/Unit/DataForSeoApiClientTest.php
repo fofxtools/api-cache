@@ -1496,9 +1496,11 @@ class DataForSeoApiClientTest extends TestCase
             'domain with numbers'   => ['test123.com', true],
             'domain with hyphens'   => ['test-site.co.uk', true],
             'single letter domain'  => ['a.co', true],
-            'numeric TLD'           => ['example.123', true],
             'long TLD'              => ['example.online', true],
             'long TLD subdomain'    => ['blog.api.example.website', true],
+
+            // Invalid domains
+            'numeric TLD' => ['example.123', false, 'Target must be a valid domain or subdomain'],
 
             // Invalid domains - with protocols
             'https protocol'       => ['https://example.com', false, 'Target domain must be specified without https:// or http://'],

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
+use FOfX\Utility;
 
 class ScraperApiClient extends BaseApiClient
 {
@@ -65,7 +66,7 @@ class ScraperApiClient extends BaseApiClient
     public function calculateCredits(string $url, array $additionalParams = []): int
     {
         // Use php-domain-parser to get the registrable domain
-        $registrableDomain = extract_registrable_domain($url);
+        $registrableDomain = Utility\extract_registrable_domain($url);
 
         // Define known domains and their credit costs
         $domainCredits = [
@@ -176,7 +177,7 @@ class ScraperApiClient extends BaseApiClient
         // Pass extract_registrable_domain() as attributes if attributes is not provided
         if ($attributes === null) {
             // Use php-domain-parser to get the registrable domain
-            $attributes = extract_registrable_domain($url);
+            $attributes = Utility\extract_registrable_domain($url);
         }
 
         return $this->sendCachedRequest('', $params, 'GET', $attributes, $credits);

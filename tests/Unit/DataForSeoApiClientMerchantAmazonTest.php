@@ -10,6 +10,7 @@ use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Mockery;
 
 class DataForSeoApiClientMerchantAmazonTest extends TestCase
 {
@@ -2275,7 +2276,7 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
         ];
 
         // Mock the cache manager to return a cached response
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $mockCacheManager->shouldReceive('generateCacheKey')->andReturn('test-cache-key');
         $mockCacheManager->shouldReceive('getCachedResponse')->andReturn($cachedResponse);
 
@@ -2289,7 +2290,7 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
     public function test_merchant_amazon_sellers_standard_returns_null_when_not_cached_and_posting_disabled()
     {
         // Mock the cache manager to return null (not cached)
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $mockCacheManager->shouldReceive('generateCacheKey')->andReturn('test-cache-key');
         $mockCacheManager->shouldReceive('getCachedResponse')->andReturn(null);
 
@@ -2325,7 +2326,7 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
         ]);
 
         // Mock the cache manager to return null (not cached)
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $mockCacheManager->shouldReceive('generateCacheKey')->andReturn('test-cache-key');
         $mockCacheManager->shouldReceive('getCachedResponse')->andReturn(null);
         $mockCacheManager->shouldReceive('clearRateLimit')->andReturn(null);
@@ -2379,7 +2380,7 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
         $this->expectExceptionMessage('type must be one of: advanced, html');
 
         // Mock the cache manager
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $this->client     = new DataForSeoApiClient($mockCacheManager);
 
         $this->client->merchantAmazonSellersStandard(
@@ -2398,11 +2399,11 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
     public function test_merchant_amazon_sellers_standard_excludes_webhook_params_from_cache_key()
     {
         // Mock the cache manager to check what parameters are passed to generateCacheKey
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $mockCacheManager->shouldReceive('generateCacheKey')->once()->with(
             'dataforseo',
             'merchant/amazon/sellers/task_get/advanced',
-            \Mockery::on(function ($params) {
+            Mockery::on(function ($params) {
                 // Ensure webhook and control params are not included in cache key generation
                 return !isset($params['use_postback']) &&
                        !isset($params['use_pingback']) &&
@@ -2444,7 +2445,7 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
     public function test_merchant_amazon_sellers_standard_wrapper_methods_call_main_method_with_correct_type(string $method, string $expectedType)
     {
         // Mock the cache manager
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $mockCacheManager->shouldReceive('generateCacheKey')->andReturn('test-cache-key');
         $mockCacheManager->shouldReceive('getCachedResponse')->andReturn([
             'tasks' => [
@@ -2536,7 +2537,7 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
     public function test_merchant_amazon_sellers_standard_advanced_basic_functionality()
     {
         // Mock the cache manager to return cached data so no HTTP request is made
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $mockCacheManager->shouldReceive('generateCacheKey')->andReturn('test-cache-key');
         $mockCacheManager->shouldReceive('getCachedResponse')->andReturn([
             'tasks' => [['result' => [['asin' => 'B085RFFC9Q', 'type' => 'advanced']]]],
@@ -2551,7 +2552,7 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
     public function test_merchant_amazon_sellers_standard_html_basic_functionality()
     {
         // Mock the cache manager to return cached data so no HTTP request is made
-        $mockCacheManager = \Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
+        $mockCacheManager = Mockery::mock(\FOfX\ApiCache\ApiCacheManager::class);
         $mockCacheManager->shouldReceive('generateCacheKey')->andReturn('test-cache-key');
         $mockCacheManager->shouldReceive('getCachedResponse')->andReturn([
             'tasks' => [['result' => [['asin' => 'B085RFFC9Q', 'type' => 'html']]]],

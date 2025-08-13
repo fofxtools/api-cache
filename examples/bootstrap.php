@@ -14,6 +14,10 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Redis\RedisServiceProvider;
 use Illuminate\Database\Schema\Builder;
+use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
+use Illuminate\Foundation\Bootstrap\LoadConfiguration;
+use Illuminate\Cache\CacheManager;
+use Illuminate\Log\LogManager;
 
 /**
  * Create both compressed and uncompressed tables for a client
@@ -76,23 +80,15 @@ function createProcessedResponseTables(Builder $schema, bool $dropExisting = fal
 // Bootstrap Laravel
 $app = new Application(dirname(__DIR__));
 $app->bootstrapWith([
-    \Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables::class,
-    \Illuminate\Foundation\Bootstrap\LoadConfiguration::class,
+    LoadEnvironmentVariables::class,
+    LoadConfiguration::class,
 ]);
 
 // Set up facades
 Facade::setFacadeApplication($app);
 
-// Register bindings
-$app->singleton('config', fn () => new \Illuminate\Config\Repository([
-    'api-cache' => require __DIR__ . '/../config/api-cache.php',
-    'app'       => require __DIR__ . '/../config/app.php',
-    'cache'     => require __DIR__ . '/../config/cache.php',
-    'database'  => require __DIR__ . '/../config/database.php',
-    'logging'   => require __DIR__ . '/../config/logging.php',
-]));
-$app->singleton('cache', fn ($app) => new \Illuminate\Cache\CacheManager($app));
-$app->singleton('log', fn ($app) => new \Illuminate\Log\LogManager($app));
+$app->singleton('cache', fn ($app) => new CacheManager($app));
+$app->singleton('log', fn ($app) => new LogManager($app));
 
 // Setup database
 $databaseConnection = 'mysql';
@@ -109,3 +105,28 @@ $provider->registerCache($app);
 $provider->registerDatabase($capsule);
 $app->register(ApiCacheServiceProvider::class);
 $app->register(RedisServiceProvider::class);
+
+// Set up basic paths
+$app->useStoragePath($app->basePath('storage'));
+
+// Create storage directories if they don't exist
+$storagePath          = $app->storagePath();
+$storageAppPath       = $app->storagePath('app');
+$storageAppPublicPath = $app->storagePath('app/public');
+$storageLogsPath      = $app->storagePath('logs');
+
+if (!is_dir($storagePath)) {
+    mkdir($storagePath, 0755, true);
+}
+
+if (!is_dir($storageAppPath)) {
+    mkdir($storageAppPath, 0755, true);
+}
+
+if (!is_dir($storageAppPublicPath)) {
+    mkdir($storageAppPublicPath, 0755, true);
+}
+
+if (!is_dir($storageLogsPath)) {
+    mkdir($storageLogsPath, 0755, true);
+}

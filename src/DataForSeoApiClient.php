@@ -8,8 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use FOfX\Helper\ReflectionUtils;
 use FOfX\Helper;
-use Pdp\Rules;
-use Pdp\Domain;
+use FOfX\Utility;
 
 class DataForSeoApiClient extends BaseApiClient
 {
@@ -746,16 +745,7 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Target domain must be specified without www.');
         }
 
-        try {
-            $path   = download_public_suffix_list();
-            $rules  = Rules::fromPath($path);
-            $domain = Domain::fromIDNA2008($target);
-            $result = $rules->resolve($domain);
-
-            if (empty($result->registrableDomain()->toString()) || empty($result->suffix()->value())) {
-                throw new \InvalidArgumentException('Target must be a valid domain or subdomain');
-            }
-        } catch (\Throwable $e) {
+        if (!Utility\is_valid_domain($target)) {
             throw new \InvalidArgumentException('Target must be a valid domain or subdomain');
         }
     }
@@ -784,16 +774,7 @@ class DataForSeoApiClient extends BaseApiClient
             throw new \InvalidArgumentException('Target domain must be specified without www. (for domains) or as absolute URL (for pages)');
         }
 
-        try {
-            $path   = download_public_suffix_list();
-            $rules  = Rules::fromPath($path);
-            $domain = Domain::fromIDNA2008($target);
-            $result = $rules->resolve($domain);
-
-            if (empty($result->registrableDomain()->toString()) || empty($result->suffix()->value())) {
-                throw new \InvalidArgumentException('Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)');
-            }
-        } catch (\Throwable $e) {
+        if (!Utility\is_valid_domain($target)) {
             throw new \InvalidArgumentException('Target must be a valid domain/subdomain (without https:// and www.) or absolute URL (with http:// or https://)');
         }
     }

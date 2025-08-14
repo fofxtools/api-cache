@@ -320,7 +320,13 @@ foreach ($domainArray as $domain) {
     print_r($body);
 
     // Use absolute URL for Instant Pages
-    $result   = $dfs->onPageInstantPages("https://www.{$domain}");
+    $result   = $dfs->onPageInstantPages("https://www.{$domain}", switchPool: true, ipPoolForScan: 'us');
+    $response = $result['response'];
+    $body     = $response->body();
+    echo "Response Body:\n";
+    print_r($body);
+
+    $result   = $dfs->onPageInstantPagesWithRawHtml("https://www.{$domain}", switchPool: true, ipPoolForScan: 'us');
     $response = $result['response'];
     $body     = $response->body();
     echo "Response Body:\n";

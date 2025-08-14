@@ -6419,6 +6419,120 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Get OnPage Instant Pages with Raw HTML from DataForSEO's OnPage API
+     *
+     * This method combines onPageInstantPages with onPageRawHtml to provide
+     * both the page analysis and the raw HTML content in a single call.
+     * It first calls onPageInstantPages with storeRawHtml=true, extracts the
+     * task ID from the response, then calls onPageRawHtml to get the HTML content.
+     *
+     * @param string      $url                      Target URL (required, absolute URL)
+     * @param string|null $customUserAgent          Custom user agent
+     * @param string|null $browserPreset            Browser preset: 'desktop', 'mobile', 'tablet'
+     * @param int|null    $browserScreenWidth       Browser screen width (240-9999 pixels)
+     * @param int|null    $browserScreenHeight      Browser screen height (240-9999 pixels)
+     * @param float|null  $browserScreenScaleFactor Browser screen scale factor (0.5-3)
+     * @param string|null $acceptLanguage           Language header for accessing website
+     * @param bool|null   $loadResources            Load page resources (default: false)
+     * @param bool|null   $enableJavascript         Enable JavaScript (default: false)
+     * @param bool|null   $enableBrowserRendering   Enable browser rendering (default: false)
+     * @param bool|null   $disableCookiePopup       Disable cookie popup (default: false)
+     * @param bool|null   $returnDespiteTimeout     Return results despite timeout (default: false)
+     * @param bool|null   $enableXhr                Enable XHR requests (default: false)
+     * @param string|null $customJs                 Custom JavaScript code
+     * @param bool|null   $validateMicromarkup      Validate micromarkup (default: false)
+     * @param bool|null   $checkSpell               Check spelling (default: false)
+     * @param array|null  $checksThreshold          Checks threshold settings
+     * @param bool|null   $switchPool               Switch IP pool (default: false)
+     * @param string|null $ipPoolForScan            IP pool for scan
+     * @param array       $additionalParams         Additional parameters
+     * @param string|null $attributes               Optional attributes to store with cache entry
+     * @param int         $amount                   Amount to pass to incrementAttempts
+     *
+     * @throws \InvalidArgumentException If validation fails
+     * @throws \RuntimeException         If task ID extraction fails
+     *
+     * @return array The raw HTML API response data
+     */
+    public function onPageInstantPagesWithRawHtml(
+        string $url,
+        ?string $customUserAgent = null,
+        ?string $browserPreset = null,
+        ?int $browserScreenWidth = null,
+        ?int $browserScreenHeight = null,
+        ?float $browserScreenScaleFactor = null,
+        ?string $acceptLanguage = null,
+        ?bool $loadResources = null,
+        ?bool $enableJavascript = null,
+        ?bool $enableBrowserRendering = null,
+        ?bool $disableCookiePopup = null,
+        ?bool $returnDespiteTimeout = null,
+        ?bool $enableXhr = null,
+        ?string $customJs = null,
+        ?bool $validateMicromarkup = null,
+        ?bool $checkSpell = null,
+        ?array $checksThreshold = null,
+        ?bool $switchPool = null,
+        ?string $ipPoolForScan = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        int $amount = 1
+    ): array {
+        Log::debug(
+            'Making DataForSEO OnPage Instant Pages with Raw HTML request',
+            ReflectionUtils::extractArgs(__METHOD__, get_defined_vars())
+        );
+
+        // First, call onPageInstantPages with storeRawHtml=true
+        $instantPagesResult = $this->onPageInstantPages(
+            url: $url,
+            customUserAgent: $customUserAgent,
+            browserPreset: $browserPreset,
+            browserScreenWidth: $browserScreenWidth,
+            browserScreenHeight: $browserScreenHeight,
+            browserScreenScaleFactor: $browserScreenScaleFactor,
+            storeRawHtml: true, // Force storeRawHtml to true
+            acceptLanguage: $acceptLanguage,
+            loadResources: $loadResources,
+            enableJavascript: $enableJavascript,
+            enableBrowserRendering: $enableBrowserRendering,
+            disableCookiePopup: $disableCookiePopup,
+            returnDespiteTimeout: $returnDespiteTimeout,
+            enableXhr: $enableXhr,
+            customJs: $customJs,
+            validateMicromarkup: $validateMicromarkup,
+            checkSpell: $checkSpell,
+            checksThreshold: $checksThreshold,
+            switchPool: $switchPool,
+            ipPoolForScan: $ipPoolForScan,
+            additionalParams: $additionalParams,
+            attributes: $attributes,
+            amount: $amount
+        );
+
+        // Extract the response data from the result
+        $responseData = $instantPagesResult['response']->json();
+
+        // Extract task ID from the first task in the response
+        $taskId = $responseData['tasks'][0]['id'] ?? null;
+
+        if (!$taskId) {
+            throw new \RuntimeException('Failed to extract task ID from onPageInstantPages response');
+        }
+
+        Log::debug('Extracted task ID from onPageInstantPages', ['task_id' => $taskId]);
+
+        // Now call onPageRawHtml with the extracted task ID
+        return $this->onPageRawHtml(
+            id: $taskId,
+            url: $url,
+            additionalParams: $additionalParams,
+            attributes: $attributes,
+            amount: $amount
+        );
+    }
+
+    /**
      * Get backlinks summary data using DataForSEO's Backlinks Summary Live API
      *
      * @param string      $target                   Domain, subdomain or webpage to get data for (required)

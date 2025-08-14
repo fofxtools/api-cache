@@ -4,6 +4,13 @@ This document tracks various issues encountered during development and their sol
 
 ## Development Issues
 
+### August 2025
+
+#### onPageInstantPagesWithRawHtml Task Not Found (8-14-25)
+- **Issue**: "Task ID not found" error when switching between sandbox and production APIs for `onPageInstantPagesWithRawHtml`. `onPageInstantPages` had a cached response from the sandbox `base_url`. But `onPageInstantPagesWithRawHtml` was called for the real API, so `onPageRawHtml` was called with an invalid sandbox task ID.
+- **Cause**: Cached response from different base URL contains invalid task ID
+- **Solution**: Delete cached row from responses table
+
 ### April 2025
 
 #### URL Matching in Http::fake() Tests (4-25-25)

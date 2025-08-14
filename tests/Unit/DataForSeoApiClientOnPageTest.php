@@ -2595,4 +2595,543 @@ class DataForSeoApiClientOnPageTest extends TestCase
         $this->assertEquals(40404, $responseData['status_code']);
         $this->assertEquals('Content not found.', $responseData['status_message']);
     }
+
+    public function test_onpage_instant_pages_with_raw_html_successful_request()
+    {
+        $url                = 'https://example.com';
+        $instantPagesTaskId = '12345678-1234-1234-1234-123456789040';
+        $rawHtmlTaskId      = '12345678-1234-1234-1234-123456789041';
+
+        // Response for onPageInstantPages call
+        $instantPagesResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.3497 sec.',
+            'cost'           => 0.03,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $instantPagesTaskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.3397 sec.',
+                    'cost'           => 0.03,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'on_page',
+                        'instant_pages',
+                    ],
+                    'data' => [
+                        'api'            => 'on_page',
+                        'function'       => 'instant_pages',
+                        'url'            => $url,
+                        'store_raw_html' => true,
+                    ],
+                    'result' => [
+                        [
+                            'url'          => $url,
+                            'status_code'  => 200,
+                            'page_content' => '<html><body>Example content</body></html>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // Response for onPageRawHtml call
+        $rawHtmlResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.2134 sec.',
+            'cost'           => 0.01,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $rawHtmlTaskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.2034 sec.',
+                    'cost'           => 0.01,
+                    'result_count'   => 1,
+                    'path'           => [
+                        'on_page',
+                        'raw_html',
+                    ],
+                    'data' => [
+                        'api'      => 'on_page',
+                        'function' => 'raw_html',
+                        'id'       => $instantPagesTaskId,
+                        'url'      => $url,
+                    ],
+                    'result' => [
+                        [
+                            'id'       => $instantPagesTaskId,
+                            'url'      => $url,
+                            'raw_html' => '<html><head><title>Example</title></head><body><h1>Example Page</h1><p>Content here</p></body></html>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($instantPagesResponse, 200),
+            "{$this->apiBaseUrl}/on_page/raw_html"      => Http::response($rawHtmlResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageInstantPagesWithRawHtml($url);
+
+        // Verify onPageInstantPages was called first
+        Http::assertSent(function ($request) use ($url) {
+            return $request->url() === "{$this->apiBaseUrl}/on_page/instant_pages" &&
+                   $request->method() === 'POST' &&
+                   isset($request->data()[0]['url']) &&
+                   $request->data()[0]['url'] === $url &&
+                   isset($request->data()[0]['store_raw_html']) &&
+                   $request->data()[0]['store_raw_html'] === true;
+        });
+
+        // Verify onPageRawHtml was called second with extracted task ID
+        Http::assertSent(function ($request) use ($instantPagesTaskId, $url) {
+            return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
+                   $request->method() === 'POST' &&
+                   isset($request->data()[0]['id']) &&
+                   $request->data()[0]['id'] === $instantPagesTaskId &&
+                   isset($request->data()[0]['url']) &&
+                   $request->data()[0]['url'] === $url;
+        });
+
+        // Verify we got the raw HTML response (not the instant pages response)
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertArrayHasKey('tasks', $responseData);
+        $this->assertEquals($rawHtmlTaskId, $responseData['tasks'][0]['id']);
+        $this->assertEquals($instantPagesTaskId, $responseData['tasks'][0]['data']['id']);
+        $this->assertArrayHasKey('raw_html', $responseData['tasks'][0]['result'][0]);
+    }
+
+    public function test_onpage_instant_pages_with_raw_html_with_parameters()
+    {
+        $url                = 'https://example.com/test';
+        $customUserAgent    = 'Custom Bot 1.0';
+        $browserPreset      = 'mobile';
+        $instantPagesTaskId = '12345678-1234-1234-1234-123456789042';
+        $rawHtmlTaskId      = '12345678-1234-1234-1234-123456789043';
+
+        // Response for onPageInstantPages call
+        $instantPagesResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [
+                [
+                    'id'             => $instantPagesTaskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'data'           => [
+                        'url'               => $url,
+                        'custom_user_agent' => $customUserAgent,
+                        'browser_preset'    => $browserPreset,
+                        'store_raw_html'    => true,
+                    ],
+                    'result' => [
+                        [
+                            'url' => $url,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // Response for onPageRawHtml call
+        $rawHtmlResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [
+                [
+                    'id'     => $rawHtmlTaskId,
+                    'data'   => ['id' => $instantPagesTaskId],
+                    'result' => [
+                        [
+                            'raw_html' => '<html><body>Mobile content</body></html>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($instantPagesResponse, 200),
+            "{$this->apiBaseUrl}/on_page/raw_html"      => Http::response($rawHtmlResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageInstantPagesWithRawHtml(
+            url: $url,
+            customUserAgent: $customUserAgent,
+            browserPreset: $browserPreset
+        );
+
+        // Verify onPageInstantPages was called with correct parameters
+        Http::assertSent(function ($request) use ($url, $customUserAgent, $browserPreset) {
+            $data = $request->data()[0];
+
+            return $request->url() === "{$this->apiBaseUrl}/on_page/instant_pages" &&
+                   $data['url'] === $url &&
+                   $data['custom_user_agent'] === $customUserAgent &&
+                   $data['browser_preset'] === $browserPreset &&
+                   $data['store_raw_html'] === true;
+        });
+
+        // Verify onPageRawHtml was called with extracted task ID
+        Http::assertSent(function ($request) use ($instantPagesTaskId) {
+            return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
+                   $request->data()[0]['id'] === $instantPagesTaskId;
+        });
+
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals($rawHtmlTaskId, $responseData['tasks'][0]['id']);
+    }
+
+    public function test_onpage_instant_pages_with_raw_html_throws_exception_when_task_id_missing()
+    {
+        $url = 'https://example.com';
+
+        // Response without task ID
+        $instantPagesResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [
+                [
+                    // Missing 'id' field
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'data'           => [
+                        'url' => $url,
+                    ],
+                    'result' => [
+                        [
+                            'url' => $url,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($instantPagesResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to extract task ID from onPageInstantPages response');
+
+        $this->client->onPageInstantPagesWithRawHtml($url);
+    }
+
+    public function test_onpage_instant_pages_with_raw_html_throws_exception_when_tasks_array_empty()
+    {
+        $url = 'https://example.com';
+
+        // Response with empty tasks array
+        $instantPagesResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [], // Empty tasks array
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($instantPagesResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to extract task ID from onPageInstantPages response');
+
+        $this->client->onPageInstantPagesWithRawHtml($url);
+    }
+
+    public function test_onpage_instant_pages_with_raw_html_validates_absolute_url()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('URL must be an absolute URL starting with http:// or https://');
+
+        $this->client->onPageInstantPagesWithRawHtml('example.com'); // Invalid: not absolute URL
+    }
+
+    public function test_onpage_instant_pages_with_raw_html_handles_instant_pages_api_error()
+    {
+        $url = 'https://example.com';
+
+        // Error response from onPageInstantPages
+        $errorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40000,
+            'status_message' => 'Bad Request.',
+            'tasks'          => [
+                [
+                    'id'             => null,
+                    'status_code'    => 40000,
+                    'status_message' => 'Invalid URL format',
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($errorResponse, 400),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Failed to extract task ID from onPageInstantPages response');
+
+        $this->client->onPageInstantPagesWithRawHtml($url);
+    }
+
+    public function test_onpage_instant_pages_with_raw_html_handles_raw_html_api_error()
+    {
+        $url                = 'https://example.com';
+        $instantPagesTaskId = '12345678-1234-1234-1234-123456789044';
+
+        // Successful response for onPageInstantPages
+        $instantPagesResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [
+                [
+                    'id'             => $instantPagesTaskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'data'           => [
+                        'url' => $url,
+                    ],
+                    'result' => [
+                        [
+                            'url' => $url,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // Error response from onPageRawHtml
+        $rawHtmlErrorResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 40401,
+            'status_message' => 'Task not found.',
+            'tasks'          => [
+                [
+                    'id'             => null,
+                    'status_code'    => 40401,
+                    'status_message' => 'Task not found.',
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($instantPagesResponse, 200),
+            "{$this->apiBaseUrl}/on_page/raw_html"      => Http::response($rawHtmlErrorResponse, 404),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $result = $this->client->onPageInstantPagesWithRawHtml($url);
+
+        // Should return the error response from onPageRawHtml
+        $this->assertEquals(404, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals(40401, $responseData['status_code']);
+        $this->assertEquals('Task not found.', $responseData['status_message']);
+    }
+
+    public static function onPageInstantPagesWithRawHtmlParametersProvider(): array
+    {
+        return [
+            'basic_parameters' => [
+                [
+                    'https://example.com/basic',
+                ],
+                [
+                    'url'            => 'https://example.com/basic',
+                    'store_raw_html' => true,
+                ],
+            ],
+            'with_browser_settings' => [
+                [
+                    'https://example.com/browser',
+                    'Custom Agent 1.0', // customUserAgent
+                    'tablet',           // browserPreset
+                    1024,              // browserScreenWidth
+                    768,               // browserScreenHeight
+                ],
+                [
+                    'url'                   => 'https://example.com/browser',
+                    'custom_user_agent'     => 'Custom Agent 1.0',
+                    'browser_preset'        => 'tablet',
+                    'browser_screen_width'  => 1024,
+                    'browser_screen_height' => 768,
+                    'store_raw_html'        => true,
+                ],
+            ],
+            'with_javascript_settings' => [
+                [
+                    'https://example.com/js',
+                    null,  // customUserAgent
+                    null,  // browserPreset
+                    null,  // browserScreenWidth
+                    null,  // browserScreenHeight
+                    null,  // browserScreenScaleFactor
+                    'en-US', // acceptLanguage
+                    true,  // loadResources
+                    true,  // enableJavascript
+                    true,  // enableBrowserRendering
+                ],
+                [
+                    'url'                      => 'https://example.com/js',
+                    'accept_language'          => 'en-US',
+                    'load_resources'           => true,
+                    'enable_javascript'        => true,
+                    'enable_browser_rendering' => true,
+                    'store_raw_html'           => true,
+                ],
+            ],
+            'with_additional_params' => [
+                [
+                    'https://example.com/additional',
+                    null,  // customUserAgent
+                    null,  // browserPreset
+                    null,  // browserScreenWidth
+                    null,  // browserScreenHeight
+                    null,  // browserScreenScaleFactor
+                    null,  // acceptLanguage
+                    null,  // loadResources
+                    null,  // enableJavascript
+                    null,  // enableBrowserRendering
+                    null,  // disableCookiePopup
+                    null,  // returnDespiteTimeout
+                    null,  // enableXhr
+                    null,  // customJs
+                    null,  // validateMicromarkup
+                    null,  // checkSpell
+                    null,  // checksThreshold
+                    null,  // switchPool
+                    null,  // ipPoolForScan
+                    ['custom_param' => 'custom_value'], // additionalParams
+                ],
+                [
+                    'url'            => 'https://example.com/additional',
+                    'custom_param'   => 'custom_value',
+                    'store_raw_html' => true,
+                ],
+            ],
+        ];
+    }
+
+    #[DataProvider('onPageInstantPagesWithRawHtmlParametersProvider')]
+    public function test_onpage_instant_pages_with_raw_html_builds_request_with_correct_parameters($parameters, $expectedParams)
+    {
+        $instantPagesTaskId = '12345678-1234-1234-1234-123456789045';
+        $rawHtmlTaskId      = '12345678-1234-1234-1234-123456789046';
+
+        $instantPagesResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [
+                [
+                    'id'             => $instantPagesTaskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'data'           => $expectedParams,
+                    'result'         => [
+                        [
+                            'url' => $parameters[0],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $rawHtmlResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'tasks'          => [
+                [
+                    'id'     => $rawHtmlTaskId,
+                    'data'   => ['id' => $instantPagesTaskId],
+                    'result' => [
+                        [
+                            'raw_html' => '<html><body>Test content</body></html>',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/on_page/instant_pages" => Http::response($instantPagesResponse, 200),
+            "{$this->apiBaseUrl}/on_page/raw_html"      => Http::response($rawHtmlResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        // Call with variable number of parameters
+        $result = $this->client->onPageInstantPagesWithRawHtml(...$parameters);
+
+        // Verify onPageInstantPages request was made correctly
+        Http::assertSent(function ($request) use ($expectedParams) {
+            if ($request->url() !== "{$this->apiBaseUrl}/on_page/instant_pages") {
+                return false;
+            }
+
+            $data = $request->data()[0];
+            foreach ($expectedParams as $key => $value) {
+                if (!isset($data[$key]) || $data[$key] !== $value) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Verify onPageRawHtml was called with extracted task ID
+        Http::assertSent(function ($request) use ($instantPagesTaskId) {
+            return $request->url() === "{$this->apiBaseUrl}/on_page/raw_html" &&
+                   $request->data()[0]['id'] === $instantPagesTaskId;
+        });
+
+        $this->assertEquals(200, $result['response_status_code']);
+        $responseData = $result['response']->json();
+        $this->assertEquals($rawHtmlTaskId, $responseData['tasks'][0]['id']);
+    }
 }

@@ -264,7 +264,54 @@ $result = $dfs->onPageContentParsing(
 );
 ```
 
-## Typical Workflow
+## Hybrid Live and Task Methods
+
+### onPageInstantPagesWithRawHtml()
+
+Get immediate raw HTML results for a single URL. Internally calls `onPageInstantPages` with `storeRawHtml: true` and retrieves the task ID, then calls `onPageRawHtml` with the task ID to get the HTML content.
+
+Has same parameters as `onPageInstantPages` with the exception of `storeRawHtml` which is forced to `true`.
+
+**Parameters:**
+- `url` - Target URL (required, must be absolute URL)
+- `customUserAgent` - Custom user agent string
+- `browserPreset` - Browser preset ('desktop', 'mobile', 'tablet')
+- `browserScreenWidth` - Browser screen width (240-9999 pixels)
+- `browserScreenHeight` - Browser screen height (240-9999 pixels)
+- `browserScreenScaleFactor` - Browser screen scale factor (min: 0.5, max: 3)
+- `acceptLanguage` - Language header for request
+- `loadResources` - Load images, stylesheets, scripts (default: false)
+- `enableJavascript` - Enable JavaScript execution (default: false)
+- `enableBrowserRendering` - Enable browser rendering for Core Web Vitals (default: false)
+- `disableCookiePopup` - Disable cookie consent popup (default: false)
+- `returnDespiteTimeout` - Return data despite timeout (default: false)
+- `enableXhr` - Enable XMLHttpRequest (default: false)
+- `customJs` - Custom JavaScript code (max 2000 chars)
+- `validateMicromarkup` - Enable microdata validation (default: false)
+- `checkSpell` - Check spelling using Hunspell (default: false)
+- `checksThreshold` - Custom threshold values for checks
+- `switchPool` - Use additional proxy pools (default: false)
+- `ipPoolForScan` - Proxy pool location ('us', 'de')
+
+**Basic Usage:**
+```php
+$dfs = new DataForSeoApiClient();
+
+$result = $dfs->onPageInstantPagesWithRawHtml('https://example.com');
+$response = $result['response'];
+$json = $response->json();
+```
+
+**Advanced Usage:**
+```php
+$result = $dfs->onPageInstantPagesWithRawHtml(
+    url: 'https://example.com',
+    switchPool: true,
+    ipPoolForScan: 'us'
+);
+```
+
+## Typical Workflow for Task Post Methods
 
 1. **Submit Task**: Use `onPageTaskPost()` to start crawling
 2. **Check Status**: Use `onPageSummary()` to check completion

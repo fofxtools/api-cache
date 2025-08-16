@@ -101,6 +101,26 @@ Check required credits for a URL. **Note:** This method only checks select sites
 $credits = $client->calculateCredits('https://amazon.com'); // Returns 5
 ```
 
+## Saving Response Bodies to Files
+
+Save all cached response bodies to HTML files:
+
+```php
+// Save all responses to files
+$stats = $client->saveAllResponseBodiesToFile();
+print_r($stats);
+
+// Save with custom options
+$stats = $client->saveAllResponseBodiesToFile(
+    batchSize: 10,                    // Process 10 at a time
+    endpoint: '',                     // Only '' endpoint
+    savePath: 'storage/app/scraped',  // Custom directory
+    overwriteExisting: true           // Overwrite existing files
+);
+```
+
+Files are saved as `{id}-{url-slug}.html` in the specified directory.
+
 ## Output Formats
 
 See the [output formats documentation](https://docs.scraperapi.com/java/handling-and-processing-responses/output-formats).

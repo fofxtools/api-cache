@@ -19,6 +19,16 @@ class ApiCacheManager
     }
 
     /**
+     * Get the cache repository instance
+     *
+     * @return CacheRepository The cache repository instance
+     */
+    public function getCacheRepository(): CacheRepository
+    {
+        return $this->repository;
+    }
+
+    /**
      * Get the table name for a client
      *
      * @param string $clientName Client name

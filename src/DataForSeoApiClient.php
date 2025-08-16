@@ -798,6 +798,31 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
+     * Resolve the source data for filename slug generation
+     *
+     * For DataForSEO, extracts URL from request_body for certain endpoints,
+     * otherwise falls back to parent behavior (using attributes).
+     *
+     * @param \stdClass $row Database row object
+     *
+     * @return string Source data to be used for filename slug
+     */
+    public function resolveFilenameSlugSource(\stdClass $row): string
+    {
+        // For on_page/raw_html, try to get URL from request_body
+        if ($row->endpoint === 'on_page/raw_html') {
+            // Request body is an array of arrays
+            $requestBody = json_decode($row->request_body, true);
+            if (isset($requestBody[0]['url'])) {
+                return $requestBody[0]['url'];
+            }
+        }
+
+        // Fallback to parent behavior
+        return parent::resolveFilenameSlugSource($row);
+    }
+
+    /**
      * Get Google Organic SERP results using DataForSEO's Live API with Regular endpoints
      *
      * @param string      $keyword             The search query

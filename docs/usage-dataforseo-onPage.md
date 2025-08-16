@@ -246,6 +246,26 @@ Get raw HTML content of crawled pages.
 $result = $dfs->onPageRawHtml($taskId, 'https://example.com');
 ```
 
+#### Saving Response Bodies to Files
+
+Save all cached raw HTML response bodies to files:
+
+```php
+// Save all raw HTML responses to files
+$stats = $dfs->saveAllResponseBodiesToFile(endpoint: 'on_page/raw_html');
+print_r($stats);
+
+// Save with custom options
+$stats = $dfs->saveAllResponseBodiesToFile(
+    batchSize: 10,                         // Process 10 at a time
+    endpoint: 'on_page/raw_html',          // Only raw HTML endpoint
+    savePath: 'storage/app/scraped',       // Custom directory
+    overwriteExisting: true                // Overwrite existing files
+);
+```
+
+Files are saved as `{id}-{url-slug}.html` in the specified directory.
+
 ### onPageContentParsing()
 
 Get parsed content from crawled pages.

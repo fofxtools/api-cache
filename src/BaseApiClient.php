@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Client\PendingRequest;
 use FOfX\Helper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Filesystem\Filesystem;
 
 class BaseApiClient
 {
@@ -287,6 +289,8 @@ class BaseApiClient
 
     /**
      * Clear the rate limit for the client
+     *
+     * @return void
      */
     public function clearRateLimit(): void
     {
@@ -295,10 +299,41 @@ class BaseApiClient
 
     /**
      * Clear all cached responses for the client
+     *
+     * @return void
      */
     public function clearTable(): void
     {
         $this->cacheManager->clearTable($this->clientName);
+    }
+
+    /**
+     * Reset processed_at and processed_status columns to null for responses
+     *
+     * @param string|null $endpoint Optional endpoint filter (default: null for all rows)
+     *
+     * @return void
+     */
+    public function resetProcessed(?string $endpoint = null): void
+    {
+        $tableName = $this->getTableName();
+
+        $query = DB::table($tableName);
+
+        if ($endpoint !== null) {
+            $query->where('endpoint', $endpoint);
+        }
+
+        $updated = $query->update([
+            'processed_at'     => null,
+            'processed_status' => null,
+        ]);
+
+        Log::debug('Reset processed status for responses', [
+            'table_name'    => $tableName,
+            'updated_count' => $updated,
+            'endpoint'      => $endpoint,
+        ]);
     }
 
     /**
@@ -789,5 +824,299 @@ class BaseApiClient
     public function getHealth(): array
     {
         return $this->sendRequest('health');
+    }
+
+    /**
+     * Update the processed status for a row
+     *
+     * @param int   $rowId  Row ID to update
+     * @param array $status Status data containing status, error, filename, file_size
+     *
+     * @return void
+     */
+    public function updateProcessedStatus(int $rowId, array $status): void
+    {
+        $tableName = $this->getTableName();
+
+        $processedStatus = json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        DB::table($tableName)
+            ->where('id', $rowId)
+            ->update([
+                'processed_at'     => now(),
+                'processed_status' => $processedStatus,
+            ]);
+    }
+
+    /**
+     * Batch update processed status for multiple rows using existing updateProcessedStatus logic
+     *
+     * @param array $updates Array of updates with 'id' and 'status' keys
+     *
+     * @return void
+     */
+    public function batchUpdateProcessedStatus(array $updates): void
+    {
+        foreach ($updates as $update) {
+            $this->updateProcessedStatus($update['id'], $update['status']);
+        }
+    }
+
+    /**
+     * Resolve the source data for filename slug generation
+     *
+     * @param \stdClass $row Database row object
+     *
+     * @return string Source data to be used for filename slug
+     */
+    public function resolveFilenameSlugSource(\stdClass $row): string
+    {
+        return $row->attributes ?? '';
+    }
+
+    /**
+     * Generate filename for a database row
+     *
+     * @param \stdClass $row            Database row object
+     * @param int       $truncateLength Maximum length for filename slug (default: 180)
+     *
+     * @return string Generated filename with row ID prefix
+     */
+    public function generateFilename(\stdClass $row, int $truncateLength = 180): string
+    {
+        // Generate filename slug from source data
+        $slug = Str::slug($this->resolveFilenameSlugSource($row));
+        if (mb_strlen($slug) > $truncateLength) {
+            $slug = mb_substr($slug, 0, $truncateLength);
+        }
+
+        // If slug is empty, just use ID without dash
+        if (empty($slug)) {
+            return $row->id . '.html';
+        }
+
+        // Normal case: prepend row ID with dash
+        return $row->id . '-' . $slug . '.html';
+    }
+
+    /**
+     * Save response bodies to files in batches
+     *
+     * Processes rows where attributes is not null and processed_at/processed_status are null.
+     * Uses bulk operations and single transaction per batch.
+     *
+     * @param int         $batchSize         Number of rows to process per batch (default: 100)
+     * @param string|null $endpoint          Optional endpoint filter (default: null for all rows)
+     * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
+     * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
+     * @param int         $truncateLength    Maximum length for filename slug (default: 180)
+     *
+     * @return array Statistics about the processing
+     */
+    public function saveResponseBodyToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180): array
+    {
+        $tableName = $this->getTableName();
+        $savePath  = $savePath ?? "storage/app/{$this->clientName}";
+
+        // Ensure the directory exists
+        $fullPath   = base_path($savePath);
+        $filesystem = new Filesystem();
+        if (!$filesystem->isDirectory($fullPath)) {
+            $filesystem->makeDirectory($fullPath, 0755, true);
+        }
+
+        $stats = [
+            'processed' => 0,
+            'errors'    => 0,
+            'skipped'   => 0,
+        ];
+
+        // Get batch of unprocessed rows
+        $query = DB::table($tableName)
+            ->whereNotNull('attributes')
+            ->whereNull('processed_at')
+            ->whereNull('processed_status');
+
+        if ($endpoint !== null) {
+            $query->where('endpoint', $endpoint);
+        }
+
+        $rows = $query->limit($batchSize)->get();
+
+        if ($rows->isEmpty()) {
+            return $stats;
+        }
+
+        // Bulk pre-filtering: Get all existing files once
+        $existingFiles = [];
+        if (!$overwriteExisting && $filesystem->isDirectory($fullPath)) {
+            $files = $filesystem->glob($fullPath . '/*.html');
+            foreach ($files as $file) {
+                $existingFiles[] = basename($file, '.html');
+            }
+        }
+
+        // Pre-process rows to determine which to skip vs process
+        $rowsToSkip         = [];
+        $rowsToProcess      = [];
+        $compressionService = $this->cacheManager->getCacheRepository()->getCompressionService();
+
+        foreach ($rows as $row) {
+            // Generate filename using extracted method
+            $filename = $this->generateFilename($row, $truncateLength);
+
+            // Check if file should be skipped (bulk pre-filtering)
+            // Check for the full filename without extension
+            $filenameWithoutExt = basename($filename, '.html');
+            if (!$overwriteExisting && in_array($filenameWithoutExt, $existingFiles)) {
+                $rowsToSkip[] = [
+                    'id'       => $row->id,
+                    'filename' => $filename,
+                ];
+                $stats['skipped']++;
+            } else {
+                $rowsToProcess[] = [
+                    'row'       => $row,
+                    'filename'  => $filename,
+                    'full_path' => $fullPath . '/' . $filename,
+                ];
+            }
+        }
+
+        // Process everything in a single transaction
+        try {
+            DB::transaction(function () use ($rowsToProcess, $rowsToSkip, $compressionService, &$stats) {
+                $processedUpdates = [];
+                $errorUpdates     = [];
+
+                // Process files that need to be created/updated
+                foreach ($rowsToProcess as $item) {
+                    try {
+                        // Decompress response body if needed
+                        $responseBody = $compressionService->decompress($this->clientName, $item['row']->response_body, 'response_body');
+
+                        // Write file
+                        file_put_contents($item['full_path'], $responseBody);
+                        $fileSize = filesize($item['full_path']);
+
+                        $processedUpdates[] = [
+                            'id'        => $item['row']->id,
+                            'filename'  => $item['filename'],
+                            'file_size' => $fileSize,
+                        ];
+                        $stats['processed']++;
+                    } catch (\Exception $e) {
+                        $errorUpdates[] = [
+                            'id'    => $item['row']->id,
+                            'error' => $e->getMessage(),
+                        ];
+                        $stats['errors']++;
+
+                        Log::error('Failed to save response body to file', [
+                            'client' => $this->clientName,
+                            'row_id' => $item['row']->id,
+                            'error'  => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                // Batch update database status for all processed files
+                $allUpdates = [];
+
+                // Add skipped files
+                foreach ($rowsToSkip as $skipped) {
+                    $allUpdates[] = [
+                        'id'     => $skipped['id'],
+                        'status' => [
+                            'status'    => 'Skipped',
+                            'error'     => null,
+                            'filename'  => $skipped['filename'],
+                            'file_size' => null,
+                        ],
+                    ];
+                }
+
+                // Add processed files
+                foreach ($processedUpdates as $processed) {
+                    $allUpdates[] = [
+                        'id'     => $processed['id'],
+                        'status' => [
+                            'status'    => 'OK',
+                            'error'     => null,
+                            'filename'  => $processed['filename'],
+                            'file_size' => $processed['file_size'],
+                        ],
+                    ];
+                }
+
+                // Add error files
+                foreach ($errorUpdates as $error) {
+                    $allUpdates[] = [
+                        'id'     => $error['id'],
+                        'status' => [
+                            'status'    => 'ERROR',
+                            'error'     => $error['error'],
+                            'filename'  => null,
+                            'file_size' => null,
+                        ],
+                    ];
+                }
+
+                $this->batchUpdateProcessedStatus($allUpdates);
+            });
+        } catch (\Exception $e) {
+            Log::error('Failed to process file batch in transaction', [
+                'client' => $this->clientName,
+                'error'  => $e->getMessage(),
+            ]);
+
+            // Reset stats on transaction failure
+            $stats['processed'] = 0;
+            $stats['errors']    = count($rows);
+            $stats['skipped']   = 0;
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Save all response bodies to files using batch processing
+     *
+     * Processes all rows where attributes is not null and processed_at/processed_status are null.
+     * Uses the batch processing method in a loop to cover all rows.
+     *
+     * @param int         $batchSize         Number of rows to process per batch (default: 100)
+     * @param string|null $endpoint          Optional endpoint filter (default: null for all rows)
+     * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
+     * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
+     * @param int         $truncateLength    Maximum length for filename slug (default: 180)
+     *
+     * @return array Statistics about the processing
+     */
+    public function saveAllResponseBodiesToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180): array
+    {
+        $totalStats = [
+            'processed' => 0,
+            'errors'    => 0,
+            'skipped'   => 0,
+            'batches'   => 0,
+        ];
+
+        while (true) {
+            $batchStats = $this->saveResponseBodyToFile($batchSize, $endpoint, $savePath, $overwriteExisting, $truncateLength);
+
+            // If no work was done, we're finished
+            if ($batchStats['processed'] === 0 && $batchStats['errors'] === 0 && $batchStats['skipped'] === 0) {
+                break;
+            }
+
+            // Only count and accumulate when actual work was done
+            $totalStats['processed'] += $batchStats['processed'];
+            $totalStats['errors'] += $batchStats['errors'];
+            $totalStats['skipped'] += $batchStats['skipped'];
+            $totalStats['batches']++;
+        }
+
+        return $totalStats;
     }
 }

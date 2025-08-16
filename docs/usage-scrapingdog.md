@@ -136,6 +136,26 @@ $credits = $client->calculateCredits(
 ); // Returns 5
 ```
 
+## Saving Response Bodies to Files
+
+Save all cached response bodies to HTML files:
+
+```php
+// Save all responses to files
+$stats = $client->saveAllResponseBodiesToFile();
+print_r($stats);
+
+// Save with custom options
+$stats = $client->saveAllResponseBodiesToFile(
+    batchSize: 10,                    // Process 10 at a time
+    endpoint: 'scrape',               // Only 'scrape' endpoint
+    savePath: 'storage/app/scraped',  // Custom directory
+    overwriteExisting: true           // Overwrite existing files
+);
+```
+
+Files are saved as `{id}-{url-slug}.html` in the specified directory.
+
 ## Common Parameters
 
 For complete documentation, see [Scrapingdog request customization](https://docs.scrapingdog.com/web-scraping-api/request-customization).

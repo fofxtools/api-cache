@@ -27,7 +27,7 @@ createProcessedResponseTables(schema: $capsule->schema(), dropExisting: $dropExi
 
 $pixabay = new PixabayApiClient();
 
-$pixabay->resetProcessed();
+$pixabay->resetProcessed('api');
 $pixabay->clearProcessedTable();
 
 $result = $pixabay->searchImages('yellow flowers');

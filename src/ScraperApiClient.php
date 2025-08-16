@@ -174,11 +174,8 @@ class ScraperApiClient extends BaseApiClient
             $credits = $amount;
         }
 
-        // Pass extract_registrable_domain() as attributes if attributes is not provided
-        if ($attributes === null) {
-            // Use php-domain-parser to get the registrable domain
-            $attributes = Utility\extract_registrable_domain($url);
-        }
+        // Pass URL as attributes if attributes is not provided
+        $attributes = $url;
 
         return $this->sendCachedRequest('', $params, 'GET', $attributes, $credits);
     }

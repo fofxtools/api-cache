@@ -1693,4 +1693,86 @@ class DataForSeoApiClientTest extends TestCase
             $this->addToAssertionCount(1);
         }
     }
+
+    public function test_resolveFilenameSlugSource_extracts_url_from_request_body(): void
+    {
+        $url = 'https://www.fiverr.com/antoniodc/boost-local-seo';
+
+        $row = (object) [
+            'id'           => 123,
+            'endpoint'     => 'on_page/raw_html',
+            'attributes'   => '07190635-3399-0275-2000-d147622927c4',
+            'request_body' => json_encode([
+                [
+                    'id'                => '08150543-3399-0275-0000-bcb54d67b151',
+                    'url'               => $url,
+                    'additional_params' => [],
+                    'amount'            => 1,
+                ],
+            ]),
+        ];
+
+        $result = $this->client->resolveFilenameSlugSource($row);
+
+        $this->assertEquals($url, $result);
+    }
+
+    public function test_resolveFilenameSlugSource_fallback_with_malformed_request_body(): void
+    {
+        $attributes = '07190635-3399-0275-2000-d147622927c4';
+
+        $row = (object) [
+            'id'           => 456,
+            'endpoint'     => 'on_page/raw_html',
+            'attributes'   => $attributes,
+            'request_body' => 'invalid json',
+        ];
+
+        $result = $this->client->resolveFilenameSlugSource($row);
+
+        $this->assertEquals($attributes, $result);
+    }
+
+    public function test_resolveFilenameSlugSource_fallback_with_missing_url(): void
+    {
+        $attributes = '07190635-3399-0275-2000-d147622927c4';
+
+        $row = (object) [
+            'id'           => 789,
+            'endpoint'     => 'on_page/raw_html',
+            'attributes'   => $attributes,
+            'request_body' => json_encode([
+                [
+                    'id'                => '08150543-3399-0275-0000-bcb54d67b151',
+                    'additional_params' => [],
+                    'amount'            => 1,
+                ],
+            ]),
+        ];
+
+        $result = $this->client->resolveFilenameSlugSource($row);
+
+        $this->assertEquals($attributes, $result);
+    }
+
+    public function test_resolveFilenameSlugSource_uses_attributes_for_different_endpoint(): void
+    {
+        $attributes = 'test-keyword';
+
+        $row = (object) [
+            'id'           => 999,
+            'endpoint'     => 'serp/google/organic/live',
+            'attributes'   => $attributes,
+            'request_body' => json_encode([
+                [
+                    'url'     => 'https://www.example.com',
+                    'keyword' => 'test',
+                ],
+            ]),
+        ];
+
+        $result = $this->client->resolveFilenameSlugSource($row);
+
+        $this->assertEquals($attributes, $result);
+    }
 }

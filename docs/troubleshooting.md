@@ -6,6 +6,25 @@ This document tracks various issues encountered during development and their sol
 
 ### August 2025
 
+#### Domain Validation PSL File Setup (8-16-25)
+- **Issue**: PHPUnit tests failing with "Target must be a valid domain" errors when using `Utility\is_valid_domain()`
+- **Cause**: The `is_valid_domain()` function requires a Public Suffix List (PSL) file at `storage_path('app/public_suffix_list.dat')`, but Orchestra TestCase uses a different base path than the project root
+- **Solution**: 
+  1. Ensure PSL file exists at `/local/resources/public_suffix_list.dat`
+  2. Modified `tests/TestCase.php` to copy PSL file in `setUp()` using correct path: `dirname(__DIR__) . '/local/resources/public_suffix_list.dat'`
+  3. Used static flag (`private static bool $pslSetupComplete = false`) to ensure file is copied only once for entire test suite instead of once per test method
+  4. Added `setUpBeforeClass()` to skip test classes gracefully with clear message if PSL file is missing
+- **Efficiency**: Static flag prevents hundreds of unnecessary file copies across all test methods
+
+#### Testing File Operation Methods (8-16-25)
+- **Issue**: Complex mocking required for `saveResponseBodyToFile()` and `saveAllResponseBodiesToFile()` methods due to service dependencies
+- **Problem**: These methods use the full service stack: `getCacheRepository()` → `getCompressionService()` → `decompress()`, plus file system operations
+- **Solution**: Use hybrid testing approach in `BaseApiClientTest`:
+  1. Keep existing mocked `$mockCacheManager` for HTTP/caching tests
+  2. Add real `$realCacheManager = app(ApiCacheManager::class)` for file operation tests
+  3. Create separate client instances with real dependencies for file tests
+- **Benefits**: Avoids complex service mocking while maintaining existing test coverage
+
 #### onPageInstantPagesWithRawHtml Task Not Found (8-14-25)
 - **Issue**: "Task ID not found" error when switching between sandbox and production APIs for `onPageInstantPagesWithRawHtml`. `onPageInstantPages` had a cached response from the sandbox `base_url`. But `onPageInstantPagesWithRawHtml` was called for the real API, so `onPageRawHtml` was called with an invalid sandbox task ID.
 - **Cause**: Cached response from different base URL contains invalid task ID

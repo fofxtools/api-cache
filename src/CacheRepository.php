@@ -21,6 +21,16 @@ class CacheRepository
     }
 
     /**
+     * Get the compression service instance
+     *
+     * @return CompressionService The compression service instance
+     */
+    public function getCompressionService(): CompressionService
+    {
+        return $this->compression;
+    }
+
+    /**
      * Get the table name for the client
      *
      * @param string    $clientName         Client name

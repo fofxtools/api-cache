@@ -265,27 +265,6 @@ class PixabayApiClient extends BaseApiClient
     }
 
     /**
-     * Reset processed status for Pixabay responses
-     *
-     * @return void
-     */
-    public function resetProcessed(): void
-    {
-        $tableName = $this->getTableName();
-
-        $updated = DB::table($tableName)
-            ->where('endpoint', 'api')
-            ->update([
-                'processed_at'     => null,
-                'processed_status' => null,
-            ]);
-
-        Log::info('Reset processed status for Pixabay responses', [
-            'updated_count' => $updated,
-        ]);
-    }
-
-    /**
      * Clear processed items from pixabay_images table
      *
      * @param bool $withCount Whether to count rows before clearing (default: false)

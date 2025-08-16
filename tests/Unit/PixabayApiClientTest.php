@@ -325,7 +325,7 @@ class PixabayApiClientTest extends TestCase
         ]);
 
         // Act
-        $this->client->resetProcessed();
+        $this->client->resetProcessed('api');
 
         // Assert - only 'api' endpoint should be reset
         $this->assertDatabaseHas('api_cache_pixabay_responses', [

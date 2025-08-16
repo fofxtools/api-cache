@@ -121,7 +121,7 @@ echo "Processed: {$stats['processed']}, Duplicates: {$stats['duplicates']}";
 Reset the processed status to allow reprocessing of cached responses:
 
 ```php
-$client->resetProcessed(); // Reset all image search responses
+$client->resetProcessed('api'); // Reset image search responses
 ```
 
 ### Clear Processed Data

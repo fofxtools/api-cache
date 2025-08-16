@@ -22,7 +22,8 @@ class BaseApiClientTest extends TestCase
     protected string $apiBaseUrl;
 
     /** @var ApiCacheManager&Mockery\MockInterface */
-    protected ApiCacheManager $cacheManager;
+    protected ApiCacheManager $mockCacheManager;
+    protected ApiCacheManager $realCacheManager;
 
     // Use constant so it can be used in static method data providers
     protected const CLIENT_NAME  = 'demo';
@@ -37,7 +38,10 @@ class BaseApiClientTest extends TestCase
         $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
 
         // Set up cache manager mock
-        $this->cacheManager = Mockery::mock(ApiCacheManager::class);
+        $this->mockCacheManager = Mockery::mock(ApiCacheManager::class);
+
+        // Set up real cache manager
+        $this->realCacheManager = app(ApiCacheManager::class);
 
         // Create client instance
         $this->client = new BaseApiClient(
@@ -45,7 +49,7 @@ class BaseApiClientTest extends TestCase
             $baseUrl,
             config("api-cache.apis.{$this->clientName}.api_key"),
             $this->version,
-            $this->cacheManager
+            $this->mockCacheManager
         );
 
         // Enable WSL URL conversion
@@ -106,7 +110,7 @@ class BaseApiClientTest extends TestCase
         $sanitizedClientName = str_replace('-', '_', $this->clientName);
         $expectedTable       = 'api_cache_' . $sanitizedClientName . '_responses';
 
-        $this->cacheManager->shouldReceive('getTableName')
+        $this->mockCacheManager->shouldReceive('getTableName')
             ->once()
             ->with($this->clientName)
             ->andReturn($expectedTable);
@@ -130,7 +134,7 @@ class BaseApiClientTest extends TestCase
     {
         $cacheManager = $this->client->getCacheManager();
         $this->assertInstanceOf(ApiCacheManager::class, $cacheManager);
-        $this->assertSame($this->cacheManager, $cacheManager);
+        $this->assertSame($this->mockCacheManager, $cacheManager);
     }
 
     public function test_getAuthHeaders_returns_default_headers(): void
@@ -230,7 +234,7 @@ class BaseApiClientTest extends TestCase
         // The actual rate limiting functionality is tested in RateLimitServiceTest
         $this->expectNotToPerformAssertions();
 
-        $this->cacheManager->shouldReceive('clearRateLimit')
+        $this->mockCacheManager->shouldReceive('clearRateLimit')
             ->once()
             ->with($this->clientName);
 
@@ -243,11 +247,118 @@ class BaseApiClientTest extends TestCase
         // The actual clearing functionality is tested in CacheRepositoryTest
         $this->expectNotToPerformAssertions();
 
-        $this->cacheManager->shouldReceive('clearTable')
+        $this->mockCacheManager->shouldReceive('clearTable')
             ->once()
             ->with($this->clientName);
 
         $this->client->clearTable();
+    }
+
+    public function test_resetProcessed_updates_processed_columns_to_null(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert some test data with processed_at and processed_status values
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-1',
+            'client'               => $this->clientName,
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data1"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-2',
+            'client'               => $this->clientName,
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data2"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'failed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call resetProcessed
+        $this->client->resetProcessed();
+
+        // Verify all processed_at and processed_status columns are now null
+        $records = DB::table($tableName)->get();
+
+        foreach ($records as $record) {
+            $this->assertNull($record->processed_at);
+            $this->assertNull($record->processed_status);
+        }
+    }
+
+    public function test_resetProcessed_with_endpoint_filter(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert test data with different endpoints
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/search',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data1"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/details',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data2"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'failed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-3',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/search',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data3"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'pending',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call resetProcessed with endpoint filter
+        $this->client->resetProcessed('api/search');
+
+        // Verify only 'api/search' endpoint rows were reset
+        $searchRecords = DB::table($tableName)->where('endpoint', 'api/search')->get();
+        foreach ($searchRecords as $record) {
+            $this->assertNull($record->processed_at);
+            $this->assertNull($record->processed_status);
+        }
+
+        // Verify 'api/details' endpoint row was NOT reset
+        $detailsRecord = DB::table($tableName)->where('endpoint', 'api/details')->first();
+        $this->assertNotNull($detailsRecord->processed_at);
+        $this->assertNotNull($detailsRecord->processed_status);
+        $this->assertEquals('failed', $detailsRecord->processed_status);
     }
 
     public function test_builds_url_with_leading_slash(): void
@@ -289,7 +400,7 @@ class BaseApiClientTest extends TestCase
             $this->apiBaseUrl,
             config("api-cache.apis.{$this->clientName}.api_key"),
             $this->version,
-            $this->cacheManager
+            $this->mockCacheManager
         ) extends BaseApiClient {
             public function calculateCost(?string $response): ?float
             {
@@ -324,7 +435,7 @@ class BaseApiClientTest extends TestCase
             $this->apiBaseUrl,
             config("api-cache.apis.{$this->clientName}.api_key"),
             $this->version,
-            $this->cacheManager
+            $this->mockCacheManager
         ) extends BaseApiClient {
             public function shouldCache(?string $responseBody): bool
             {
@@ -564,7 +675,7 @@ class BaseApiClientTest extends TestCase
             $this->apiBaseUrl,
             config("api-cache.apis.{$this->clientName}.api_key"),
             $this->version,
-            $this->cacheManager
+            $this->mockCacheManager
         ) extends BaseApiClient {
             public bool $shouldCacheResult = false;
 
@@ -574,24 +685,24 @@ class BaseApiClientTest extends TestCase
             }
         };
 
-        // Mock the cacheManager for the test
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        // Mock the mockCacheManager for the test
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->andReturn('test-cache-key');
 
-        $this->cacheManager->shouldReceive('getCachedResponse')
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
             ->andReturnNull();
 
-        $this->cacheManager->shouldReceive('allowRequest')
+        $this->mockCacheManager->shouldReceive('allowRequest')
             ->andReturnTrue();
 
-        $this->cacheManager->shouldReceive('incrementAttempts')
+        $this->mockCacheManager->shouldReceive('incrementAttempts')
             ->with($this->clientName, 1);
 
         // Configure not to cache response (shouldCache returns false)
         $testClient->shouldCacheResult = false;
 
         // storeResponse should NOT be called when shouldCache returns false
-        $this->cacheManager->shouldNotReceive('storeResponse');
+        $this->mockCacheManager->shouldNotReceive('storeResponse');
 
         // Make the request
         $testClient->sendCachedRequest('predictions', ['query' => 'test']);
@@ -600,7 +711,7 @@ class BaseApiClientTest extends TestCase
         $testClient->shouldCacheResult = true;
 
         // storeResponse SHOULD be called when shouldCache returns true
-        $this->cacheManager->shouldReceive('storeResponse')
+        $this->mockCacheManager->shouldReceive('storeResponse')
             ->once()
             ->withArgs(function ($client, $key, $params, $result, $endpoint, $version) {
                 return $client === $this->clientName &&
@@ -638,12 +749,12 @@ class BaseApiClientTest extends TestCase
     {
         $cachedResponse = ['cached' => 'data'];
 
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->once()
             ->with($this->clientName, 'predictions', ['query' => 'test'], 'GET', $this->version)
             ->andReturn('test-cache-key');
 
-        $this->cacheManager->shouldReceive('getCachedResponse')
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
             ->once()
             ->with($this->clientName, 'test-cache-key')
             ->andReturn($cachedResponse);
@@ -657,20 +768,20 @@ class BaseApiClientTest extends TestCase
     {
         $availableIn = 60;
 
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->once()
             ->andReturn('test-key');
 
-        $this->cacheManager->shouldReceive('getCachedResponse')
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
             ->once()
             ->andReturnNull();
 
-        $this->cacheManager->shouldReceive('allowRequest')
+        $this->mockCacheManager->shouldReceive('allowRequest')
             ->once()
             ->with($this->clientName)
             ->andReturnFalse();
 
-        $this->cacheManager->shouldReceive('getAvailableIn')
+        $this->mockCacheManager->shouldReceive('getAvailableIn')
             ->once()
             ->with($this->clientName)
             ->andReturn($availableIn);
@@ -683,24 +794,24 @@ class BaseApiClientTest extends TestCase
 
     public function test_sendCachedRequest_stores_new_response(): void
     {
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->once()
             ->andReturn('test-cache-key');
 
-        $this->cacheManager->shouldReceive('getCachedResponse')
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
             ->once()
             ->andReturnNull();
 
-        $this->cacheManager->shouldReceive('allowRequest')
+        $this->mockCacheManager->shouldReceive('allowRequest')
             ->once()
             ->andReturnTrue();
 
-        $this->cacheManager->shouldReceive('incrementAttempts')
+        $this->mockCacheManager->shouldReceive('incrementAttempts')
             ->once()
             ->with($this->clientName, 1);
 
         $params = ['query' => 'test'];
-        $this->cacheManager->shouldReceive('storeResponse')
+        $this->mockCacheManager->shouldReceive('storeResponse')
             ->once()
             ->withArgs(function ($client, $key, $params, $result, $endpoint, $version) {
                 return $client === $this->clientName &&
@@ -724,21 +835,21 @@ class BaseApiClientTest extends TestCase
         $this->client->setUseCache(false);
 
         // Cache-specific methods should not be called
-        $this->cacheManager->shouldNotReceive('getCachedResponse');
-        $this->cacheManager->shouldNotReceive('storeResponse');
+        $this->mockCacheManager->shouldNotReceive('getCachedResponse');
+        $this->mockCacheManager->shouldNotReceive('storeResponse');
 
         // Rate limiting should still be checked
-        $this->cacheManager->shouldReceive('allowRequest')
+        $this->mockCacheManager->shouldReceive('allowRequest')
             ->once()
             ->with($this->clientName)
             ->andReturnTrue();
 
-        $this->cacheManager->shouldReceive('incrementAttempts')
+        $this->mockCacheManager->shouldReceive('incrementAttempts')
             ->once()
             ->with($this->clientName, 1);
 
         // Cache key is still needed for rate limiting
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->once()
             ->andReturn('test-cache-key');
 
@@ -760,49 +871,49 @@ class BaseApiClientTest extends TestCase
         $amount         = 5;
         $attributes     = 'test-attributes';
 
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->once()
             ->andReturn('test-key');
 
-        $this->cacheManager->shouldReceive('getCachedResponse')
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
             ->once()
             ->andReturnNull();
 
-        $this->cacheManager->shouldReceive('allowRequest')
+        $this->mockCacheManager->shouldReceive('allowRequest')
             ->once()
             ->with($this->clientName)
             ->andReturnTrue();
 
         // Mock getRemainingAttempts to return different values before and after
-        $this->cacheManager->shouldReceive('getRemainingAttempts')
+        $this->mockCacheManager->shouldReceive('getRemainingAttempts')
             ->once()
             ->with($this->clientName)
             ->andReturn($originalAmount)
             ->ordered();
 
-        $this->cacheManager->shouldReceive('incrementAttempts')
+        $this->mockCacheManager->shouldReceive('incrementAttempts')
             ->once()
             ->with($this->clientName, $amount)
             ->ordered();
 
-        $this->cacheManager->shouldReceive('getRemainingAttempts')
+        $this->mockCacheManager->shouldReceive('getRemainingAttempts')
             ->once()
             ->with($this->clientName)
             ->andReturn($originalAmount - $amount)
             ->ordered();
 
-        $this->cacheManager->shouldReceive('storeResponse')
+        $this->mockCacheManager->shouldReceive('storeResponse')
             ->once()
             ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version, null, $attributes, $amount)
             ->andReturn(true);
 
         // Get remaining attempts before
-        $beforeAttempts = $this->cacheManager->getRemainingAttempts($this->clientName);
+        $beforeAttempts = $this->mockCacheManager->getRemainingAttempts($this->clientName);
 
         $result = $this->client->sendCachedRequest('predictions', ['query' => 'test'], 'GET', $attributes, $amount);
 
         // Get remaining attempts after
-        $afterAttempts = $this->cacheManager->getRemainingAttempts($this->clientName);
+        $afterAttempts = $this->mockCacheManager->getRemainingAttempts($this->clientName);
 
         // Verify the rate limit was decremented by $amount
         $this->assertEquals($originalAmount - $amount, $beforeAttempts - $afterAttempts);
@@ -816,15 +927,15 @@ class BaseApiClientTest extends TestCase
         config(['api-cache.error_logging.log_events.http_error' => true]);
         config(['api-cache.error_logging.levels.http_error' => 'error']);
 
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->once()
             ->andReturn('test-cache-key');
 
-        $this->cacheManager->shouldReceive('getCachedResponse')
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
             ->once()
             ->andReturnNull();
 
-        $this->cacheManager->shouldReceive('allowRequest')
+        $this->mockCacheManager->shouldReceive('allowRequest')
             ->once()
             ->with($this->clientName)
             ->andReturnTrue();
@@ -835,7 +946,7 @@ class BaseApiClientTest extends TestCase
             $this->apiBaseUrl,
             config("api-cache.apis.{$this->clientName}.api_key"),
             $this->version,
-            $this->cacheManager
+            $this->mockCacheManager
         ) extends BaseApiClient {
             public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
             {
@@ -882,15 +993,15 @@ class BaseApiClientTest extends TestCase
         config(['api-cache.error_logging.log_events.http_error' => true]);
         config(['api-cache.error_logging.levels.http_error' => 'error']);
 
-        $this->cacheManager->shouldReceive('generateCacheKey')
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
             ->once()
             ->andReturn('test-cache-key');
 
-        $this->cacheManager->shouldReceive('getCachedResponse')
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
             ->once()
             ->andReturnNull();
 
-        $this->cacheManager->shouldReceive('allowRequest')
+        $this->mockCacheManager->shouldReceive('allowRequest')
             ->once()
             ->with($this->clientName)
             ->andReturnTrue();
@@ -901,7 +1012,7 @@ class BaseApiClientTest extends TestCase
             $this->apiBaseUrl, // Use local demo server
             config("api-cache.apis.{$this->clientName}.api_key"),
             $this->version,
-            $this->cacheManager
+            $this->mockCacheManager
         ) extends BaseApiClient {
             public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
             {
@@ -959,5 +1070,529 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals(200, $result['response']->status());
         $this->assertArrayHasKey('status', $result['response']->json());
         $this->assertEquals('OK', $result['response']->json()['status']);
+    }
+
+    public function test_updateProcessedStatus_updates_database_record(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert test data
+        $testId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-update-status',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test',
+            'attributes'           => 'https://example.com/test',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => '<html>Test content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $status = [
+            'status'    => 'OK',
+            'error'     => null,
+            'filename'  => 'test-file.html',
+            'file_size' => 1234,
+        ];
+
+        // Call the actual method
+        $this->client->updateProcessedStatus($testId, $status);
+
+        // Verify database changes
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $this->assertNotNull($record->processed_at);
+        $this->assertNotNull($record->processed_status);
+
+        $decodedStatus = json_decode($record->processed_status, true);
+        $this->assertEquals('OK', $decodedStatus['status']);
+        $this->assertNull($decodedStatus['error']);
+        $this->assertEquals('test-file.html', $decodedStatus['filename']);
+        $this->assertEquals(1234, $decodedStatus['file_size']);
+    }
+
+    public function test_batchUpdateProcessedStatus_updates_multiple_records(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->twice()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert test data
+        $testId1 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-batch-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test',
+            'attributes'           => 'https://example.com/test1',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => '<html>Test content 1</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $testId2 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-batch-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test',
+            'attributes'           => 'https://example.com/test2',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => '<html>Test content 2</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $updates = [
+            [
+                'id'     => $testId1,
+                'status' => [
+                    'status'    => 'OK',
+                    'error'     => null,
+                    'filename'  => 'file1.html',
+                    'file_size' => 1111,
+                ],
+            ],
+            [
+                'id'     => $testId2,
+                'status' => [
+                    'status'    => 'Skipped',
+                    'error'     => null,
+                    'filename'  => 'file2.html',
+                    'file_size' => null,
+                ],
+            ],
+        ];
+
+        // Call the actual method
+        $this->client->batchUpdateProcessedStatus($updates);
+
+        // Verify both records were updated
+        $record1 = DB::table($tableName)->where('id', $testId1)->first();
+        $record2 = DB::table($tableName)->where('id', $testId2)->first();
+
+        $this->assertNotNull($record1->processed_at);
+        $this->assertNotNull($record1->processed_status);
+        $this->assertNotNull($record2->processed_at);
+        $this->assertNotNull($record2->processed_status);
+
+        $status1 = json_decode($record1->processed_status, true);
+        $status2 = json_decode($record2->processed_status, true);
+
+        $this->assertEquals('OK', $status1['status']);
+        $this->assertEquals('file1.html', $status1['filename']);
+        $this->assertEquals(1111, $status1['file_size']);
+
+        $this->assertEquals('Skipped', $status2['status']);
+        $this->assertEquals('file2.html', $status2['filename']);
+        $this->assertNull($status2['file_size']);
+    }
+
+    public function test_resolveFilenameSlugSource_returns_attributes(): void
+    {
+        $row = (object) [
+            'id'         => 123,
+            'attributes' => 'https://example.com/test-page',
+            'endpoint'   => 'test',
+        ];
+
+        $result = $this->client->resolveFilenameSlugSource($row);
+
+        $this->assertEquals('https://example.com/test-page', $result);
+    }
+
+    public function test_generateFilename_with_normal_url(): void
+    {
+        $row = (object) ['id' => 123, 'attributes' => 'https://example.com/test-page'];
+
+        $result = $this->client->generateFilename($row, 180);
+
+        $this->assertEquals('123-httpsexamplecomtest-page.html', $result);
+    }
+
+    public function test_generateFilename_with_empty_attributes(): void
+    {
+        $row = (object) ['id' => 456, 'attributes' => ''];
+
+        $result = $this->client->generateFilename($row, 180);
+
+        $this->assertEquals('456.html', $result);
+    }
+
+    public function test_generateFilename_with_null_attributes(): void
+    {
+        $row = (object) ['id' => 789, 'attributes' => null];
+
+        $result = $this->client->generateFilename($row, 180);
+
+        $this->assertEquals('789.html', $result);
+    }
+
+    public function test_generateFilename_with_long_url_truncated(): void
+    {
+        $longUrl = 'https://example.com/' . str_repeat('very-long-path-segment-', 20);
+        $row     = (object) ['id' => 999, 'attributes' => $longUrl];
+
+        $result = $this->client->generateFilename($row, 50);
+
+        $expectedSlug = substr(\Illuminate\Support\Str::slug($longUrl), 0, 50);
+        $expected     = '999-' . $expectedSlug . '.html';
+
+        $this->assertEquals($expected, $result);
+        $this->assertLessThanOrEqual(50 + 4 + strlen('999-') + strlen('.html'), strlen($result)); // 50 chars + ID + dash + extension
+    }
+
+    public function test_saveResponseBodyToFile_saves_response_body_to_file(): void
+    {
+        // Create client with REAL dependencies for file operations
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        // Get real table name and ensure table exists
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+
+        // Insert test data with response body
+        $testResponseBody = '<html><head><title>Test Page</title></head><body><h1>Hello World</h1><p>This is test content.</p></body></html>';
+
+        $testId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-save-response-body',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test-endpoint',
+            'attributes'           => 'https://example.com/test-page',
+            'request_headers'      => json_encode(['User-Agent' => 'Test']),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode(['Content-Type' => 'text/html']),
+            'response_body'        => $testResponseBody,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $testDir = 'storage/app/test_file_save';
+
+        // Call the method to save files for the test endpoint
+        $stats = $realClient->saveResponseBodyToFile(10, 'test-endpoint', $testDir);
+
+        // Verify statistics
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify file was created with expected content
+        $expectedFilename = $testId . '-httpsexamplecomtest-page.html';
+        $expectedFilePath = base_path($testDir . '/' . $expectedFilename);
+
+        $this->assertFileExists($expectedFilePath, 'Response body file should be created');
+
+        $actualFileContent = file_get_contents($expectedFilePath);
+        $this->assertEquals($testResponseBody, $actualFileContent, 'File content should match response body');
+
+        // Verify specific content is in the file
+        $this->assertStringContainsString('<title>Test Page</title>', $actualFileContent);
+        $this->assertStringContainsString('<h1>Hello World</h1>', $actualFileContent);
+        $this->assertStringContainsString('This is test content.', $actualFileContent);
+
+        // Verify database was updated with processing status
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $this->assertNotNull($record->processed_at, 'processed_at should be set');
+        $this->assertNotNull($record->processed_status, 'processed_status should be set');
+
+        $status = json_decode($record->processed_status, true);
+        $this->assertEquals('OK', $status['status'], 'Status should be OK');
+        $this->assertStringContainsString($expectedFilename, $status['filename'], 'Filename should be recorded');
+        $this->assertIsInt($status['file_size'], 'File size should be recorded');
+        $this->assertGreaterThan(0, $status['file_size'], 'File size should be greater than 0');
+
+        // Clean up
+        if (file_exists($expectedFilePath)) {
+            unlink($expectedFilePath);
+        }
+        if (is_dir(base_path($testDir))) {
+            rmdir(base_path($testDir));
+        }
+    }
+
+    public function test_saveResponseBodyToFile_skips_existing_files_when_overwrite_disabled(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'storage/app/test_skip_files';
+
+        // Insert test data
+        $testId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-skip-existing',
+            'client'               => $this->clientName,
+            'endpoint'             => 'skip-test',
+            'attributes'           => 'https://example.com/skip-page',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => '<html>New content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Create existing file
+        $expectedFilename = $testId . '-httpsexamplecomskip-page.html';
+        $expectedFilePath = base_path($testDir . '/' . $expectedFilename);
+
+        if (!is_dir(base_path($testDir))) {
+            mkdir(base_path($testDir), 0755, true);
+        }
+        file_put_contents($expectedFilePath, 'Original content');
+
+        // Call method with overwriteExisting = false (default)
+        $stats = $realClient->saveResponseBodyToFile(10, 'skip-test', $testDir, false);
+
+        // Verify statistics
+        $this->assertEquals(0, $stats['processed'], 'Should process 0 records');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(1, $stats['skipped'], 'Should skip 1 file');
+
+        // Verify file content wasn't changed
+        $this->assertEquals('Original content', file_get_contents($expectedFilePath));
+
+        // Verify database status shows skipped
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $this->assertNotNull($record->processed_status);
+
+        $status = json_decode($record->processed_status, true);
+        $this->assertEquals('Skipped', $status['status']);
+
+        // Clean up
+        if (file_exists($expectedFilePath)) {
+            unlink($expectedFilePath);
+        }
+        if (is_dir(base_path($testDir))) {
+            rmdir(base_path($testDir));
+        }
+    }
+
+    public function test_saveResponseBodyToFile_overwrites_existing_files_when_enabled(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'storage/app/test_overwrite_files';
+
+        // Insert test data
+        $testResponseBody = '<html>Updated content</html>';
+        $testId           = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-overwrite-existing',
+            'client'               => $this->clientName,
+            'endpoint'             => 'overwrite-test',
+            'attributes'           => 'https://example.com/overwrite-page',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => $testResponseBody,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Create existing file
+        $expectedFilename = $testId . '-httpsexamplecomoverwrite-page.html';
+        $expectedFilePath = base_path($testDir . '/' . $expectedFilename);
+
+        if (!is_dir(base_path($testDir))) {
+            mkdir(base_path($testDir), 0755, true);
+        }
+        file_put_contents($expectedFilePath, 'Original content');
+
+        // Call method with overwriteExisting = true
+        $stats = $realClient->saveResponseBodyToFile(10, 'overwrite-test', $testDir, true);
+
+        // Verify statistics
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify file content was updated
+        $this->assertEquals($testResponseBody, file_get_contents($expectedFilePath));
+
+        // Verify database status shows processed
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $status = json_decode($record->processed_status, true);
+        $this->assertEquals('OK', $status['status']);
+
+        // Clean up
+        if (file_exists($expectedFilePath)) {
+            unlink($expectedFilePath);
+        }
+        if (is_dir(base_path($testDir))) {
+            rmdir(base_path($testDir));
+        }
+    }
+
+    public function test_saveResponseBodyToFile_filters_by_endpoint(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'storage/app/test_endpoint_filter';
+
+        // Insert records with different endpoints
+        $testId1 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-endpoint-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'target-endpoint',
+            'attributes'           => 'https://example.com/target',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => '<html>Target content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $testId2 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-endpoint-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'other-endpoint',
+            'attributes'           => 'https://example.com/other',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => '<html>Other content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call method filtering for 'target-endpoint' only
+        $stats = $realClient->saveResponseBodyToFile(10, 'target-endpoint', $testDir);
+
+        // Verify statistics - should only process the target endpoint
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify only the target file was created
+        $targetFile = base_path($testDir . '/' . $testId1 . '-httpsexamplecomtarget.html');
+        $otherFile  = base_path($testDir . '/' . $testId2 . '-httpsexamplecomother.html');
+
+        $this->assertFileExists($targetFile, 'Target endpoint file should exist');
+        $this->assertFileDoesNotExist($otherFile, 'Other endpoint file should not exist');
+
+        $this->assertEquals('<html>Target content</html>', file_get_contents($targetFile));
+
+        // Clean up
+        if (file_exists($targetFile)) {
+            unlink($targetFile);
+        }
+        if (file_exists($otherFile)) {
+            unlink($otherFile);
+        }
+        if (is_dir(base_path($testDir))) {
+            rmdir(base_path($testDir));
+        }
+    }
+
+    public function test_saveAllResponseBodiesToFile_processes_multiple_batches(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'storage/app/test_batch_processing';
+
+        // Insert 5 test records (more than one batch of size 2)
+        $testIds = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $testIds[] = DB::table($tableName)->insertGetId([
+                'key'                  => "test-batch-{$i}",
+                'client'               => $this->clientName,
+                'endpoint'             => 'batch-test',
+                'attributes'           => "https://example.com/batch{$i}",
+                'request_headers'      => json_encode([]),
+                'request_body'         => '',
+                'response_status_code' => 200,
+                'response_headers'     => json_encode([]),
+                'response_body'        => "<html><body>Batch content {$i}</body></html>",
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ]);
+        }
+
+        // Call method with batch size 2 to test multiple batches
+        $stats = $realClient->saveAllResponseBodiesToFile(2, 'batch-test', $testDir);
+
+        // Verify statistics - should process all 5 records across multiple batches
+        $this->assertEquals(5, $stats['processed'], 'Should process all 5 records');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify all files were created with correct content
+        foreach ($testIds as $i => $testId) {
+            $expectedFile = base_path($testDir . '/' . $testId . '-httpsexamplecombatch' . ($i + 1) . '.html');
+            $this->assertFileExists($expectedFile, "Batch file {$i} should exist");
+
+            $content = file_get_contents($expectedFile);
+            $this->assertStringContainsString('Batch content ' . ($i + 1), $content);
+        }
+
+        // Verify all records were marked as processed
+        $processedCount = DB::table($tableName)
+            ->whereIn('id', $testIds)
+            ->whereNotNull('processed_at')
+            ->whereNotNull('processed_status')
+            ->count();
+        $this->assertEquals(5, $processedCount, 'All records should be marked as processed');
+
+        // Clean up
+        foreach ($testIds as $i => $testId) {
+            $file = base_path($testDir . '/' . $testId . '-httpsexamplecombatch' . ($i + 1) . '.html');
+            if (file_exists($file)) {
+                unlink($file);
+            }
+        }
+        if (is_dir(base_path($testDir))) {
+            rmdir(base_path($testDir));
+        }
     }
 }

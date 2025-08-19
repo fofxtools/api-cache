@@ -216,6 +216,44 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals($newUseCache, $this->client->getUseCache());
     }
 
+    public function test_setExcludedArgs_updates_excluded_args(): void
+    {
+        // Create a test client to access the protected property
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            public function getExcludedArgs(): array
+            {
+                return $this->excludedArgs;
+            }
+
+            public function testMethod(string $param1, array $customExcluded = []): array
+            {
+                // Use default backtrace mode to test excludedArgs property
+                return $this->buildApiParams();
+            }
+        };
+
+        // Verify default excluded args
+        $defaultExcluded = ['additionalParams', 'attributes', 'amount'];
+        $this->assertEquals($defaultExcluded, $testClient->getExcludedArgs());
+
+        // Set new excluded args
+        $newExcluded = ['param1', 'customParam'];
+        $testClient->setExcludedArgs($newExcluded);
+        $this->assertEquals($newExcluded, $testClient->getExcludedArgs());
+
+        // Verify the new excluded args work in buildApiParams
+        $result = $testClient->testMethod('test value', ['extra' => 'data']);
+        $this->assertArrayNotHasKey('param1', $result); // Should be excluded
+        $this->assertArrayHasKey('customExcluded', $result); // Should be included
+        $this->assertEquals(['extra' => 'data'], $result['customExcluded']);
+    }
+
     public function test_isWslEnabled_updates_true(): void
     {
         $this->client->setWslEnabled(true);
@@ -665,6 +703,320 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals($errorType, $record->error_type);
         $this->assertEquals($message, $record->error_message);
         $this->assertNull($record->api_message);
+    }
+
+    public function test_buildApiParams_converts_camel_case_to_snake_case(): void
+    {
+        // Create a test client that uses snake_case conversion
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            public array $excludedArgs = [];
+
+            public function testMethod(string $testParam, int $anotherParam): array
+            {
+                return $this->buildApiParams(useSnakeCase: true); // useSnakeCase = true
+            }
+        };
+
+        // Call the test method with actual camelCase parameters
+        $result = $testClient->testMethod('test value', 123);
+
+        // Verify parameters are converted to snake_case
+        $this->assertArrayHasKey('test_param', $result);
+        $this->assertArrayHasKey('another_param', $result);
+        $this->assertEquals('test value', $result['test_param']);
+        $this->assertEquals(123, $result['another_param']);
+    }
+
+    public function test_buildApiParams_keeps_camel_case_when_disabled(): void
+    {
+        // Create a test client that keeps camelCase
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            public array $excludedArgs = [];
+
+            public function testMethod(string $testParam, int $anotherParam): array
+            {
+                return $this->buildApiParams(useSnakeCase: false); // useSnakeCase = false
+            }
+        };
+
+        // Call the test method with actual camelCase parameters
+        $result = $testClient->testMethod('test value', 123);
+
+        // Verify parameters keep camelCase
+        $this->assertArrayHasKey('testParam', $result);
+        $this->assertArrayHasKey('anotherParam', $result);
+        $this->assertEquals('test value', $result['testParam']);
+        $this->assertEquals(123, $result['anotherParam']);
+    }
+
+    public function test_buildApiParams_removes_null_values(): void
+    {
+        // Create a test client
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            public array $excludedArgs = [];
+
+            public function testMethod(
+                string $nonNullParam,
+                ?string $nullParam = null,
+                ?int $zeroParam = 0,
+                string $emptyStringParam = '',
+                ?bool $falseParam = false
+            ): array {
+                return $this->buildApiParams();
+            }
+        };
+
+        // Call with mixed null and non-null values
+        $result = $testClient->testMethod('value', null, 0, '', false);
+
+        // Verify only non-null parameters are included
+        $this->assertArrayHasKey('nonNullParam', $result);
+        $this->assertArrayHasKey('zeroParam', $result);
+        $this->assertArrayHasKey('emptyStringParam', $result);
+        $this->assertArrayHasKey('falseParam', $result);
+        $this->assertArrayNotHasKey('nullParam', $result);
+
+        $this->assertEquals('value', $result['nonNullParam']);
+        $this->assertEquals(0, $result['zeroParam']);
+        $this->assertEquals('', $result['emptyStringParam']);
+        $this->assertEquals(false, $result['falseParam']);
+    }
+
+    public function test_buildApiParams_excludes_specified_arguments(): void
+    {
+        // Create a test client with excluded args
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            // Test method with parameters that should be excluded
+            public function testMethod(
+                string $normalParam,
+                array $additionalParams = [],
+                ?string $attributes = null,
+                ?int $amount = null
+            ): array {
+                // Pass the additionalParams directly to buildApiParams
+                return $this->buildApiParams($additionalParams);
+            }
+        };
+
+        // Extra parameters to pass as additionalParams
+        $additionalParams = ['some' => 'value'];
+
+        // Call with all types of parameters
+        $result = $testClient->testMethod('value', $additionalParams, 'test', 5);
+
+        // Verify excluded parameters are not present
+        $this->assertArrayHasKey('normalParam', $result);
+        $this->assertArrayHasKey('some', $result); // From additionalParams
+        $this->assertArrayNotHasKey('additionalParams', $result); // Excluded
+        $this->assertArrayNotHasKey('attributes', $result); // Excluded
+        $this->assertArrayNotHasKey('amount', $result); // Excluded
+
+        $this->assertEquals('value', $result['normalParam']);
+        $this->assertEquals('value', $result['some']);
+    }
+
+    public function test_buildApiParams_merges_additional_params(): void
+    {
+        // Create a test client
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            public array $excludedArgs = [];
+
+            public function testMethod(string $param1, string $param2, array $additionalParams = []): array
+            {
+                return $this->buildApiParams($additionalParams);
+            }
+        };
+
+        // Create additionalParams with overlapping and new keys
+        $additionalParams = [
+            'param1' => 'additional value', // Should be overridden by the method parameter
+            'param3' => 'value3',          // Should be included as-is
+        ];
+
+        // Call with overlapping parameters
+        $result = $testClient->testMethod('original value', 'value2', $additionalParams);
+
+        // Verify parameter precedence and merging
+        $this->assertArrayHasKey('param1', $result);
+        $this->assertArrayHasKey('param2', $result);
+        $this->assertArrayHasKey('param3', $result);
+
+        // Method parameters should take precedence over additionalParams
+        $this->assertEquals('original value', $result['param1']);
+        $this->assertEquals('value2', $result['param2']);
+        $this->assertEquals('value3', $result['param3']);
+    }
+
+    public function test_buildApiParams_real_world_example(): void
+    {
+        // Create a test client
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            public function searchMethod(
+                string $keyword,
+                ?string $locationName = null,
+                ?int $locationCode = null,
+                bool $enableFeature = false,
+                array $additionalParams = []
+            ): array {
+                return $this->buildApiParams($additionalParams);
+            }
+        };
+
+        // Additional parameters to include
+        $additionalParams = ['extraParam' => 'extra value'];
+
+        // Call with a mix of parameters, including null
+        $result = $testClient->searchMethod(
+            'test keyword',
+            'United States',
+            null,
+            true,
+            $additionalParams
+        );
+
+        // Verify the parameter processing
+        $this->assertArrayHasKey('keyword', $result);
+        $this->assertArrayHasKey('locationName', $result);
+        $this->assertArrayHasKey('enableFeature', $result);
+        $this->assertArrayHasKey('extraParam', $result);
+        $this->assertArrayNotHasKey('locationCode', $result); // Should be removed as it's null
+        $this->assertArrayNotHasKey('additionalParams', $result); // Should be excluded
+        $this->assertEquals('test keyword', $result['keyword']);
+        $this->assertEquals('United States', $result['locationName']);
+        $this->assertEquals(true, $result['enableFeature']);
+        $this->assertEquals('extra value', $result['extraParam']);
+    }
+
+    public function test_buildApiParams_respects_additional_excluded_args(): void
+    {
+        // Create a test client
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            public array $excludedArgs = [];
+
+            public function testMethod(
+                string $normalParam,
+                string $shouldBeExcluded,
+                array $additionalParams = []
+            ): array {
+                // Exclude 'shouldBeExcluded' parameter
+                return $this->buildApiParams($additionalParams, ['shouldBeExcluded']);
+            }
+        };
+
+        $result = $testClient->testMethod('include me', 'exclude me', []);
+
+        $this->assertArrayHasKey('normalParam', $result);
+        $this->assertArrayNotHasKey('shouldBeExcluded', $result);
+        $this->assertEquals('include me', $result['normalParam']);
+    }
+
+    public function test_buildApiParams_merges_default_and_additional_excluded_args(): void
+    {
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            protected array $excludedArgs = ['additionalParams', 'attributes']; // Custom default excluded args
+
+            public function testMethod(
+                string $normalParam,
+                string $customExcluded,       // Will be excluded via parameter
+                array $customExcludedArgs,    // Should be included (not excluded)
+                array $additionalParams = [], // Default excluded
+                ?string $attributes = null    // Default excluded
+            ): array {
+                return $this->buildApiParams($additionalParams, ['customExcluded']);
+            }
+        };
+
+        $result = $testClient->testMethod(
+            'include me',
+            'exclude me',
+            ['should' => 'be included'],
+            ['extra'  => 'value'],
+            'test'
+        );
+
+        $this->assertArrayHasKey('normalParam', $result);
+        $this->assertArrayHasKey('extra', $result);
+        $this->assertArrayHasKey('customExcludedArgs', $result); // Should be included
+        $this->assertArrayNotHasKey('additionalParams', $result); // Default excluded
+        $this->assertArrayNotHasKey('attributes', $result);        // Default excluded
+        $this->assertArrayNotHasKey('customExcluded', $result);   // Additional excluded
+    }
+
+    public function test_buildApiParams_works_with_empty_additional_excluded_args(): void
+    {
+        $testClient = new class (
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->mockCacheManager
+        ) extends BaseApiClient {
+            protected array $excludedArgs = ['additionalParams', 'attributes'];
+
+            public function testMethod(
+                string $normalParam,
+                array $additionalParams = [],
+                ?string $attributes = null
+            ): array {
+                // Pass empty array for additional excluded args
+                return $this->buildApiParams($additionalParams, []);
+            }
+        };
+
+        $result = $testClient->testMethod('include me', [], 'test');
+
+        $this->assertArrayHasKey('normalParam', $result);
+        $this->assertArrayNotHasKey('additionalParams', $result); // Default excluded
+        $this->assertArrayNotHasKey('attributes', $result);        // Default excluded
+        $this->assertEquals('include me', $result['normalParam']);
     }
 
     public function test_sendCachedRequest_respects_shouldCache_result(): void

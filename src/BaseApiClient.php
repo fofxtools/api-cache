@@ -6,8 +6,12 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use FOfX\Helper;
+use FOfX\Helper\ReflectionUtils;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Filesystem\Filesystem;
@@ -20,6 +24,9 @@ class BaseApiClient
     protected ?string $version;
     protected bool $wslEnabled = false;
     protected bool $useCache   = true;
+
+    // Arguments to exclude from buildApiParams() processing. These parameters should not be forwarded to the API.
+    protected array $excludedArgs = ['additionalParams', 'attributes', 'amount'];
 
     protected PendingRequest $pendingRequest;
     protected ?ApiCacheManager $cacheManager;
@@ -282,6 +289,20 @@ class BaseApiClient
         return $this;
     }
 
+    /**
+     * Set the arguments to exclude from buildApiParams processing
+     *
+     * @param array $excludedArgs Array of argument names to exclude
+     *
+     * @return self
+     */
+    public function setExcludedArgs(array $excludedArgs): self
+    {
+        $this->excludedArgs = $excludedArgs;
+
+        return $this;
+    }
+
     public function isWslEnabled(): bool
     {
         return $this->wslEnabled;
@@ -494,6 +515,78 @@ class BaseApiClient
     }
 
     /**
+     * Build API parameters from method arguments
+     *
+     * @param array       $additionalParams       Additional parameters to merge from the result
+     * @param array       $additionalExcludedArgs Additional argument names to exclude from the result
+     * @param string|null $callable               The method name to use for argument extraction (optional)
+     * @param array       $vars                   Named/positional args to the method (optional)
+     * @param bool|null   $boundOnly              Whether to only extract bound arguments (optional)
+     * @param bool        $useSnakeCase           Whether to convert parameter names to snake_case (default: false)
+     *
+     * @throws \InvalidArgumentException If callable and vars are not provided together
+     *
+     * @return array Parameters ready for API request
+     */
+    public function buildApiParams(
+        array $additionalParams = [],
+        array $additionalExcludedArgs = [],
+        ?string $callable = null,
+        array $vars = [],
+        ?bool $boundOnly = null,
+        bool $useSnakeCase = false
+    ): array {
+        // Validate that both callable and vars are provided together
+        $hasCallable = $callable !== null;
+        $hasVars     = !empty($vars);
+
+        if (!$hasCallable && $hasVars) {
+            throw new \InvalidArgumentException('If vars are provided, callable must also be provided.');
+        }
+
+        // Merge default excluded args with any additional ones passed
+        $allExcludedArgs = array_merge($this->excludedArgs, $additionalExcludedArgs);
+
+        if ($hasCallable) {
+            // Mode 1: Callable + vars provided
+            $args = ReflectionUtils::extractArgs(
+                $callable,
+                $vars,
+                $allExcludedArgs,
+                $boundOnly ?? true
+            );
+        } elseif ($boundOnly === null) {
+            // Mode 2: Default mode (extra arguments not passed)
+            // Get calling method's arguments from backtrace
+            $args = ReflectionUtils::extractBoundArgsFromBacktrace(2);
+
+            // Remove excluded arguments
+            foreach ($allExcludedArgs as $skip) {
+                unset($args[$skip]);
+            }
+        } else {
+            // Mode 3: Fallback to backtrace (boundOnly explicitly set)
+            $args = ReflectionUtils::extractArgsFromBacktrace(
+                depth: 1,
+                excludeParams: $allExcludedArgs,
+                boundOnly: $boundOnly
+            );
+        }
+
+        // Optionally convert parameter names to snake_case, and drop nulls
+        $finalParams = [];
+        foreach ($args as $key => $value) {
+            if ($value !== null) {
+                $paramKey               = $useSnakeCase ? Str::snake($key) : $key;
+                $finalParams[$paramKey] = $value;
+            }
+        }
+
+        // Merge with additional params (original params take precedence)
+        return array_merge($additionalParams, $finalParams);
+    }
+
+    /**
      * Sends an API request
      *
      * Algorithm:
@@ -508,9 +601,9 @@ class BaseApiClient
      * @param string|null $attributes Additional attributes to store with the response
      * @param int|null    $credits    Number of credits used for the request
      *
-     * @throws \InvalidArgumentException                   When HTTP method is not supported
-     * @throws \Illuminate\Http\Client\ConnectionException When connection fails (timeouts, DNS failures, etc.)
-     * @throws \Illuminate\Http\Client\RequestException    When other HTTP client errors occur
+     * @throws \InvalidArgumentException When HTTP method is not supported
+     * @throws ConnectionException       When connection fails (timeouts, DNS failures, etc.)
+     * @throws RequestException          When other HTTP client errors occur
      *
      * @return array API response data
      */
@@ -552,7 +645,7 @@ class BaseApiClient
             }
         );
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = match($method) {
             'HEAD'   => $request->head($url, $paramsWithAuth),
             'GET'    => $request->get($url, $paramsWithAuth),
@@ -612,11 +705,11 @@ class BaseApiClient
      * @param string|null $attributes Additional attributes to store with the response
      * @param int         $amount     Amount to pass to incrementAttempts
      *
-     * @throws RateLimitException                          When rate limit is exceeded. Or when cache manager is not initialized.
-     * @throws \JsonException                              When cache key generation fails
-     * @throws \InvalidArgumentException                   When HTTP method is not supported
-     * @throws \Illuminate\Http\Client\ConnectionException When connection fails (timeouts, DNS failures, etc.)
-     * @throws \Illuminate\Http\Client\RequestException    When other HTTP client errors occur
+     * @throws RateLimitException        When rate limit is exceeded. Or when cache manager is not initialized.
+     * @throws \JsonException            When cache key generation fails
+     * @throws \InvalidArgumentException When HTTP method is not supported
+     * @throws ConnectionException       When connection fails (timeouts, DNS failures, etc.)
+     * @throws RequestException          When other HTTP client errors occur
      *
      * @return array API response data
      */

@@ -163,7 +163,7 @@ return [
             'cache_ttl'                => env('SCRAPINGDOG_CACHE_TTL', null),
             'compression_enabled'      => env('SCRAPINGDOG_COMPRESSION_ENABLED', false),
             'rate_limit_max_attempts'  => env('SCRAPINGDOG_RATE_LIMIT_MAX_ATTEMPTS', 1000),
-            'rate_limit_decay_seconds' => env('SCRAPINGDOG_RATE_LIMIT_DECAY_SECONDS', 86400),
+            'rate_limit_decay_seconds' => env('SCRAPINGDOG_RATE_LIMIT_DECAY_SECONDS', 2592000),
         ],
 
         /*
@@ -194,6 +194,21 @@ return [
                 ? rtrim(env('DATAFORSEO_WEBHOOK_BASE_URL'), '/') . '/' . ltrim(env('DATAFORSEO_POSTBACK_PATH'), '/')
                 : null,
             'whitelisted_ips' => array_filter(array_map('trim', explode(',', env('DATAFORSEO_WHITELISTED_IPS', '88.99.215.15,94.130.93.29,94.130.155.89,144.76.153.106,144.76.153.113,144.76.154.130,178.63.193.217,195.201.63.107')))),
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Zyte API
+        |--------------------------------------------------------------------------
+        */
+        'zyte' => [
+            'api_key'                  => env('ZYTE_API_KEY', null),
+            'base_url'                 => env('ZYTE_BASE_URL', 'https://api.zyte.com/v1'),
+            'version'                  => env('ZYTE_VERSION', 'v1'),
+            'cache_ttl'                => env('ZYTE_CACHE_TTL', null),
+            'compression_enabled'      => env('ZYTE_COMPRESSION_ENABLED', false),
+            'rate_limit_max_attempts'  => env('ZYTE_RATE_LIMIT_MAX_ATTEMPTS', 1000),
+            'rate_limit_decay_seconds' => env('ZYTE_RATE_LIMIT_DECAY_SECONDS', 2592000),
         ],
     ],
 

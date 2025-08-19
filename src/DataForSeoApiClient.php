@@ -5,25 +5,12 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use FOfX\Helper\ReflectionUtils;
 use FOfX\Helper;
 use FOfX\Utility;
 
 class DataForSeoApiClient extends BaseApiClient
 {
-    /**
-     * Parameters that should never be forwarded to the API
-     * - additionalParams: Used for internal parameter merging
-     * - attributes: Used for cache key generation
-     * - amount: Used for rate limiting
-     */
-    public array $excludedArgs = [
-        'additionalParams',
-        'attributes',
-        'amount',
-    ];
-
     /**
      * Constructor for DataForSeoApiClient
      *
@@ -163,11 +150,11 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
-     * Log a cache rejection event with DataForSEO-specific error information
+     * Log a cache rejection event with DataForSEO specific error information
      *
      * @param string|null $message  Error message
      * @param array       $context  Additional context data
-     * @param string|null $response Response body
+     * @param string|null $response Response body (will be truncated to 2000 chars)
      *
      * @return void
      */
@@ -187,13 +174,17 @@ class DataForSeoApiClient extends BaseApiClient
     }
 
     /**
-     * Build API parameters from method arguments
+     * Build API parameters from method arguments using snake_case conversion
+     *
+     * The parent method uses $useSnakeCase = false by default. DataForSEO API uses snake_case for API field names,
+     * so we override the parent method to set $useSnakeCase = true by default.
      *
      * @param array       $additionalParams       Additional parameters to merge from the result
      * @param array       $additionalExcludedArgs Additional argument names to exclude from the result
      * @param string|null $callable               The method name to use for argument extraction (optional)
      * @param array       $vars                   Named/positional args to the method (optional)
      * @param bool|null   $boundOnly              Whether to only extract bound arguments (optional)
+     * @param bool        $useSnakeCase           Whether to convert parameter names to snake_case (default: true)
      *
      * @throws \InvalidArgumentException If callable and vars are not provided together
      *
@@ -204,55 +195,18 @@ class DataForSeoApiClient extends BaseApiClient
         array $additionalExcludedArgs = [],
         ?string $callable = null,
         array $vars = [],
-        ?bool $boundOnly = null
+        ?bool $boundOnly = null,
+        bool $useSnakeCase = true
     ): array {
-        // Validate that both callable and vars are provided together
-        $hasCallable = $callable !== null;
-        $hasVars     = !empty($vars);
-
-        if (!$hasCallable && $hasVars) {
-            throw new \InvalidArgumentException('If vars are provided, callable must also be provided.');
-        }
-
-        if ($hasCallable) {
-            // Mode 1: Callable + vars provided
-            $args = ReflectionUtils::extractArgs(
-                $callable,
-                $vars,
-                $additionalExcludedArgs,
-                $boundOnly ?? true
-            );
-        } elseif ($boundOnly === null) {
-            // Mode 2: Default mode (extra arguments not passed)
-            // Get calling method's arguments from backtrace
-            $args = ReflectionUtils::extractBoundArgsFromBacktrace(2);
-
-            // Merge default excluded args with any additional ones passed
-            $allExcludedArgs = array_merge($this->excludedArgs, $additionalExcludedArgs);
-
-            // Remove excluded arguments
-            foreach ($allExcludedArgs as $skip) {
-                unset($args[$skip]);
-            }
-        } else {
-            // Mode 3: Fallback to backtrace (boundOnly explicitly set)
-            $args = ReflectionUtils::extractArgsFromBacktrace(
-                depth: 1,
-                excludeParams: $additionalExcludedArgs,
-                boundOnly: $boundOnly
-            );
-        }
-
-        // Convert to snake_case and drop nulls
-        $finalParams = [];
-        foreach ($args as $key => $value) {
-            if ($value !== null) {
-                $finalParams[Str::snake($key)] = $value;
-            }
-        }
-
-        // Merge with additional params (original params take precedence)
-        return array_merge($additionalParams, $finalParams);
+        // Call parent method with snake_case conversion enabled for DataForSEO API
+        return parent::buildApiParams(
+            $additionalParams,
+            $additionalExcludedArgs,
+            $callable,
+            $vars,
+            $boundOnly,
+            $useSnakeCase
+        );
     }
 
     /**
@@ -305,7 +259,7 @@ class DataForSeoApiClient extends BaseApiClient
             return null;
         }
 
-        return \FOfX\ApiCache\normalize_params($params);
+        return normalize_params($params);
     }
 
     /**

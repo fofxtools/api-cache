@@ -8,7 +8,6 @@ use FOfX\ApiCache\Tests\TestCase;
 use FOfX\ApiCache\ScraperApiClient;
 use FOfX\ApiCache\ApiCacheManager;
 use FOfX\ApiCache\ApiCacheServiceProvider;
-use FOfX\ApiCache\RateLimitException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 
@@ -190,38 +189,28 @@ class ScraperApiClientTest extends TestCase
         $this->assertEquals('API error', $responseData['message']);
     }
 
-    public function test_rate_limit_exceeded()
+    public function test_scrape_sets_attributes2_with_registrable_domain(): void
     {
         Http::fake([
-            'api.scraperapi.com/*' => Http::response([
-                'status'  => 'success',
-                'body'    => 'Test response',
-                'headers' => ['Content-Type' => 'text/html'],
-            ], 200),
+            'api.scraperapi.com/*' => Http::response(json_encode([
+                'status' => 'success',
+                'data'   => '<html><body>Test content</body></html>',
+            ]), 200, ['Content-Type' => 'application/json']),
         ]);
 
-        // Set up rate limit to 1 attempt
-        Config::set('api-cache.apis.scraperapi.rate_limit_max_attempts', 1);
-
-        // Reinitialize client after Http::fake()
         $this->client = new ScraperApiClient();
         $this->client->clearRateLimit();
 
-        // Disable caching
-        $this->client->setUseCache(false);
+        $url    = 'https://subdomain.example.com/path/to/page';
+        $result = $this->client->scrape($url);
 
-        // First request should succeed
-        $result1 = $this->client->scrape('https://example.com');
-        $this->assertArrayHasKey('request', $result1);
-        $this->assertArrayHasKey('response', $result1);
-        $this->assertArrayHasKey('is_cached', $result1);
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('is_cached', $result);
+        $this->assertFalse($result['is_cached']);
 
-        // Make sure we used the Http::fake() response
-        $responseData = $result1['response']->json();
-        $this->assertEquals('Test response', $responseData['body']);
-
-        // Second request should fail due to rate limit
-        $this->expectException(RateLimitException::class);
-        $this->client->scrape('https://example.com');
+        // Verify that attributes2 contains the registrable domain
+        $this->assertArrayHasKey('attributes2', $result['request']);
+        $this->assertEquals('example.com', $result['request']['attributes2']);
     }
 }

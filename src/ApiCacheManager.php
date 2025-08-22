@@ -133,15 +133,17 @@ class ApiCacheManager
      *   - response_time (from $apiResult['response_time'])
      * - Store prepared response in repository
      *
-     * @param string      $clientName The API client identifier
-     * @param string      $cacheKey   Cache key
-     * @param array       $params     Request parameters
-     * @param array       $apiResult  API response data
-     * @param string      $endpoint   The API endpoint
-     * @param string|null $version    API version
-     * @param int|null    $ttl        Cache TTL in seconds
-     * @param string|null $attributes Additional attributes to store with the response
-     * @param int|null    $credits    Number of credits used for the request
+     * @param string      $clientName  The API client identifier
+     * @param string      $cacheKey    Cache key
+     * @param array       $params      Request parameters
+     * @param array       $apiResult   API response data
+     * @param string      $endpoint    The API endpoint
+     * @param string|null $version     API version
+     * @param int|null    $ttl         Cache TTL in seconds
+     * @param string|null $attributes  Additional attributes to store with the response
+     * @param string|null $attributes2 Additional attributes2 to store with the response
+     * @param string|null $attributes3 Additional attributes3 to store with the response
+     * @param int|null    $credits     Number of credits used for the request
      */
     public function storeResponse(
         string $clientName,
@@ -152,6 +154,8 @@ class ApiCacheManager
         ?string $version = null,
         ?int $ttl = null,
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $credits = null
     ): void {
         // Use default TTL from config if not provided
@@ -169,6 +173,8 @@ class ApiCacheManager
             'full_url'               => $apiResult['request']['full_url'] ?? null,
             'method'                 => $apiResult['request']['method'] ?? null,
             'attributes'             => $attributes,
+            'attributes2'            => $attributes2,
+            'attributes3'            => $attributes3,
             'credits'                => $credits,
             'cost'                   => $apiResult['request']['cost'] ?? null,
             'request_params_summary' => summarize_params($params),
@@ -217,14 +223,16 @@ class ApiCacheManager
         // Return in same format as fresh responses
         return [
             'request' => [
-                'base_url'   => $cached['base_url'],
-                'full_url'   => $cached['full_url'],
-                'method'     => $cached['method'],
-                'attributes' => $cached['attributes'],
-                'credits'    => $cached['credits'],
-                'cost'       => $cached['cost'],
-                'headers'    => $cached['request_headers'],
-                'body'       => $cached['request_body'],
+                'base_url'    => $cached['base_url'],
+                'full_url'    => $cached['full_url'],
+                'method'      => $cached['method'],
+                'attributes'  => $cached['attributes'],
+                'attributes2' => $cached['attributes2'],
+                'attributes3' => $cached['attributes3'],
+                'credits'     => $cached['credits'],
+                'cost'        => $cached['cost'],
+                'headers'     => $cached['request_headers'],
+                'body'        => $cached['request_body'],
             ],
             'response'             => $response,
             'response_status_code' => $cached['response_status_code'],

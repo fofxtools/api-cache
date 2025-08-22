@@ -213,6 +213,9 @@ class FunctionsTest extends TestCase
         $this->assertContains('client', $columns);
         $this->assertContains('version', $columns);
         $this->assertContains('endpoint', $columns);
+        $this->assertContains('attributes', $columns);
+        $this->assertContains('attributes2', $columns);
+        $this->assertContains('attributes3', $columns);
         $this->assertContains('request_headers', $columns);
         $this->assertContains('request_body', $columns);
         $this->assertContains('response_headers', $columns);
@@ -239,6 +242,9 @@ class FunctionsTest extends TestCase
         $this->assertContains('client', $columns);
         $this->assertContains('version', $columns);
         $this->assertContains('endpoint', $columns);
+        $this->assertContains('attributes', $columns);
+        $this->assertContains('attributes2', $columns);
+        $this->assertContains('attributes3', $columns);
         $this->assertContains('request_headers', $columns);
         $this->assertContains('request_body', $columns);
         $this->assertContains('response_headers', $columns);

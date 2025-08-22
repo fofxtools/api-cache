@@ -78,7 +78,7 @@ class OpenAIApiClient extends BaseApiClient
             $attributes = $prompt;
         }
 
-        return $this->sendCachedRequest('completions', $params, 'POST', $attributes, $amount);
+        return $this->sendCachedRequest('completions', $params, 'POST', $attributes, amount: $amount);
     }
 
     /**
@@ -153,6 +153,6 @@ class OpenAIApiClient extends BaseApiClient
             $attributes = json_encode($messages);
         }
 
-        return $this->sendCachedRequest('chat/completions', $params, 'POST', $attributes, $amount);
+        return $this->sendCachedRequest('chat/completions', $params, 'POST', $attributes, amount: $amount);
     }
 }

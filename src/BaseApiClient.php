@@ -26,7 +26,7 @@ class BaseApiClient
     protected bool $useCache   = true;
 
     // Arguments to exclude from buildApiParams() processing. These parameters should not be forwarded to the API.
-    protected array $excludedArgs = ['additionalParams', 'attributes', 'amount'];
+    protected array $excludedArgs = ['additionalParams', 'attributes', 'attributes2', 'attributes3', 'amount'];
 
     protected PendingRequest $pendingRequest;
     protected ?ApiCacheManager $cacheManager;
@@ -595,11 +595,13 @@ class BaseApiClient
      * - Send HTTP request using Laravel's HTTP client
      * - Return response with timing data
      *
-     * @param string      $endpoint   API endpoint to call
-     * @param array       $params     Request parameters
-     * @param string      $method     HTTP method (GET, POST, etc.)
-     * @param string|null $attributes Additional attributes to store with the response
-     * @param int|null    $credits    Number of credits used for the request
+     * @param string      $endpoint    API endpoint to call
+     * @param array       $params      Request parameters
+     * @param string      $method      HTTP method (GET, POST, etc.)
+     * @param string|null $attributes  Additional attributes to store with the response
+     * @param string|null $attributes2 Additional attributes2 to store with the response
+     * @param string|null $attributes3 Additional attributes3 to store with the response
+     * @param int|null    $credits     Number of credits used for the request
      *
      * @throws \InvalidArgumentException When HTTP method is not supported
      * @throws ConnectionException       When connection fails (timeouts, DNS failures, etc.)
@@ -607,7 +609,7 @@ class BaseApiClient
      *
      * @return array API response data
      */
-    public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
+    public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null, ?int $credits = null): array
     {
         // Add class and method name to the log context
         Log::withContext([
@@ -670,14 +672,16 @@ class BaseApiClient
         return [
             'params'  => $params,
             'request' => [
-                'base_url'   => $this->baseUrl,
-                'full_url'   => $requestData['url'],
-                'method'     => $requestData['method'],
-                'attributes' => $attributes,
-                'credits'    => $credits,
-                'cost'       => $cost,
-                'headers'    => $requestData['headers'],
-                'body'       => $requestData['body'],
+                'base_url'    => $this->baseUrl,
+                'full_url'    => $requestData['url'],
+                'method'      => $requestData['method'],
+                'attributes'  => $attributes,
+                'attributes2' => $attributes2,
+                'attributes3' => $attributes3,
+                'credits'     => $credits,
+                'cost'        => $cost,
+                'headers'     => $requestData['headers'],
+                'body'        => $requestData['body'],
             ],
             'response'             => $response,
             'response_status_code' => $response->status(),
@@ -699,11 +703,13 @@ class BaseApiClient
      * - Store in cache (if caching is enabled and request was successful)
      * - Return response
      *
-     * @param string      $endpoint   API endpoint to call
-     * @param array       $params     Request parameters
-     * @param string      $method     HTTP method (GET, POST, etc.)
-     * @param string|null $attributes Additional attributes to store with the response
-     * @param int         $amount     Amount to pass to incrementAttempts
+     * @param string      $endpoint    API endpoint to call
+     * @param array       $params      Request parameters
+     * @param string      $method      HTTP method (GET, POST, etc.)
+     * @param string|null $attributes  Additional attributes to store with the response
+     * @param string|null $attributes2 Additional attributes2 to store with the response
+     * @param string|null $attributes3 Additional attributes3 to store with the response
+     * @param int         $amount      Amount to pass to incrementAttempts
      *
      * @throws RateLimitException        When rate limit is exceeded. Or when cache manager is not initialized.
      * @throws \JsonException            When cache key generation fails
@@ -713,7 +719,7 @@ class BaseApiClient
      *
      * @return array API response data
      */
-    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, int $amount = 1): array
+    public function sendCachedRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null, int $amount = 1): array
     {
         // Add class and method name to the log context
         Log::withContext([
@@ -781,11 +787,13 @@ class BaseApiClient
         $ttl = config("api-cache.apis.{$this->clientName}.cache_ttl");
 
         // Trim attributes to 255 characters if not null, for Laravel string column limit
-        $trimmedAttributes = $attributes === null ? null : mb_substr($attributes, 0, 255);
+        $trimmedAttributes  = $attributes === null ? null : mb_substr($attributes, 0, 255);
+        $trimmedAttributes2 = $attributes2 === null ? null : mb_substr($attributes2, 0, 255);
+        $trimmedAttributes3 = $attributes3 === null ? null : mb_substr($attributes3, 0, 255);
 
         // Make the request with exception handling
         try {
-            $apiResult = $this->sendRequest($endpoint, $params, $method, $trimmedAttributes, $amount);
+            $apiResult = $this->sendRequest($endpoint, $params, $method, $trimmedAttributes, $trimmedAttributes2, $trimmedAttributes3, $amount);
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             // Handle connection errors (timeouts, DNS failures, etc.)
             $this->logHttpError(
@@ -872,6 +880,8 @@ class BaseApiClient
                         $this->version,
                         $ttl,
                         $trimmedAttributes,
+                        $trimmedAttributes2,
+                        $trimmedAttributes3,
                         $amount
                     );
 
@@ -964,7 +974,14 @@ class BaseApiClient
      */
     public function resolveFilenameSlugSource(\stdClass $row): string
     {
-        return $row->attributes ?? '';
+        // Collect all non-null attribute values and join with dash
+        $attributes = array_filter([
+            $row->attributes ?? null,
+            $row->attributes2 ?? null,
+            $row->attributes3 ?? null,
+        ]);
+
+        return implode('-', $attributes);
     }
 
     /**
@@ -1026,7 +1043,11 @@ class BaseApiClient
 
         // Get batch of unprocessed rows
         $query = DB::table($tableName)
-            ->whereNotNull('attributes')
+            ->where(function ($query) {
+                $query->whereNotNull('attributes')
+                    ->orWhereNotNull('attributes2')
+                    ->orWhereNotNull('attributes3');
+            })
             ->whereNull('processed_at')
             ->whereNull('processed_status');
 

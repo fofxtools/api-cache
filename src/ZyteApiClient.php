@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Filesystem\Filesystem;
 use FOfX\Helper\ReflectionUtils;
+use FOfX\Utility;
 
 class ZyteApiClient extends BaseApiClient
 {
@@ -364,7 +365,10 @@ class ZyteApiClient extends BaseApiClient
             $attributes = $url;
         }
 
-        return $this->sendCachedRequest('extract', $requestData, 'POST', $attributes, $credits);
+        // Pass extract_registrable_domain() as attributes2
+        $attributes2 = Utility\extract_registrable_domain($url);
+
+        return $this->sendCachedRequest('extract', $requestData, 'POST', $attributes, $attributes2, amount: $credits);
     }
 
     /**

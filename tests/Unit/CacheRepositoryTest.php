@@ -503,6 +503,56 @@ class CacheRepositoryTest extends TestCase
         $this->assertEquals($this->testData['method'], $retrieved['method']);
     }
 
+    #[DataProvider('clientNamesProvider')]
+    public function test_store_and_get_attributes_fields(string $clientName): void
+    {
+        $testDataWithAttributes = array_merge($this->testData, [
+            'attributes'  => 'test-attribute-1',
+            'attributes2' => 'test-attribute-2',
+            'attributes3' => 'test-attribute-3',
+        ]);
+
+        $this->repository->store($clientName, $this->key, $testDataWithAttributes);
+        $retrieved = $this->repository->get($clientName, $this->key);
+
+        $this->assertNotNull($retrieved);
+        $this->assertEquals('test-attribute-1', $retrieved['attributes']);
+        $this->assertEquals('test-attribute-2', $retrieved['attributes2']);
+        $this->assertEquals('test-attribute-3', $retrieved['attributes3']);
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_store_and_get_null_attributes_fields(string $clientName): void
+    {
+        // Test that null attributes are handled properly
+        $testDataWithNullAttributes = array_merge($this->testData, [
+            'attributes'  => null,
+            'attributes2' => null,
+            'attributes3' => null,
+        ]);
+
+        $this->repository->store($clientName, $this->key, $testDataWithNullAttributes);
+        $retrieved = $this->repository->get($clientName, $this->key);
+
+        $this->assertNotNull($retrieved);
+        $this->assertNull($retrieved['attributes']);
+        $this->assertNull($retrieved['attributes2']);
+        $this->assertNull($retrieved['attributes3']);
+    }
+
+    #[DataProvider('clientNamesProvider')]
+    public function test_store_and_get_missing_attributes_fields(string $clientName): void
+    {
+        // Test that missing attributes default to null
+        $this->repository->store($clientName, $this->key, $this->testData);
+        $retrieved = $this->repository->get($clientName, $this->key);
+
+        $this->assertNotNull($retrieved);
+        $this->assertNull($retrieved['attributes']);
+        $this->assertNull($retrieved['attributes2']);
+        $this->assertNull($retrieved['attributes3']);
+    }
+
     /**
      * Test countTotalResponses returns correct count with no records
      */

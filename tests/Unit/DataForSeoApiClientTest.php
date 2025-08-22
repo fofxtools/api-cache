@@ -775,6 +775,60 @@ class DataForSeoApiClientTest extends TestCase
         $this->client->taskGet('serp/google/organic/task_get/regular', '');
     }
 
+    public function test_task_get_passes_attributes2_and_attributes3()
+    {
+        $endpointPath = 'serp/google/organic/task_get/regular';
+        $taskId       = '12345678-1234-1234-1234-123456789012';
+        $attributes   = 'attr1';
+        $attributes2  = 'attr2';
+        $attributes3  = 'attr3';
+
+        $successResponse = [
+            'version'        => '0.1.20230807',
+            'status_code'    => 20000,
+            'status_message' => 'Ok.',
+            'time'           => '0.0123 sec.',
+            'cost'           => 0.001,
+            'tasks_count'    => 1,
+            'tasks_error'    => 0,
+            'tasks'          => [
+                [
+                    'id'             => $taskId,
+                    'status_code'    => 20000,
+                    'status_message' => 'Ok.',
+                    'time'           => '0.0123 sec.',
+                    'cost'           => 0.001,
+                    'result_count'   => 1,
+                    'path'           => ['serp', 'google', 'organic', 'task_get', 'regular'],
+                    'data'           => ['api' => 'serp', 'function' => 'task_get'],
+                    'result'         => [['test' => 'data']],
+                ],
+            ],
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" => Http::response($successResponse, 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new DataForSeoApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->taskGet($endpointPath, $taskId, $attributes, $attributes2, $attributes3);
+
+        Http::assertSent(function ($request) use ($endpointPath, $taskId) {
+            return $request->url() === "{$this->apiBaseUrl}/{$endpointPath}/{$taskId}" &&
+                   $request->method() === 'GET';
+        });
+
+        // Verify the response structure
+        $this->assertEquals(200, $response['response_status_code']);
+        $this->assertArrayHasKey('request', $response);
+        $this->assertEquals($attributes, $response['request']['attributes']);
+        $this->assertEquals($attributes2, $response['request']['attributes2']);
+        $this->assertEquals($attributes3, $response['request']['attributes3']);
+    }
+
     public function test_processPostbackResponse_throws_on_invalid_status_code()
     {
         $this->expectException(\RuntimeException::class);

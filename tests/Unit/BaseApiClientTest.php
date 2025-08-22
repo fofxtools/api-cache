@@ -10,6 +10,7 @@ use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\RateLimitException;
 use Illuminate\Support\Facades\DB;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use FOfX\ApiCache\Tests\TestCase;
 
 use function FOfX\ApiCache\check_server_status;
@@ -239,7 +240,7 @@ class BaseApiClientTest extends TestCase
         };
 
         // Verify default excluded args
-        $defaultExcluded = ['additionalParams', 'attributes', 'amount'];
+        $defaultExcluded = ['additionalParams', 'attributes', 'attributes2', 'attributes3', 'amount'];
         $this->assertEquals($defaultExcluded, $testClient->getExcludedArgs());
 
         // Set new excluded args
@@ -1256,13 +1257,13 @@ class BaseApiClientTest extends TestCase
 
         $this->mockCacheManager->shouldReceive('storeResponse')
             ->once()
-            ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version, null, $attributes, $amount)
+            ->with($this->clientName, 'test-key', ['query' => 'test'], Mockery::any(), 'predictions', $this->version, null, $attributes, null, null, $amount)
             ->andReturn(true);
 
         // Get remaining attempts before
         $beforeAttempts = $this->mockCacheManager->getRemainingAttempts($this->clientName);
 
-        $result = $this->client->sendCachedRequest('predictions', ['query' => 'test'], 'GET', $attributes, $amount);
+        $result = $this->client->sendCachedRequest('predictions', ['query' => 'test'], 'GET', $attributes, null, null, $amount);
 
         // Get remaining attempts after
         $afterAttempts = $this->mockCacheManager->getRemainingAttempts($this->clientName);
@@ -1300,7 +1301,7 @@ class BaseApiClientTest extends TestCase
             $this->version,
             $this->mockCacheManager
         ) extends BaseApiClient {
-            public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
+            public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null, ?int $credits = null): array
             {
                 throw new \Illuminate\Http\Client\ConnectionException('cURL error 6: Could not resolve host: non-existent-host.com');
             }
@@ -1366,10 +1367,10 @@ class BaseApiClientTest extends TestCase
             $this->version,
             $this->mockCacheManager
         ) extends BaseApiClient {
-            public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?int $credits = null): array
+            public function sendRequest(string $endpoint, array $params = [], string $method = 'GET', ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null, ?int $credits = null): array
             {
                 // Make a request that will return a 500 status code using demo server's status endpoint
-                $result = parent::sendRequest('500', $params, $method, $attributes, $credits);
+                $result = parent::sendRequest('500', $params, $method, $attributes, $attributes2, $attributes3, $credits);
 
                 // Force throw RequestException for 500 status
                 if ($result['response']->status() >= 400) {
@@ -1413,6 +1414,65 @@ class BaseApiClientTest extends TestCase
             // Re-throw to satisfy expectException
             throw $e;
         }
+    }
+
+    public function test_sendRequest_includes_attributes2_and_attributes3_in_response(): void
+    {
+        $result = $this->client->sendRequest(
+            'predictions',
+            ['query' => 'test'],
+            'GET',
+            'attr1-value',
+            'attr2-value',
+            'attr3-value'
+        );
+
+        $this->assertEquals('attr1-value', $result['request']['attributes']);
+        $this->assertEquals('attr2-value', $result['request']['attributes2']);
+        $this->assertEquals('attr3-value', $result['request']['attributes3']);
+    }
+
+    public function test_sendCachedRequest_passes_attributes2_and_attributes3_to_storeResponse(): void
+    {
+        $this->mockCacheManager->shouldReceive('generateCacheKey')
+            ->once()
+            ->andReturn('test-cache-key');
+
+        $this->mockCacheManager->shouldReceive('getCachedResponse')
+            ->once()
+            ->andReturnNull();
+
+        $this->mockCacheManager->shouldReceive('allowRequest')
+            ->once()
+            ->andReturn(true);
+
+        $this->mockCacheManager->shouldReceive('incrementAttempts')
+            ->once();
+
+        $this->mockCacheManager->shouldReceive('storeResponse')
+            ->once()
+            ->withArgs(function ($clientName, $cacheKey, $params, $apiResult, $endpoint, $version, $ttl, $attributes, $attributes2, $attributes3, $credits) {
+                return $clientName === $this->clientName &&
+                       $cacheKey === 'test-cache-key' &&
+                       $endpoint === 'predictions' &&
+                       $attributes === 'attr1-value' &&
+                       $attributes2 === 'attr2-value' &&
+                       $attributes3 === 'attr3-value' &&
+                       $credits === 5;
+            });
+
+        $result = $this->client->sendCachedRequest(
+            'predictions',
+            ['query' => 'test'],
+            'GET',
+            'attr1-value',
+            'attr2-value',
+            'attr3-value',
+            5
+        );
+
+        $this->assertArrayHasKey('response', $result);
+        $this->assertArrayHasKey('response_time', $result);
     }
 
     public function test_getHealth_returns_health_endpoint_response(): void
@@ -1564,6 +1624,70 @@ class BaseApiClientTest extends TestCase
         $result = $this->client->resolveFilenameSlugSource($row);
 
         $this->assertEquals('https://example.com/test-page', $result);
+    }
+
+    public static function resolveFilenameSlugSourceProvider(): array
+    {
+        return [
+            'single_attribute_1' => [
+                'test-slug', null, null,
+                'test-slug',
+                'Should return single attribute when only attributes is set',
+            ],
+            'single_attribute_2' => [
+                null, 'test-slug-2', null,
+                'test-slug-2',
+                'Should return single attribute when only attributes2 is set',
+            ],
+            'single_attribute_3' => [
+                null, null, 'test-slug-3',
+                'test-slug-3',
+                'Should return single attribute when only attributes3 is set',
+            ],
+            'two_attributes_1_and_2' => [
+                'attr1', 'attr2', null,
+                'attr1-attr2',
+                'Should concatenate attributes and attributes2 with dash',
+            ],
+            'two_attributes_1_and_3' => [
+                'attr1', null, 'attr3',
+                'attr1-attr3',
+                'Should concatenate attributes and attributes3 with dash',
+            ],
+            'two_attributes_2_and_3' => [
+                null, 'attr2', 'attr3',
+                'attr2-attr3',
+                'Should concatenate attributes2 and attributes3 with dash',
+            ],
+            'all_three_attributes' => [
+                'attr1', 'attr2', 'attr3',
+                'attr1-attr2-attr3',
+                'Should concatenate all three attributes with dashes',
+            ],
+            'all_null_attributes' => [
+                null, null, null,
+                '',
+                'Should return empty string when all attributes are null',
+            ],
+        ];
+    }
+
+    #[DataProvider('resolveFilenameSlugSourceProvider')]
+    public function test_resolveFilenameSlugSource_concatenates_non_null_attributes(
+        ?string $attributes,
+        ?string $attributes2,
+        ?string $attributes3,
+        string $expected,
+        string $description
+    ): void {
+        $row = (object) [
+            'attributes'  => $attributes,
+            'attributes2' => $attributes2,
+            'attributes3' => $attributes3,
+        ];
+
+        $result = $this->client->resolveFilenameSlugSource($row);
+        $this->assertEquals($expected, $result, $description);
     }
 
     public function test_generateFilename_with_normal_url(): void

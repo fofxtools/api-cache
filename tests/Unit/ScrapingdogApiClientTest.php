@@ -528,4 +528,29 @@ class ScrapingdogApiClientTest extends TestCase
         $this->assertEquals(401, $response['response']->status());
         $this->assertEquals($testResponse, $response['response']->body());
     }
+
+    public function test_scrape_sets_attributes2_with_registrable_domain(): void
+    {
+        $testResponse = '<html><body>Test content</body></html>';
+
+        Http::fake([
+            'api.scrapingdog.com/*' => Http::response($testResponse, 200, ['Content-Type' => 'text/html']),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new ScrapingdogApiClient();
+        $this->client->clearRateLimit();
+
+        $testUrl  = 'https://subdomain.example.com/path/to/page';
+        $response = $this->client->scrape($testUrl);
+
+        $this->assertArrayHasKey('request', $response);
+        $this->assertArrayHasKey('response', $response);
+        $this->assertArrayHasKey('is_cached', $response);
+        $this->assertFalse($response['is_cached']);
+
+        // Verify that attributes2 contains the registrable domain
+        $this->assertArrayHasKey('attributes2', $response['request']);
+        $this->assertEquals('example.com', $response['request']['attributes2']);
+    }
 }

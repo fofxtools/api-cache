@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
+use FOfX\Utility;
 
 class JinaApiClient extends BaseApiClient
 {
@@ -154,7 +155,10 @@ class JinaApiClient extends BaseApiClient
             $attributes = $url;
         }
 
-        return $this->sendCachedRequest('r', $params, 'POST', $attributes, $amount);
+        // Pass extract_registrable_domain() as attributes2
+        $attributes2 = Utility\extract_registrable_domain($url);
+
+        return $this->sendCachedRequest('r', $params, 'POST', $attributes, $attributes2, amount: $amount);
     }
 
     /**
@@ -191,7 +195,7 @@ class JinaApiClient extends BaseApiClient
             $attributes = $query;
         }
 
-        return $this->sendCachedRequest('s', $params, 'POST', $attributes, $amount);
+        return $this->sendCachedRequest('s', $params, 'POST', $attributes, amount: $amount);
     }
 
     /**
@@ -250,6 +254,6 @@ class JinaApiClient extends BaseApiClient
             $attributes = $query;
         }
 
-        return $this->sendCachedRequest($pathSuffix, $params, 'POST', $attributes, $amount);
+        return $this->sendCachedRequest($pathSuffix, $params, 'POST', $attributes, amount: $amount);
     }
 }

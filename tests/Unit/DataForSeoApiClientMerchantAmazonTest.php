@@ -531,7 +531,9 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
                 'v3',
                 $this->anything(),
                 $this->anything(),
-                1
+                $this->anything(), // attributes2
+                $this->anything(), // attributes3
+                1 // credits
             );
 
         Http::fake([
@@ -837,7 +839,9 @@ class DataForSeoApiClientMerchantAmazonTest extends TestCase
                 'v3',
                 $this->anything(),
                 $this->anything(),
-                1
+                $this->anything(), // attributes2
+                $this->anything(), // attributes3
+                1 // credits
             );
 
         Http::fake([

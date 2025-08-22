@@ -142,11 +142,13 @@ class DemoApiClientTest extends TestCase
         $this->assertArrayHasKey('response_time', $result);
 
         // Verify attributes were passed to storeResponse
-        $this->assertCount(9, $capturedArgs, 'Expected 9 arguments passed to storeResponse');
+        $this->assertCount(11, $capturedArgs, 'Expected 11 arguments passed to storeResponse');
         $this->assertEquals('demo', $capturedArgs[0], 'First arg should be client name');
         $this->assertEquals('predictions', $capturedArgs[4], 'Fifth arg should be endpoint');
         $this->assertEquals($attributes, $capturedArgs[7], 'Eighth arg should be attributes');
-        $this->assertEquals($amount, $capturedArgs[8], 'Ninth arg should be amount');
+        $this->assertNull($capturedArgs[8], 'Ninth arg should be attributes2 (null)');
+        $this->assertNull($capturedArgs[9], 'Tenth arg should be attributes3 (null)');
+        $this->assertEquals($amount, $capturedArgs[10], 'Eleventh arg should be amount');
     }
 
     public function test_reports_sends_correct_request(): void
@@ -188,10 +190,12 @@ class DemoApiClientTest extends TestCase
         $this->assertArrayHasKey('response_time', $result);
 
         // Verify attributes were passed to storeResponse
-        $this->assertCount(9, $capturedArgs, 'Expected 9 arguments passed to storeResponse');
+        $this->assertCount(11, $capturedArgs, 'Expected 11 arguments passed to storeResponse');
         $this->assertEquals('demo', $capturedArgs[0], 'First arg should be client name');
         $this->assertEquals('reports', $capturedArgs[4], 'Fifth arg should be endpoint');
         $this->assertEquals($attributes, $capturedArgs[7], 'Eighth arg should be attributes');
-        $this->assertEquals($amount, $capturedArgs[8], 'Ninth arg should be amount');
+        $this->assertNull($capturedArgs[8], 'Ninth arg should be attributes2 (null)');
+        $this->assertNull($capturedArgs[9], 'Tenth arg should be attributes3 (null)');
+        $this->assertEquals($amount, $capturedArgs[10], 'Eleventh arg should be amount');
     }
 }

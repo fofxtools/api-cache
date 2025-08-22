@@ -103,6 +103,6 @@ class OpenPageRankApiClient extends BaseApiClient
             $attributes = implode(',', $domains);
         }
 
-        return $this->sendCachedRequest('getPageRank', $params, 'GET', $attributes, $amount);
+        return $this->sendCachedRequest('getPageRank', $params, 'GET', $attributes, amount: $amount);
     }
 }

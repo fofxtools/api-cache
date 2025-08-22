@@ -414,6 +414,8 @@ class DataForSeoApiClient extends BaseApiClient
      * @param string      $endpointPath The endpoint path (e.g., 'serp/google/organic/task_get/regular')
      * @param string      $id           The task ID to retrieve
      * @param string|null $attributes   Optional attributes to store with cache entry
+     * @param string|null $attributes2  Optional attributes2 to store with cache entry
+     * @param string|null $attributes3  Optional attributes3 to store with cache entry
      * @param int         $amount       Amount to pass to incrementAttempts
      *
      * @throws \InvalidArgumentException If the endpoint path is invalid or task ID is empty
@@ -424,6 +426,8 @@ class DataForSeoApiClient extends BaseApiClient
         string $endpointPath,
         string $id,
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         int $amount = 1
     ): array {
         // Validate endpointPath format
@@ -456,7 +460,9 @@ class DataForSeoApiClient extends BaseApiClient
             [],
             'GET',
             $attributes,
-            $amount
+            $attributes2,
+            $attributes3,
+            amount: $amount
         );
     }
 
@@ -856,7 +862,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -961,7 +967,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1026,7 +1032,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1149,7 +1155,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1167,7 +1173,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('serp/google/organic/task_get/regular', $id, $attributes, $amount);
+        return $this->taskGet('serp/google/organic/task_get/regular', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -1184,7 +1190,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('serp/google/organic/task_get/advanced', $id, $attributes, $amount);
+        return $this->taskGet('serp/google/organic/task_get/advanced', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -1201,7 +1207,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('serp/google/organic/task_get/html', $id, $attributes, $amount);
+        return $this->taskGet('serp/google/organic/task_get/html', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -1357,7 +1363,7 @@ class DataForSeoApiClient extends BaseApiClient
             $pingbackUrl,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1457,7 +1463,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1557,7 +1563,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1657,7 +1663,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1754,7 +1760,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1772,7 +1778,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('serp/google/autocomplete/task_get/advanced', $id, $attributes, $amount);
+        return $this->taskGet('serp/google/autocomplete/task_get/advanced', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -1873,7 +1879,7 @@ class DataForSeoApiClient extends BaseApiClient
             $pingbackUrl,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -1991,7 +1997,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2016,7 +2022,7 @@ class DataForSeoApiClient extends BaseApiClient
             'keywords_data/google_ads/search_volume/task_get',
             $id,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2130,7 +2136,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2234,7 +2240,7 @@ class DataForSeoApiClient extends BaseApiClient
             $cacheKey,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2348,7 +2354,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2373,7 +2379,7 @@ class DataForSeoApiClient extends BaseApiClient
             'keywords_data/google_ads/keywords_for_site/task_get',
             $id,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2483,7 +2489,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2590,7 +2596,7 @@ class DataForSeoApiClient extends BaseApiClient
             $cacheKey,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2708,7 +2714,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2733,7 +2739,7 @@ class DataForSeoApiClient extends BaseApiClient
             'keywords_data/google_ads/keywords_for_keywords/task_get',
             $id,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2848,7 +2854,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -2955,7 +2961,7 @@ class DataForSeoApiClient extends BaseApiClient
             $cacheKey,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3105,7 +3111,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3130,7 +3136,7 @@ class DataForSeoApiClient extends BaseApiClient
             'keywords_data/google_ads/ad_traffic_by_keywords/task_get',
             $id,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3279,7 +3285,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3392,7 +3398,7 @@ class DataForSeoApiClient extends BaseApiClient
             $cacheKey,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3498,7 +3504,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3615,7 +3621,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3717,7 +3723,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3835,7 +3841,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3907,7 +3913,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -3982,7 +3988,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4071,7 +4077,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4155,7 +4161,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4227,7 +4233,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4322,7 +4328,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4405,7 +4411,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4557,7 +4563,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4575,7 +4581,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('merchant/amazon/products/task_get/advanced', $id, $attributes, $amount);
+        return $this->taskGet('merchant/amazon/products/task_get/advanced', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -4592,7 +4598,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('merchant/amazon/products/task_get/html', $id, $attributes, $amount);
+        return $this->taskGet('merchant/amazon/products/task_get/html', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -4727,7 +4733,7 @@ class DataForSeoApiClient extends BaseApiClient
             $pingbackUrl,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4806,7 +4812,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4885,7 +4891,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -4989,7 +4995,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5007,7 +5013,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('merchant/amazon/asin/task_get/advanced', $id, $attributes, $amount);
+        return $this->taskGet('merchant/amazon/asin/task_get/advanced', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -5024,7 +5030,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('merchant/amazon/asin/task_get/html', $id, $attributes, $amount);
+        return $this->taskGet('merchant/amazon/asin/task_get/html', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -5141,7 +5147,7 @@ class DataForSeoApiClient extends BaseApiClient
             $pingbackUrl,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5202,7 +5208,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5263,7 +5269,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5363,7 +5369,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5381,7 +5387,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('merchant/amazon/sellers/task_get/advanced', $id, $attributes, $amount);
+        return $this->taskGet('merchant/amazon/sellers/task_get/advanced', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -5398,7 +5404,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $attributes = null,
         int $amount = 1
     ): array {
-        return $this->taskGet('merchant/amazon/sellers/task_get/html', $id, $attributes, $amount);
+        return $this->taskGet('merchant/amazon/sellers/task_get/html', $id, $attributes, amount: $amount);
     }
 
     /**
@@ -5509,7 +5515,7 @@ class DataForSeoApiClient extends BaseApiClient
             $pingbackUrl,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5564,7 +5570,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5619,7 +5625,7 @@ class DataForSeoApiClient extends BaseApiClient
             $postTaskIfNotCached,
             $additionalParams,
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5701,7 +5707,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5926,7 +5932,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -5967,7 +5973,7 @@ class DataForSeoApiClient extends BaseApiClient
             [],
             'GET',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6052,7 +6058,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6146,7 +6152,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6208,7 +6214,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6293,7 +6299,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6336,7 +6342,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6393,7 +6399,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6595,7 +6601,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6680,7 +6686,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6802,7 +6808,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -6908,7 +6914,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7012,7 +7018,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7118,7 +7124,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7224,7 +7230,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7337,7 +7343,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7413,7 +7419,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7482,7 +7488,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7552,7 +7558,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7625,7 +7631,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7707,7 +7713,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7789,7 +7795,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 
@@ -7871,7 +7877,7 @@ class DataForSeoApiClient extends BaseApiClient
             $tasks,
             'POST',
             $attributes,
-            $amount
+            amount: $amount
         );
     }
 }

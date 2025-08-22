@@ -1649,6 +1649,8 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
                 'serp/google/organic/task_get/regular',
                 $taskId,
                 $attributes,
+                null, // attributes2
+                null, // attributes3
                 $amount
             )
             ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
@@ -1804,6 +1806,8 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
                 'serp/google/organic/task_get/advanced',
                 $taskId,
                 $attributes,
+                null, // attributes2
+                null, // attributes3
                 $amount
             )
             ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
@@ -1949,6 +1953,8 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
                 'serp/google/organic/task_get/html',
                 $taskId,
                 $attributes,
+                null, // attributes2
+                null, // attributes3
                 $amount
             )
             ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
@@ -2156,7 +2162,9 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
                 'v3',
                 $this->anything(),
                 $this->anything(),
-                1
+                $this->anything(), // attributes2
+                $this->anything(), // attributes3
+                1 // credits
             );
 
         Http::fake([
@@ -2482,7 +2490,9 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
                 'v3',
                 $this->anything(),
                 $this->anything(),
-                1
+                $this->anything(), // attributes2
+                $this->anything(), // attributes3
+                1 // credits
             );
 
         Http::fake([
@@ -3013,6 +3023,8 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
                 'serp/google/autocomplete/task_get/advanced',
                 $taskId,
                 $attributes,
+                null, // attributes2
+                null, // attributes3
                 $amount
             )
             ->willReturn(['response' => Http::response($successResponse), 'response_status_code' => 200]);
@@ -3180,7 +3192,9 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
                 'v3',
                 $this->anything(),
                 $this->anything(),
-                1
+                $this->anything(), // attributes2
+                $this->anything(), // attributes3
+                1 // credits
             );
 
         Http::fake([

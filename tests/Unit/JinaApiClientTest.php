@@ -110,6 +110,37 @@ class JinaApiClientTest extends TestCase
         $this->assertFalse($result['is_cached']);
     }
 
+    public function test_reader_endpoint_sets_attributes2_with_registrable_domain(): void
+    {
+        $url          = 'https://subdomain.example.com/path/to/page';
+        $responseData = [
+            'code'   => 200,
+            'status' => 20000,
+            'data'   => [
+                'title'       => 'Test Page',
+                'content'     => 'Test content',
+                'url'         => $url,
+                'description' => 'Test description',
+            ],
+        ];
+
+        Http::fake([
+            $this->baseUrlRWildcard => Http::response(json_encode($responseData), 200, ['Content-Type' => 'application/json']),
+        ]);
+
+        $this->client = new JinaApiClient();
+        $this->client->clearRateLimit();
+        $result = $this->client->reader($url);
+
+        $this->assertEquals(200, $result['response_status_code']);
+        $this->assertFalse($result['is_cached']);
+
+        // Verify that attributes2 contains the registrable domain
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('attributes2', $result['request']);
+        $this->assertEquals('example.com', $result['request']['attributes2']);
+    }
+
     public function test_serp_endpoint_success(): void
     {
         $query        = 'Laravel PHP framework';

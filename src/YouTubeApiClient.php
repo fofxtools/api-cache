@@ -132,7 +132,7 @@ class YouTubeApiClient extends BaseApiClient
             $attributes = $q;
         }
 
-        return $this->sendCachedRequest('search', $params, 'GET', $attributes, $amount);
+        return $this->sendCachedRequest('search', $params, 'GET', $attributes, amount: $amount);
     }
 
     /**
@@ -210,10 +210,13 @@ class YouTubeApiClient extends BaseApiClient
         // Merge additional params, auth params, and original params
         $params = array_merge($additionalParams, $this->getAuthParams(), $originalParams);
 
+        // Set attributes and attributes2 based on available parameters
         if ($attributes === null) {
-            $attributes = !empty($id) ? $id : "chart:{$chart}";
+            $attributes = !empty($id) ? $id : null;
         }
 
-        return $this->sendCachedRequest('videos', $params, 'GET', $attributes, $amount);
+        $attributes2 = !empty($chart) ? $chart : null;
+
+        return $this->sendCachedRequest('videos', $params, 'GET', $attributes, $attributes2, amount: $amount);
     }
 }

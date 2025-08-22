@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
+use FOfX\Utility;
 
 class ScrapingdogApiClient extends BaseApiClient
 {
@@ -234,6 +235,9 @@ class ScrapingdogApiClient extends BaseApiClient
         // Pass URL as attributes if attributes is not provided
         $attributes = $url;
 
-        return $this->sendCachedRequest('scrape', $params, 'GET', $attributes, $credits);
+        // Pass extract_registrable_domain() as attributes2
+        $attributes2 = Utility\extract_registrable_domain($url);
+
+        return $this->sendCachedRequest('scrape', $params, 'GET', $attributes, $attributes2, amount: $credits);
     }
 }

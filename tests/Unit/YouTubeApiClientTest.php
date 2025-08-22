@@ -100,6 +100,13 @@ class YouTubeApiClientTest extends TestCase
         $body = $result['response']->json();
         $this->assertEquals('youtube#videoListResponse', $body['kind']);
         $this->assertEquals('Test Video', $body['items'][0]['snippet']['title']);
+
+        // Verify attributes are set correctly for id parameter
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('attributes', $result['request']);
+        $this->assertArrayHasKey('attributes2', $result['request']);
+        $this->assertEquals('abc123', $result['request']['attributes']);
+        $this->assertNull($result['request']['attributes2']);
     }
 
     public function test_videos_success_by_chart()
@@ -129,6 +136,13 @@ class YouTubeApiClientTest extends TestCase
         $body = $result['response']->json();
         $this->assertEquals('youtube#videoListResponse', $body['kind']);
         $this->assertEquals('Popular Video', $body['items'][0]['snippet']['title']);
+
+        // Verify attributes are set correctly for chart parameter
+        $this->assertArrayHasKey('request', $result);
+        $this->assertArrayHasKey('attributes', $result['request']);
+        $this->assertArrayHasKey('attributes2', $result['request']);
+        $this->assertNull($result['request']['attributes']);
+        $this->assertEquals('mostPopular', $result['request']['attributes2']);
     }
 
     public function test_videos_throws_on_invalid_params()

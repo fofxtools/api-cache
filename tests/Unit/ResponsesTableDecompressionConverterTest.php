@@ -313,6 +313,8 @@ class ResponsesTableDecompressionConverterTest extends TestCase
         $compressedRow->full_url               = 'https://api.example.com/test-endpoint';
         $compressedRow->method                 = 'POST';
         $compressedRow->attributes             = null;
+        $compressedRow->attributes2            = null;
+        $compressedRow->attributes3            = null;
         $compressedRow->credits                = 5;
         $compressedRow->cost                   = 0.01;
         $compressedRow->request_params_summary = 'test params';
@@ -339,6 +341,8 @@ class ResponsesTableDecompressionConverterTest extends TestCase
         $uncompressedRow->full_url               = 'https://api.example.com/test-endpoint';
         $uncompressedRow->method                 = 'POST';
         $uncompressedRow->attributes             = null;
+        $uncompressedRow->attributes2            = null;
+        $uncompressedRow->attributes3            = null;
         $uncompressedRow->credits                = 5;
         $uncompressedRow->cost                   = 0.01;
         $uncompressedRow->request_params_summary = 'test params';
@@ -429,6 +433,8 @@ class ResponsesTableDecompressionConverterTest extends TestCase
         $compressedRow->full_url               = null;
         $compressedRow->method                 = null;
         $compressedRow->attributes             = null;
+        $compressedRow->attributes2            = null;
+        $compressedRow->attributes3            = null;
         $compressedRow->credits                = null;
         $compressedRow->cost                   = null;
         $compressedRow->request_params_summary = null;
@@ -454,6 +460,8 @@ class ResponsesTableDecompressionConverterTest extends TestCase
         $uncompressedRow->full_url               = null;
         $uncompressedRow->method                 = null;
         $uncompressedRow->attributes             = null;
+        $uncompressedRow->attributes2            = null;
+        $uncompressedRow->attributes3            = null;
         $uncompressedRow->credits                = null;
         $uncompressedRow->cost                   = null;
         $uncompressedRow->request_params_summary = null;

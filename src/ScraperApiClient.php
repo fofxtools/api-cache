@@ -65,7 +65,6 @@ class ScraperApiClient extends BaseApiClient
      */
     public function calculateCredits(string $url, array $additionalParams = []): int
     {
-        // Use php-domain-parser to get the registrable domain
         $registrableDomain = Utility\extract_registrable_domain($url);
 
         // Define known domains and their credit costs
@@ -177,6 +176,9 @@ class ScraperApiClient extends BaseApiClient
         // Pass URL as attributes if attributes is not provided
         $attributes = $url;
 
-        return $this->sendCachedRequest('', $params, 'GET', $attributes, $credits);
+        // Pass extract_registrable_domain() as attributes2
+        $attributes2 = Utility\extract_registrable_domain($url);
+
+        return $this->sendCachedRequest('', $params, 'GET', $attributes, $attributes2, amount: $credits);
     }
 }

@@ -113,6 +113,8 @@ function create_responses_table(
             $table->text('full_url')->nullable();
             $table->string('method')->nullable();
             $table->string('attributes')->nullable();
+            $table->string('attributes2')->nullable();
+            $table->string('attributes3')->nullable();
             $table->integer('credits')->nullable();
             $table->float('cost')->nullable();
             $table->text('request_params_summary')->nullable();
@@ -147,6 +149,8 @@ function create_responses_table(
                 $table->index(['client', 'endpoint', 'version']);
             }
             $table->index('attributes');
+            $table->index('attributes2');
+            $table->index('attributes3');
             $table->index('credits');
             $table->index('cost');
             $table->index('expires_at');

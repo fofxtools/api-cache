@@ -162,7 +162,7 @@ class PixabayApiClient extends BaseApiClient
             $attributes = $query;
         }
 
-        return $this->sendCachedRequest('api', $params, 'GET', $attributes, $amount);
+        return $this->sendCachedRequest('api', $params, 'GET', $attributes, amount: $amount);
     }
 
     /**
@@ -261,7 +261,7 @@ class PixabayApiClient extends BaseApiClient
             $attributes = $query;
         }
 
-        return $this->sendCachedRequest('api/videos', $params, 'GET', $attributes, $amount);
+        return $this->sendCachedRequest('api/videos', $params, 'GET', $attributes, amount: $amount);
     }
 
     /**

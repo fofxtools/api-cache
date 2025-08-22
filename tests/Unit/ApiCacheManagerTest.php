@@ -197,6 +197,8 @@ class ApiCacheManagerTest extends TestCase
                     'full_url'               => 'https://api.test/endpoint',
                     'method'                 => 'GET',
                     'attributes'             => null,
+                    'attributes2'            => null,
+                    'attributes3'            => null,
                     'credits'                => null,
                     'cost'                   => null,
                     'request_params_summary' => summarize_params($params),
@@ -235,6 +237,52 @@ class ApiCacheManagerTest extends TestCase
         );
     }
 
+    public function test_store_response_with_attributes2_and_attributes3(): void
+    {
+        $params    = ['query' => 'test'];
+        $apiResult = [
+            'request' => [
+                'base_url' => 'https://api.test',
+                'full_url' => 'https://api.test/endpoint',
+                'method'   => 'GET',
+                'headers'  => ['Accept' => 'application/json'],
+                'body'     => '{"query":"test"}',
+            ],
+            'response' => self::mockResponse(
+                200,
+                ['Content-Type' => 'application/json'],
+                '{"test":"data"}'
+            ),
+            'response_time' => 0.5,
+        ];
+
+        $this->repository->shouldReceive('store')
+            ->once()
+            ->withArgs(function ($client, $key, $metadata, $ttl) {
+                $this->assertEquals($this->clientName, $client);
+                $this->assertEquals('test-key', $key);
+                $this->assertEquals('attr1-value', $metadata['attributes']);
+                $this->assertEquals('attr2-value', $metadata['attributes2']);
+                $this->assertEquals('attr3-value', $metadata['attributes3']);
+                $this->assertNull($ttl);
+
+                return true;
+            });
+
+        $this->manager->storeResponse(
+            $this->clientName,
+            'test-key',
+            $params,
+            $apiResult,
+            $this->endpoint,
+            null,
+            null,
+            'attr1-value',
+            'attr2-value',
+            'attr3-value'
+        );
+    }
+
     #[DataProvider('apiResponseProvider')]
     public function test_get_cached_response_returns_response_when_found(array $apiResult, array $params, array $expectedMetadata): void
     {
@@ -269,6 +317,42 @@ class ApiCacheManagerTest extends TestCase
             ->andReturnNull();
 
         $this->assertNull($this->manager->getCachedResponse($this->clientName, 'test-key'));
+    }
+
+    public function test_get_cached_response_returns_attributes2_and_attributes3(): void
+    {
+        $cachedData = [
+            'endpoint'               => '/test',
+            'version'                => null,
+            'base_url'               => 'https://api.test',
+            'full_url'               => 'https://api.test/endpoint',
+            'method'                 => 'GET',
+            'attributes'             => 'attr1-value',
+            'attributes2'            => 'attr2-value',
+            'attributes3'            => 'attr3-value',
+            'credits'                => null,
+            'cost'                   => null,
+            'request_params_summary' => '{"query":"test"}',
+            'request_headers'        => ['Accept' => 'application/json'],
+            'request_body'           => '{"query":"test"}',
+            'response_headers'       => ['Content-Type' => 'application/json'],
+            'response_body'          => '{"test":"data"}',
+            'response_status_code'   => 200,
+            'response_size'          => 15,
+            'response_time'          => 0.5,
+        ];
+
+        $this->repository->shouldReceive('get')
+            ->once()
+            ->with($this->clientName, 'test-key')
+            ->andReturn($cachedData);
+
+        $result = $this->manager->getCachedResponse($this->clientName, 'test-key');
+
+        $this->assertNotNull($result);
+        $this->assertEquals('attr1-value', $result['request']['attributes']);
+        $this->assertEquals('attr2-value', $result['request']['attributes2']);
+        $this->assertEquals('attr3-value', $result['request']['attributes3']);
     }
 
     public function test_generate_cache_key_creates_consistent_keys(): void

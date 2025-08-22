@@ -66,7 +66,7 @@ class DemoApiClient extends BaseApiClient
             $attributes = $query;
         }
 
-        return $this->sendCachedRequest('predictions', $params, 'GET', $attributes, $amount);
+        return $this->sendCachedRequest('predictions', $params, 'GET', $attributes, amount: $amount);
     }
 
     /**
@@ -107,6 +107,6 @@ class DemoApiClient extends BaseApiClient
             $attributes = $reportType . ':' . $dataSource;
         }
 
-        return $this->sendCachedRequest('reports', $params, 'POST', $attributes, $amount);
+        return $this->sendCachedRequest('reports', $params, 'POST', $attributes, amount: $amount);
     }
 }

@@ -11,6 +11,7 @@ use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PixabayApiClientTest extends TestCase
@@ -24,6 +25,9 @@ class PixabayApiClientTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Fake the public storage disk for clean test isolation
+        Storage::fake('public');
 
         // Configure test environment
         Config::set('api-cache.apis.pixabay.api_key', $this->apiKey);
@@ -588,69 +592,49 @@ class PixabayApiClientTest extends TestCase
 
     public function test_resetImagesFolder()
     {
-        // Arrange
-        $testPath = storage_path('app/public/test_images');
-
-        // Create test directory and files
-        if (!is_dir($testPath)) {
-            mkdir($testPath, 0755, true);
-        }
-
+        // Arrange - create test files using Storage facade
         $testFiles = [
-            $testPath . '/test1.jpg',
-            $testPath . '/test2.png',
-            $testPath . '/test3.gif',
+            'test_images/test1.jpg',
+            'test_images/test2.png',
+            'test_images/test3.gif',
         ];
 
         foreach ($testFiles as $file) {
-            file_put_contents($file, 'test content');
+            Storage::disk('public')->put($file, 'test content');
         }
 
         // Verify files exist
         foreach ($testFiles as $file) {
-            $this->assertFileExists($file);
+            $this->assertTrue(Storage::disk('public')->exists($file));
         }
 
         // Act
-        $result = $this->client->resetImagesFolder($testPath);
+        $result = $this->client->resetImagesFolder('test_images');
 
         // Assert
         $this->assertTrue($result);
 
         // Verify files are deleted
         foreach ($testFiles as $file) {
-            $this->assertFileDoesNotExist($file);
+            $this->assertFalse(Storage::disk('public')->exists($file));
         }
-
-        // Verify directory still exists
-        $this->assertDirectoryExists($testPath);
-
-        // Clean up
-        rmdir($testPath);
     }
 
     public function test_resetImagesFolder_with_default_path()
     {
-        // Arrange
-        $defaultPath = storage_path('app/public/images');
-
-        // Create default directory and files
-        if (!is_dir($defaultPath)) {
-            mkdir($defaultPath, 0755, true);
-        }
-
+        // Arrange - create files in default path using Storage facade
         $testFiles = [
-            $defaultPath . '/default1.jpg',
-            $defaultPath . '/default2.png',
+            'images/default1.jpg',
+            'images/default2.png',
         ];
 
         foreach ($testFiles as $file) {
-            file_put_contents($file, 'default test content');
+            Storage::disk('public')->put($file, 'default test content');
         }
 
         // Verify files exist
         foreach ($testFiles as $file) {
-            $this->assertFileExists($file);
+            $this->assertTrue(Storage::disk('public')->exists($file));
         }
 
         // Act
@@ -661,28 +645,17 @@ class PixabayApiClientTest extends TestCase
 
         // Verify files are deleted
         foreach ($testFiles as $file) {
-            $this->assertFileDoesNotExist($file);
+            $this->assertFalse(Storage::disk('public')->exists($file));
         }
-
-        // Verify directory still exists
-        $this->assertDirectoryExists($defaultPath);
     }
 
     public function test_resetImagesFolder_with_nonexistent_directory()
     {
-        // Arrange
-        $nonexistentPath = storage_path('app/public/nonexistent_folder');
+        // Act - try to reset a directory that doesn't exist
+        $result = $this->client->resetImagesFolder('nonexistent_folder');
 
-        // Ensure directory doesn't exist
-        if (is_dir($nonexistentPath)) {
-            rmdir($nonexistentPath);
-        }
-
-        // Act
-        $result = $this->client->resetImagesFolder($nonexistentPath);
-
-        // Assert
-        $this->assertTrue($result); // Should return true for nonexistent directory
+        // Assert - should return true for nonexistent directory
+        $this->assertTrue($result);
     }
 
     public function test_processResponses()
@@ -1054,8 +1027,7 @@ class PixabayApiClientTest extends TestCase
         $imageId      = 4384750;
         $now          = now();
         $imageData    = 'fake image data';
-        $basePath     = storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
-        $expectedPath = $basePath . DIRECTORY_SEPARATOR . $imageId . '_preview.jpg';
+        $relativeFile = 'images/' . $imageId . '_preview.jpg';
 
         // Insert test image with content
         DB::table($this->imagesTableName)->insert([
@@ -1074,13 +1046,13 @@ class PixabayApiClientTest extends TestCase
 
         // Assert
         $this->assertEquals(1, $savedCount);
-        $this->assertFileExists($expectedPath);
-        $this->assertEquals($imageData, file_get_contents($expectedPath));
+        $this->assertTrue(Storage::disk('public')->exists($relativeFile));
+        $this->assertEquals($imageData, Storage::disk('public')->get($relativeFile));
 
-        // Verify database
+        // Verify database stores relative path
         $this->assertDatabaseHas($this->imagesTableName, [
             'id'                       => $imageId,
-            'storage_filepath_preview' => $expectedPath,
+            'storage_filepath_preview' => $relativeFile,
         ]);
     }
 
@@ -1090,8 +1062,7 @@ class PixabayApiClientTest extends TestCase
         $imageId      = 4384750;
         $now          = now();
         $imageData    = 'fake image data';
-        $basePath     = storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
-        $expectedPath = $basePath . DIRECTORY_SEPARATOR . $imageId . '_webformat.jpg';
+        $relativeFile = 'images/' . $imageId . '_webformat.jpg';
 
         // Insert test image with content
         DB::table($this->imagesTableName)->insert([
@@ -1110,13 +1081,13 @@ class PixabayApiClientTest extends TestCase
 
         // Assert
         $this->assertEquals(1, $savedCount);
-        $this->assertFileExists($expectedPath);
-        $this->assertEquals($imageData, file_get_contents($expectedPath));
+        $this->assertTrue(Storage::disk('public')->exists($relativeFile));
+        $this->assertEquals($imageData, Storage::disk('public')->get($relativeFile));
 
-        // Verify database
+        // Verify database stores relative path
         $this->assertDatabaseHas($this->imagesTableName, [
             'id'                         => $imageId,
-            'storage_filepath_webformat' => $expectedPath,
+            'storage_filepath_webformat' => $relativeFile,
         ]);
     }
 
@@ -1125,11 +1096,10 @@ class PixabayApiClientTest extends TestCase
         // Arrange
         $imageId       = 4384750;
         $now           = now();
-        $basePath      = storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
-        $expectedPaths = [
-            'preview'    => $basePath . DIRECTORY_SEPARATOR . $imageId . '_preview.jpg',
-            'webformat'  => $basePath . DIRECTORY_SEPARATOR . $imageId . '_webformat.jpg',
-            'largeImage' => $basePath . DIRECTORY_SEPARATOR . $imageId . '_largeImage.jpg',
+        $relativeFiles = [
+            'preview'    => 'images/' . $imageId . '_preview.jpg',
+            'webformat'  => 'images/' . $imageId . '_webformat.jpg',
+            'largeImage' => 'images/' . $imageId . '_largeImage.jpg',
         ];
 
         // Insert test image with content
@@ -1153,17 +1123,17 @@ class PixabayApiClientTest extends TestCase
 
         // Assert
         $this->assertEquals(3, $savedCount);
-        foreach ($expectedPaths as $type => $path) {
-            $this->assertFileExists($path);
-            $this->assertEquals($type . ' data', file_get_contents($path));
+        foreach ($relativeFiles as $type => $relativeFile) {
+            $this->assertTrue(Storage::disk('public')->exists($relativeFile));
+            $this->assertEquals($type . ' data', Storage::disk('public')->get($relativeFile));
         }
 
-        // Verify database
+        // Verify database stores relative paths
         $this->assertDatabaseHas($this->imagesTableName, [
             'id'                          => $imageId,
-            'storage_filepath_preview'    => $expectedPaths['preview'],
-            'storage_filepath_webformat'  => $expectedPaths['webformat'],
-            'storage_filepath_largeImage' => $expectedPaths['largeImage'],
+            'storage_filepath_preview'    => $relativeFiles['preview'],
+            'storage_filepath_webformat'  => $relativeFiles['webformat'],
+            'storage_filepath_largeImage' => $relativeFiles['largeImage'],
         ]);
     }
 

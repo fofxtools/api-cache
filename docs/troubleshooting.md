@@ -6,6 +6,21 @@ This document tracks various issues encountered during development and their sol
 
 ### August 2025
 
+#### Storage Facade Refactoring (8-23-25)
+- **Change**: Refactored API clients to use Laravel's Storage facade instead of direct Filesystem operations
+- **Affected Classes**: `BaseApiClient`, `PixabayApiClient`, `ZyteApiClient`
+- **Benefits**:
+  1. **Consistent approach**: All file operations now use `Storage::disk('local')` or `Storage::disk('public')`
+  2. **Better testing**: Tests use `Storage::fake()` for clean isolation instead of `uniqid()` temporary folders
+  3. **Idiomatic Laravel**: Follows Laravel best practices for file operations
+  4. **Portable paths**: Database stores relative paths instead of absolute paths
+- **Key Changes**:
+  - `BaseApiClient`: Uses `Storage::disk('local')` for private API cache files
+  - `PixabayApiClient`: Uses `Storage::disk('public')` for web-accessible images
+  - `ZyteApiClient`: Uses `Storage::disk('local')` for private screenshots
+  - All tests: Use `Storage::fake()` in `setUp()` for automatic cleanup
+- **Database Impact**: File paths stored as relative paths (e.g., `"images/123_preview.jpg"`) instead of absolute paths for better portability
+
 #### Domain Validation PSL File Setup (8-16-25)
 - **Issue**: PHPUnit tests failing with "Target must be a valid domain" errors when using `Utility\is_valid_domain()`
 - **Cause**: The `is_valid_domain()` function requires a Public Suffix List (PSL) file at `storage_path('app/public_suffix_list.dat')`, but Orchestra TestCase uses a different base path than the project root

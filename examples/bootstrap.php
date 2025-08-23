@@ -18,6 +18,7 @@ use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
 use Illuminate\Foundation\Bootstrap\LoadConfiguration;
 use Illuminate\Cache\CacheManager;
 use Illuminate\Log\LogManager;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 
 /**
  * Create both compressed and uncompressed tables for a client
@@ -105,6 +106,7 @@ $provider->registerCache($app);
 $provider->registerDatabase($capsule);
 $app->register(ApiCacheServiceProvider::class);
 $app->register(RedisServiceProvider::class);
+$app->register(FilesystemServiceProvider::class);
 
 // Set up basic paths
 $app->useStoragePath($app->basePath('storage'));

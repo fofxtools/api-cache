@@ -10,6 +10,7 @@ use FOfX\ApiCache\ApiCacheServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class DataForSeoApiClientTest extends TestCase
@@ -24,6 +25,9 @@ class DataForSeoApiClientTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Fake the logs storage disk for clean test isolation
+        Storage::fake('logs');
 
         // Configure test environment
         Config::set('api-cache.apis.dataforseo.base_url', $this->apiBaseUrl);
@@ -571,22 +575,16 @@ class DataForSeoApiClientTest extends TestCase
         $idMessage = 'test_message';
         $data      = ['test' => 'data'];
 
-        $expectedLogFile = __DIR__ . "/../../storage/logs/{$filename}.log";
-
-        // Clean up any existing file
-        if (file_exists($expectedLogFile)) {
-            unlink($expectedLogFile);
-        }
+        $expectedLogFile = 'test_log.log';
 
         $this->client->logResponse($filename, $idMessage, $data);
 
-        $this->assertFileExists($expectedLogFile);
-        $logContent = file_get_contents($expectedLogFile);
+        // Verify file was created using Storage facade
+        $this->assertTrue(Storage::disk('logs')->exists($expectedLogFile));
+
+        $logContent = Storage::disk('logs')->get($expectedLogFile);
         $this->assertStringContainsString($idMessage, $logContent);
         $this->assertStringContainsString('[test] => data', $logContent);
-
-        // Clean up
-        unlink($expectedLogFile);
     }
 
     public function test_throwErrorWithLogging_logs_and_throws_exception()
@@ -926,8 +924,8 @@ class DataForSeoApiClientTest extends TestCase
 
         $gzippedJsonData = gzencode(json_encode($successResponse));
 
-        // Redirect log to a temporary file
-        $tempLogFile = sys_get_temp_dir() . '/test_postback.log';
+        // Use relative path for log file (works with Storage::fake())
+        $tempLogFile = 'test_postback';
 
         // Set up cache manager mock
         $cacheManagerMock = $this->createMock(\FOfX\ApiCache\ApiCacheManager::class);

@@ -6,7 +6,7 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Storage;
 use FOfX\Helper\ReflectionUtils;
 use FOfX\Utility;
 
@@ -132,25 +132,16 @@ class ZyteApiClient extends BaseApiClient
                 throw new \RuntimeException("Screenshot data not found in response for row {$rowId}");
             }
 
-            // Create save directory
-            $savePath   = "storage/app/{$this->clientName}/screenshots";
-            $fullPath   = base_path($savePath);
-            $filesystem = new Filesystem();
+            // Generate filename and relative path for Storage facade
+            $filename     = "screenshot_{$rowId}.{$extension}";
+            $relativePath = "{$this->clientName}/screenshots/{$filename}";
 
-            if (!$filesystem->isDirectory($fullPath)) {
-                $filesystem->makeDirectory($fullPath, 0755, true);
-            }
-
-            // Generate filename
-            $filename = "screenshot_{$rowId}.{$extension}";
-            $filePath = $fullPath . '/' . $filename;
-
-            // Decode and save screenshot (base64 encoded)
+            // Decode and save screenshot (base64 encoded) using Storage facade
             $screenshotData = base64_decode($responseBody['screenshot']);
-            file_put_contents($filePath, $screenshotData);
+            Storage::disk('local')->put($relativePath, $screenshotData);
 
             // Get file size
-            $fileSize = filesize($filePath);
+            $fileSize = Storage::disk('local')->size($relativePath);
 
             // Update processing status - success
             DB::table($tableName)
@@ -166,7 +157,7 @@ class ZyteApiClient extends BaseApiClient
                     ], JSON_PRETTY_PRINT),
                 ]);
 
-            return $filePath;
+            return $relativePath;
         } catch (\Exception $e) {
             // Update processing status - error
             DB::table($tableName)
@@ -246,6 +237,8 @@ class ZyteApiClient extends BaseApiClient
      * @param bool|null   $includeIframes              Include iframe content in browserHtml. Note that iframes are visible in screenshots even if this is set to false.
      * @param array       $additionalParams            Additional parameters to pass to the API
      * @param string|null $attributes                  Optional attributes to store with the cache entry
+     * @param string|null $attributes2                 Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3                 Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount                      Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @throws \InvalidArgumentException If validation of required fields fails
@@ -308,6 +301,8 @@ class ZyteApiClient extends BaseApiClient
         ?bool $includeIframes = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
         Log::debug(
@@ -365,10 +360,20 @@ class ZyteApiClient extends BaseApiClient
             $attributes = $url;
         }
 
-        // Pass extract_registrable_domain() as attributes2
-        $attributes2 = Utility\extract_registrable_domain($url);
+        // Pass extract_registrable_domain() as attributes2 if not provided
+        if ($attributes2 === null) {
+            try {
+                $attributes2 = Utility\extract_registrable_domain($url);
+            } catch (\Exception $e) {
+                Log::warning('Failed to extract registrable domain from URL', [
+                    'url'   => $url,
+                    'error' => $e->getMessage(),
+                ]);
+                $attributes2 = null;
+            }
+        }
 
-        return $this->sendCachedRequest('extract', $requestData, 'POST', $attributes, $attributes2, amount: $credits);
+        return $this->sendCachedRequest('extract', $requestData, 'POST', $attributes, $attributes2, $attributes3, amount: $credits);
     }
 
     /**
@@ -392,6 +397,8 @@ class ZyteApiClient extends BaseApiClient
      * @param string|null $device              Type of device to emulate during your request: desktop, mobile
      * @param array       $additionalParams    Additional parameters to pass to the API
      * @param string|null $attributes          Optional attributes to store with the cache entry
+     * @param string|null $attributes2         Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3         Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount              Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -412,8 +419,15 @@ class ZyteApiClient extends BaseApiClient
         ?string $device = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'common';
+        }
+
         return $this->extract(
             url: $url,
             httpResponseBody: $httpResponseBody,
@@ -430,6 +444,8 @@ class ZyteApiClient extends BaseApiClient
             device: $device,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -452,6 +468,8 @@ class ZyteApiClient extends BaseApiClient
      * @param bool|null   $includeIframes   Include iframe content in browserHtml
      * @param array       $additionalParams Additional parameters to pass to the API
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param string|null $attributes2      Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3      Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount           Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -469,8 +487,15 @@ class ZyteApiClient extends BaseApiClient
         ?bool $includeIframes = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'browserHtml';
+        }
+
         return $this->extract(
             url: $url,
             requestHeaders: $requestHeaders,
@@ -485,6 +510,8 @@ class ZyteApiClient extends BaseApiClient
             includeIframes: $includeIframes,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -496,6 +523,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $articleOptions   Article extraction options
      * @param array       $additionalParams Additional parameters to pass to the API
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param string|null $attributes2      Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3      Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount           Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -505,14 +534,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $articleOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'article';
+        }
+
         return $this->extract(
             url: $url,
             article: true,
             articleOptions: $articleOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -524,6 +562,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $articleListOptions Article list extraction options
      * @param array       $additionalParams   Additional parameters to pass to the API
      * @param string|null $attributes         Optional attributes to store with the cache entry
+     * @param string|null $attributes2        Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3        Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount             Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -533,14 +573,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $articleListOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'articleList';
+        }
+
         return $this->extract(
             url: $url,
             articleList: true,
             articleListOptions: $articleListOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -552,6 +601,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $articleNavigationOptions Article navigation extraction options
      * @param array       $additionalParams         Additional parameters to pass to the API
      * @param string|null $attributes               Optional attributes to store with the cache entry
+     * @param string|null $attributes2              Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3              Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount                   Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -561,14 +612,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $articleNavigationOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'articleNavigation';
+        }
+
         return $this->extract(
             url: $url,
             articleNavigation: true,
             articleNavigationOptions: $articleNavigationOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -580,6 +640,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $forumThreadOptions Forum thread extraction options
      * @param array       $additionalParams   Additional parameters to pass to the API
      * @param string|null $attributes         Optional attributes to store with the cache entry
+     * @param string|null $attributes2        Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3        Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount             Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -589,14 +651,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $forumThreadOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'forumThread';
+        }
+
         return $this->extract(
             url: $url,
             forumThread: true,
             forumThreadOptions: $forumThreadOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -608,6 +679,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $jobPostingOptions Job posting extraction options
      * @param array       $additionalParams  Additional parameters to pass to the API
      * @param string|null $attributes        Optional attributes to store with the cache entry
+     * @param string|null $attributes2       Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3       Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount            Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -617,14 +690,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $jobPostingOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'jobPosting';
+        }
+
         return $this->extract(
             url: $url,
             jobPosting: true,
             jobPostingOptions: $jobPostingOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -636,6 +718,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $jobPostingNavigationOptions Job posting navigation extraction options
      * @param array       $additionalParams            Additional parameters to pass to the API
      * @param string|null $attributes                  Optional attributes to store with the cache entry
+     * @param string|null $attributes2                 Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3                 Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount                      Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -645,14 +729,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $jobPostingNavigationOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'jobPostingNavigation';
+        }
+
         return $this->extract(
             url: $url,
             jobPostingNavigation: true,
             jobPostingNavigationOptions: $jobPostingNavigationOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -664,6 +757,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $pageContentOptions Page content extraction options
      * @param array       $additionalParams   Additional parameters to pass to the API
      * @param string|null $attributes         Optional attributes to store with the cache entry
+     * @param string|null $attributes2        Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3        Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount             Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -673,14 +768,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $pageContentOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'pageContent';
+        }
+
         return $this->extract(
             url: $url,
             pageContent: true,
             pageContentOptions: $pageContentOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -692,6 +796,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $productOptions   Product extraction options
      * @param array       $additionalParams Additional parameters to pass to the API
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param string|null $attributes2      Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3      Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount           Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -701,14 +807,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $productOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'product';
+        }
+
         return $this->extract(
             url: $url,
             product: true,
             productOptions: $productOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -720,6 +835,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $productListOptions Product list extraction options
      * @param array       $additionalParams   Additional parameters to pass to the API
      * @param string|null $attributes         Optional attributes to store with the cache entry
+     * @param string|null $attributes2        Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3        Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount             Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -729,14 +846,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $productListOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'productList';
+        }
+
         return $this->extract(
             url: $url,
             productList: true,
             productListOptions: $productListOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -748,6 +874,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $productNavigationOptions Product navigation extraction options
      * @param array       $additionalParams         Additional parameters to pass to the API
      * @param string|null $attributes               Optional attributes to store with the cache entry
+     * @param string|null $attributes2              Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3              Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount                   Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -757,14 +885,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $productNavigationOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'productNavigation';
+        }
+
         return $this->extract(
             url: $url,
             productNavigation: true,
             productNavigationOptions: $productNavigationOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -776,6 +913,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $serpOptions      SERP extraction options
      * @param array       $additionalParams Additional parameters to pass to the API
      * @param string|null $attributes       Optional attributes to store with the cache entry
+     * @param string|null $attributes2      Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3      Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount           Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -785,14 +924,23 @@ class ZyteApiClient extends BaseApiClient
         ?array $serpOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'serp';
+        }
+
         return $this->extract(
             url: $url,
             serp: true,
             serpOptions: $serpOptions,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }
@@ -831,6 +979,8 @@ class ZyteApiClient extends BaseApiClient
      *                                             - maxOutputTokens: Limit output tokens to control cost
      * @param array       $additionalParams        Additional parameters to pass to the API
      * @param string|null $attributes              Optional attributes to store with the cache entry
+     * @param string|null $attributes2             Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3             Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount                  Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data with customAttributes.values containing extracted data
@@ -844,6 +994,8 @@ class ZyteApiClient extends BaseApiClient
         ?array $customAttributesOptions = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
         // Validate extraction type first
@@ -851,6 +1003,11 @@ class ZyteApiClient extends BaseApiClient
 
         if (!in_array($extractionType, $validTypes)) {
             throw new \InvalidArgumentException("Invalid extraction type: '{$extractionType}'. Must be one of: " . implode(', ', $validTypes));
+        }
+
+        // Set attributes3 based on extraction type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'customAttributes-' . $extractionType;
         }
 
         // Build arguments array with dynamic extraction field
@@ -861,6 +1018,8 @@ class ZyteApiClient extends BaseApiClient
             'customAttributesOptions' => $customAttributesOptions,
             'additionalParams'        => $additionalParams,
             'attributes'              => $attributes,
+            'attributes2'             => $attributes2,
+            'attributes3'             => $attributes3,
             'amount'                  => $amount,
         ];
 
@@ -879,6 +1038,8 @@ class ZyteApiClient extends BaseApiClient
      * @param array|null  $viewport          Viewport settings (width, height)
      * @param array       $additionalParams  Additional parameters to pass to the API
      * @param string|null $attributes        Optional attributes to store with the cache entry
+     * @param string|null $attributes2       Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3       Optional tertiary attributes to store with the cache entry
      * @param int|null    $amount            Amount to pass to incrementAttempts, overrides calculated credits
      *
      * @return array The API response data
@@ -889,8 +1050,15 @@ class ZyteApiClient extends BaseApiClient
         ?array $viewport = null,
         array $additionalParams = [],
         ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
         ?int $amount = null
     ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'screenshot';
+        }
+
         return $this->extract(
             url: $url,
             screenshot: true,
@@ -898,6 +1066,8 @@ class ZyteApiClient extends BaseApiClient
             viewport: $viewport,
             additionalParams: $additionalParams,
             attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
             amount: $amount
         );
     }

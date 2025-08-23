@@ -7,7 +7,7 @@ namespace FOfX\ApiCache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Storage;
 
 class PixabayApiClient extends BaseApiClient
 {
@@ -332,34 +332,28 @@ class PixabayApiClient extends BaseApiClient
     /**
      * Delete and recreate the images folder
      *
-     * @param string|null $path Optional path to reset, defaults to storage/app/public/images
+     * @param string|null $relativePath Optional relative path to reset, defaults to 'images'
      *
      * @return bool True if successful, false otherwise
      */
-    public function resetImagesFolder(?string $path = null): bool
+    public function resetImagesFolder(?string $relativePath = null): bool
     {
-        $imagesPath = $path ?: storage_path('app/public/images');
-        $filesystem = new Filesystem();
-
-        if (!$filesystem->isDirectory($imagesPath)) {
-            Log::info('Images folder does not exist', ['path' => $imagesPath]);
-
-            return true; // Consider it successful if directory doesn't exist
-        }
+        $relativePath = $relativePath ?? 'images';
 
         try {
-            // Delete and recreate directory to refresh 'Date created' metadata
-            $filesystem->deleteDirectory($imagesPath);
-            $filesystem->makeDirectory($imagesPath, 0755, true);
+            // Delete entire directory if it exists
+            if (Storage::disk('public')->exists($relativePath)) {
+                Storage::disk('public')->deleteDirectory($relativePath);
+            }
 
             Log::info('Reset images folder', [
-                'path' => $imagesPath,
+                'path' => $relativePath,
             ]);
 
             return true;
         } catch (\Exception $e) {
             Log::error('Failed to reset images folder', [
-                'path'  => $imagesPath,
+                'path'  => $relativePath,
                 'error' => $e->getMessage(),
             ]);
 
@@ -616,16 +610,16 @@ class PixabayApiClient extends BaseApiClient
     /**
      * Save downloaded image(s) to files
      *
-     * @param int|null    $id   Image ID to save, or null for next unsaved image
-     * @param string      $type Image type to save ('preview', 'webformat', 'largeImage', 'all')
-     * @param string|null $path Optional path to save to, defaults to storage/app/public/images
+     * @param int|null    $id           Image ID to save, or null for next unsaved image
+     * @param string      $type         Image type to save ('preview', 'webformat', 'largeImage', 'all')
+     * @param string|null $relativePath Optional relative path to save to, defaults to 'images'
      *
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      *
      * @return int Number of images saved
      */
-    public function saveImageToFile(?int $id = null, string $type = 'all', ?string $path = null): int
+    public function saveImageToFile(?int $id = null, string $type = 'all', ?string $relativePath = null): int
     {
         // Validate image type
         $validTypes = ['preview', 'webformat', 'largeImage', 'all'];
@@ -700,39 +694,24 @@ class PixabayApiClient extends BaseApiClient
                 throw new \RuntimeException("Could not determine extension for type: $imageType");
             }
 
-            // Generate filename
-            $filename = sprintf('%d_%s.%s', $image->id, $imageType, $extension);
+            // Generate filename and relative path
+            $filename         = sprintf('%d_%s.%s', $image->id, $imageType, $extension);
+            $relativeDir      = $relativePath ?? 'images';
+            $relativeFilePath = $relativeDir . '/' . $filename;
 
-            // Get save path and ensure it exists
-            // Use DIRECTORY_SEPARATOR (even though Laravel accepts '/') so that full path in database table has consistent slashes
-            $savePath = $path ?: storage_path('app' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'images');
-            if (!is_dir($savePath)) {
-                if (!mkdir($savePath, 0755, true)) {
-                    throw new \RuntimeException("Failed to create directory: $savePath");
-                }
-            }
+            // Save file using Storage facade
+            Storage::disk('public')->put($relativeFilePath, $image->{"file_contents_$imageType"});
 
-            if (!is_writable($savePath)) {
-                throw new \RuntimeException("Directory is not writable: $savePath");
-            }
+            Log::debug('Saved file', [
+                'id'            => $image->id,
+                'type'          => $imageType,
+                'relative_path' => $relativeFilePath,
+            ]);
 
-            // Save file
-            // Must use DIRECTORY_SEPARATOR for OS compatibility
-            $fullPath = $savePath . DIRECTORY_SEPARATOR . $filename;
-            if (!file_put_contents($fullPath, $image->{"file_contents_$imageType"})) {
-                throw new \RuntimeException("Failed to save file for type: $imageType");
-            } else {
-                Log::debug('Saved file', [
-                    'id'   => $image->id,
-                    'type' => $imageType,
-                    'path' => $fullPath,
-                ]);
-            }
-
-            // Update database
+            // Update database with relative path
             DB::table($this->imagesTableName)
                 ->where('id', $image->id)
-                ->update(["storage_filepath_$imageType" => $fullPath]);
+                ->update(["storage_filepath_$imageType" => $relativeFilePath]);
 
             $savedCount++;
         }

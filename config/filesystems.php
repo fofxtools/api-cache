@@ -57,6 +57,20 @@ return [
             'throw'                   => false,
             'report'                  => false,
         ],
+
+        'app' => [
+            'driver' => 'local',
+            'root'   => storage_path('app'),
+            'throw'  => false,
+            'report' => false,
+        ],
+
+        'logs' => [
+            'driver' => 'local',
+            'root'   => storage_path('logs'),
+            'throw'  => false,
+            'report' => false,
+        ],
     ],
 
     /*

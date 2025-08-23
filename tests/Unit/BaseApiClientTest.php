@@ -9,6 +9,7 @@ use FOfX\ApiCache\ApiCacheServiceProvider;
 use FOfX\ApiCache\BaseApiClient;
 use FOfX\ApiCache\RateLimitException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use FOfX\ApiCache\Tests\TestCase;
@@ -34,6 +35,9 @@ class BaseApiClientTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Fake the local storage disk for clean test isolation
+        Storage::fake('local');
 
         // Get base URL from config
         $baseUrl = config("api-cache.apis.{$this->clientName}.base_url");
@@ -1762,7 +1766,7 @@ class BaseApiClientTest extends TestCase
             'updated_at'           => now(),
         ]);
 
-        $testDir = 'storage/app/test_file_save';
+        $testDir = 'test_file_save';
 
         // Call the method to save files for the test endpoint
         $stats = $realClient->saveResponseBodyToFile(10, 'test-endpoint', $testDir);
@@ -1774,11 +1778,11 @@ class BaseApiClientTest extends TestCase
 
         // Verify file was created with expected content
         $expectedFilename = $testId . '-httpsexamplecomtest-page.html';
-        $expectedFilePath = base_path($testDir . '/' . $expectedFilename);
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
 
-        $this->assertFileExists($expectedFilePath, 'Response body file should be created');
+        $this->assertTrue(Storage::disk('local')->exists($expectedFilePath), 'Response body file should be created');
 
-        $actualFileContent = file_get_contents($expectedFilePath);
+        $actualFileContent = Storage::disk('local')->get($expectedFilePath);
         $this->assertEquals($testResponseBody, $actualFileContent, 'File content should match response body');
 
         // Verify specific content is in the file
@@ -1796,14 +1800,6 @@ class BaseApiClientTest extends TestCase
         $this->assertStringContainsString($expectedFilename, $status['filename'], 'Filename should be recorded');
         $this->assertIsInt($status['file_size'], 'File size should be recorded');
         $this->assertGreaterThan(0, $status['file_size'], 'File size should be greater than 0');
-
-        // Clean up
-        if (file_exists($expectedFilePath)) {
-            unlink($expectedFilePath);
-        }
-        if (is_dir(base_path($testDir))) {
-            rmdir(base_path($testDir));
-        }
     }
 
     public function test_saveResponseBodyToFile_skips_existing_files_when_overwrite_disabled(): void
@@ -1817,7 +1813,7 @@ class BaseApiClientTest extends TestCase
         );
 
         $tableName = $this->realCacheManager->getTableName($this->clientName);
-        $testDir   = 'storage/app/test_skip_files';
+        $testDir   = 'test_skip_files';
 
         // Insert test data
         $testId = DB::table($tableName)->insertGetId([
@@ -1834,14 +1830,11 @@ class BaseApiClientTest extends TestCase
             'updated_at'           => now(),
         ]);
 
-        // Create existing file
+        // Create existing file using Storage facade
         $expectedFilename = $testId . '-httpsexamplecomskip-page.html';
-        $expectedFilePath = base_path($testDir . '/' . $expectedFilename);
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
 
-        if (!is_dir(base_path($testDir))) {
-            mkdir(base_path($testDir), 0755, true);
-        }
-        file_put_contents($expectedFilePath, 'Original content');
+        Storage::disk('local')->put($expectedFilePath, 'Original content');
 
         // Call method with overwriteExisting = false (default)
         $stats = $realClient->saveResponseBodyToFile(10, 'skip-test', $testDir, false);
@@ -1852,7 +1845,7 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals(1, $stats['skipped'], 'Should skip 1 file');
 
         // Verify file content wasn't changed
-        $this->assertEquals('Original content', file_get_contents($expectedFilePath));
+        $this->assertEquals('Original content', Storage::disk('local')->get($expectedFilePath));
 
         // Verify database status shows skipped
         $record = DB::table($tableName)->where('id', $testId)->first();
@@ -1860,14 +1853,6 @@ class BaseApiClientTest extends TestCase
 
         $status = json_decode($record->processed_status, true);
         $this->assertEquals('Skipped', $status['status']);
-
-        // Clean up
-        if (file_exists($expectedFilePath)) {
-            unlink($expectedFilePath);
-        }
-        if (is_dir(base_path($testDir))) {
-            rmdir(base_path($testDir));
-        }
     }
 
     public function test_saveResponseBodyToFile_overwrites_existing_files_when_enabled(): void
@@ -1881,7 +1866,7 @@ class BaseApiClientTest extends TestCase
         );
 
         $tableName = $this->realCacheManager->getTableName($this->clientName);
-        $testDir   = 'storage/app/test_overwrite_files';
+        $testDir   = 'test_overwrite_files';
 
         // Insert test data
         $testResponseBody = '<html>Updated content</html>';
@@ -1899,14 +1884,11 @@ class BaseApiClientTest extends TestCase
             'updated_at'           => now(),
         ]);
 
-        // Create existing file
+        // Create existing file using Storage facade
         $expectedFilename = $testId . '-httpsexamplecomoverwrite-page.html';
-        $expectedFilePath = base_path($testDir . '/' . $expectedFilename);
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
 
-        if (!is_dir(base_path($testDir))) {
-            mkdir(base_path($testDir), 0755, true);
-        }
-        file_put_contents($expectedFilePath, 'Original content');
+        Storage::disk('local')->put($expectedFilePath, 'Original content');
 
         // Call method with overwriteExisting = true
         $stats = $realClient->saveResponseBodyToFile(10, 'overwrite-test', $testDir, true);
@@ -1917,20 +1899,12 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
 
         // Verify file content was updated
-        $this->assertEquals($testResponseBody, file_get_contents($expectedFilePath));
+        $this->assertEquals($testResponseBody, Storage::disk('local')->get($expectedFilePath));
 
         // Verify database status shows processed
         $record = DB::table($tableName)->where('id', $testId)->first();
         $status = json_decode($record->processed_status, true);
         $this->assertEquals('OK', $status['status']);
-
-        // Clean up
-        if (file_exists($expectedFilePath)) {
-            unlink($expectedFilePath);
-        }
-        if (is_dir(base_path($testDir))) {
-            rmdir(base_path($testDir));
-        }
     }
 
     public function test_saveResponseBodyToFile_filters_by_endpoint(): void
@@ -1944,7 +1918,7 @@ class BaseApiClientTest extends TestCase
         );
 
         $tableName = $this->realCacheManager->getTableName($this->clientName);
-        $testDir   = 'storage/app/test_endpoint_filter';
+        $testDir   = 'test_endpoint_filter';
 
         // Insert records with different endpoints
         $testId1 = DB::table($tableName)->insertGetId([
@@ -1984,24 +1958,356 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
 
         // Verify only the target file was created
-        $targetFile = base_path($testDir . '/' . $testId1 . '-httpsexamplecomtarget.html');
-        $otherFile  = base_path($testDir . '/' . $testId2 . '-httpsexamplecomother.html');
+        $targetFile = $testDir . '/' . $testId1 . '-httpsexamplecomtarget.html';
+        $otherFile  = $testDir . '/' . $testId2 . '-httpsexamplecomother.html';
 
-        $this->assertFileExists($targetFile, 'Target endpoint file should exist');
-        $this->assertFileDoesNotExist($otherFile, 'Other endpoint file should not exist');
+        $this->assertTrue(Storage::disk('local')->exists($targetFile), 'Target endpoint file should exist');
+        $this->assertFalse(Storage::disk('local')->exists($otherFile), 'Other endpoint file should not exist');
 
-        $this->assertEquals('<html>Target content</html>', file_get_contents($targetFile));
+        $this->assertEquals('<html>Target content</html>', Storage::disk('local')->get($targetFile));
+    }
 
-        // Clean up
-        if (file_exists($targetFile)) {
-            unlink($targetFile);
-        }
-        if (file_exists($otherFile)) {
-            unlink($otherFile);
-        }
-        if (is_dir(base_path($testDir))) {
-            rmdir(base_path($testDir));
-        }
+    public function test_saveResponseBodyToFile_filters_by_attributes(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_attributes_filter';
+
+        // Insert records with different attributes values
+        $testId1 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-attributes-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test-endpoint',
+            'attributes'           => 'target-attribute',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Target attribute content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $testId2 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-attributes-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test-endpoint',
+            'attributes'           => 'other-attribute',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Other attribute content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call method filtering for 'target-attribute' only
+        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, null, 'target-attribute');
+
+        // Verify statistics - should only process the target attribute
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify only the target file was created
+        $targetFile = $testDir . '/' . $testId1 . '-target-attribute.html';
+        $otherFile  = $testDir . '/' . $testId2 . '-other-attribute.html';
+
+        $this->assertTrue(Storage::disk('local')->exists($targetFile), 'Target attribute file should exist');
+        $this->assertFalse(Storage::disk('local')->exists($otherFile), 'Other attribute file should not exist');
+
+        $this->assertEquals('<html>Target attribute content</html>', Storage::disk('local')->get($targetFile));
+    }
+
+    public function test_saveResponseBodyToFile_filters_by_attributes2(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_attributes2_filter';
+
+        // Insert records with different attributes2 values
+        $testId1 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-attributes2-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test-endpoint',
+            'attributes'           => 'test-url',
+            'attributes2'          => 'target-attr2',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Target attributes2 content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $testId2 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-attributes2-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test-endpoint',
+            'attributes'           => 'test-url',
+            'attributes2'          => 'other-attr2',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Other attributes2 content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call method filtering for 'target-attr2' only
+        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, null, null, 'target-attr2');
+
+        // Verify statistics - should only process the target attributes2
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify only the target file was created (filename includes all attributes)
+        $targetFile = $testDir . '/' . $testId1 . '-test-url-target-attr2.html';
+        $otherFile  = $testDir . '/' . $testId2 . '-test-url-other-attr2.html';
+
+        $this->assertTrue(Storage::disk('local')->exists($targetFile), 'Target attributes2 file should exist');
+        $this->assertFalse(Storage::disk('local')->exists($otherFile), 'Other attributes2 file should not exist');
+
+        $this->assertEquals('<html>Target attributes2 content</html>', Storage::disk('local')->get($targetFile));
+    }
+
+    public function test_saveResponseBodyToFile_filters_by_attributes3(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_attributes3_filter';
+
+        // Insert records with different attributes3 values
+        $testId1 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-attributes3-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test-endpoint',
+            'attributes'           => 'test-url',
+            'attributes3'          => 'browserHtml',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Browser HTML content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $testId2 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-attributes3-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'test-endpoint',
+            'attributes'           => 'test-url',
+            'attributes3'          => 'screenshot',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Screenshot content</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call method filtering for 'browserHtml' only
+        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, null, null, null, 'browserHtml');
+
+        // Verify statistics - should only process the browserHtml attribute
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify only the target file was created (filename includes all attributes)
+        $targetFile = $testDir . '/' . $testId1 . '-test-url-browserhtml.html';
+        $otherFile  = $testDir . '/' . $testId2 . '-test-url-screenshot.html';
+
+        $this->assertTrue(Storage::disk('local')->exists($targetFile), 'browserHtml file should exist');
+        $this->assertFalse(Storage::disk('local')->exists($otherFile), 'screenshot file should not exist');
+
+        $this->assertEquals('<html>Browser HTML content</html>', Storage::disk('local')->get($targetFile));
+    }
+
+    public function test_saveResponseBodyToFile_extracts_json_field(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_json_extraction';
+
+        // Create JSON response body with browserHtml field
+        $htmlContent      = '<html><head><title>Extracted HTML</title></head><body><h1>JSON Extracted Content</h1></body></html>';
+        $jsonResponseBody = json_encode([
+            'url'         => 'https://example.com',
+            'statusCode'  => 200,
+            'browserHtml' => $htmlContent,
+            'otherField'  => 'should not be extracted',
+        ]);
+
+        $testId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-json-extraction',
+            'client'               => $this->clientName,
+            'endpoint'             => 'extract-test',
+            'attributes'           => 'https://example.com/json-test',
+            'attributes3'          => 'browserHtml',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => $jsonResponseBody,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call method with JSON extraction for 'browserHtml' field
+        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, 'browserHtml', null, null, 'browserHtml');
+
+        // Verify statistics
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify file was created with extracted HTML content (not JSON)
+        $expectedFilename = $testId . '-httpsexamplecomjson-test-browserhtml.html';
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
+
+        $this->assertTrue(Storage::disk('local')->exists($expectedFilePath), 'Extracted HTML file should be created');
+
+        $actualFileContent = Storage::disk('local')->get($expectedFilePath);
+        $this->assertEquals($htmlContent, $actualFileContent, 'File should contain extracted HTML, not JSON');
+
+        // Verify it contains HTML content, not JSON
+        $this->assertStringContainsString('<title>Extracted HTML</title>', $actualFileContent);
+        $this->assertStringContainsString('<h1>JSON Extracted Content</h1>', $actualFileContent);
+        $this->assertStringNotContainsString('statusCode', $actualFileContent);
+        $this->assertStringNotContainsString('otherField', $actualFileContent);
+    }
+
+    public function test_saveResponseBodyToFile_handles_invalid_json_gracefully(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_invalid_json';
+
+        // Create invalid JSON response body
+        $invalidJsonResponseBody = '{invalid json content}';
+
+        $testId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-invalid-json',
+            'client'               => $this->clientName,
+            'endpoint'             => 'invalid-json-test',
+            'attributes'           => 'https://example.com/invalid-json',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => $invalidJsonResponseBody,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call method with JSON extraction - should handle invalid JSON gracefully
+        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, 'browserHtml');
+
+        // Verify statistics - should have 1 error
+        $this->assertEquals(0, $stats['processed'], 'Should process 0 records');
+        $this->assertEquals(1, $stats['errors'], 'Should have 1 error');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify no file was created
+        $expectedFilename = $testId . '-httpsexamplecominvalid-json.html';
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
+        $this->assertFalse(Storage::disk('local')->exists($expectedFilePath), 'No file should be created for invalid JSON');
+
+        // Verify database record shows error status
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $this->assertNotNull($record->processed_status);
+        $status = json_decode($record->processed_status, true);
+        $this->assertEquals('ERROR', $status['status']);
+        $this->assertStringContainsString('Invalid JSON', $status['error']);
+    }
+
+    public function test_saveResponseBodyToFile_handles_missing_json_key_gracefully(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_missing_json_key';
+
+        // Create valid JSON but without the requested key
+        $jsonResponseBody = json_encode([
+            'url'        => 'https://example.com',
+            'statusCode' => 200,
+            'otherField' => 'some content',
+            // Missing 'browserHtml' key
+        ]);
+
+        $testId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-missing-key',
+            'client'               => $this->clientName,
+            'endpoint'             => 'missing-key-test',
+            'attributes'           => 'https://example.com/missing-key',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => $jsonResponseBody,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call method with JSON extraction for missing key
+        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, 'browserHtml');
+
+        // Verify statistics - should have 1 error
+        $this->assertEquals(0, $stats['processed'], 'Should process 0 records');
+        $this->assertEquals(1, $stats['errors'], 'Should have 1 error');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify no file was created
+        $expectedFilename = $testId . '-httpsexamplecommissing-key.html';
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
+        $this->assertFalse(Storage::disk('local')->exists($expectedFilePath), 'No file should be created for missing JSON key');
+
+        // Verify database record shows error status
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $this->assertNotNull($record->processed_status);
+        $status = json_decode($record->processed_status, true);
+        $this->assertEquals('ERROR', $status['status']);
+        $this->assertStringContainsString("JSON key 'browserHtml' not found", $status['error']);
     }
 
     public function test_saveAllResponseBodiesToFile_processes_multiple_batches(): void
@@ -2015,7 +2321,7 @@ class BaseApiClientTest extends TestCase
         );
 
         $tableName = $this->realCacheManager->getTableName($this->clientName);
-        $testDir   = 'storage/app/test_batch_processing';
+        $testDir   = 'test_batch_processing';
 
         // Insert 5 test records (more than one batch of size 2)
         $testIds = [];
@@ -2045,10 +2351,10 @@ class BaseApiClientTest extends TestCase
 
         // Verify all files were created with correct content
         foreach ($testIds as $i => $testId) {
-            $expectedFile = base_path($testDir . '/' . $testId . '-httpsexamplecombatch' . ($i + 1) . '.html');
-            $this->assertFileExists($expectedFile, "Batch file {$i} should exist");
+            $expectedFile = $testDir . '/' . $testId . '-httpsexamplecombatch' . ($i + 1) . '.html';
+            $this->assertTrue(Storage::disk('local')->exists($expectedFile), "Batch file {$i} should exist");
 
-            $content = file_get_contents($expectedFile);
+            $content = Storage::disk('local')->get($expectedFile);
             $this->assertStringContainsString('Batch content ' . ($i + 1), $content);
         }
 
@@ -2059,16 +2365,55 @@ class BaseApiClientTest extends TestCase
             ->whereNotNull('processed_status')
             ->count();
         $this->assertEquals(5, $processedCount, 'All records should be marked as processed');
+    }
 
-        // Clean up
-        foreach ($testIds as $i => $testId) {
-            $file = base_path($testDir . '/' . $testId . '-httpsexamplecombatch' . ($i + 1) . '.html');
-            if (file_exists($file)) {
-                unlink($file);
-            }
-        }
-        if (is_dir(base_path($testDir))) {
-            rmdir(base_path($testDir));
-        }
+    public function test_saveAllResponseBodiesToFile_passes_through_new_parameters(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_passthrough_params';
+
+        // Create JSON response with browserHtml field
+        $htmlContent      = '<html>Passthrough test content</html>';
+        $jsonResponseBody = json_encode([
+            'url'         => 'https://example.com',
+            'browserHtml' => $htmlContent,
+        ]);
+
+        $testId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-passthrough',
+            'client'               => $this->clientName,
+            'endpoint'             => 'passthrough-test',
+            'attributes'           => 'https://example.com/passthrough',
+            'attributes3'          => 'browserHtml',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_body'        => $jsonResponseBody,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call saveAllResponseBodiesToFile with new parameters
+        $stats = $realClient->saveAllResponseBodiesToFile(10, null, $testDir, false, 180, 'browserHtml', null, null, 'browserHtml');
+
+        // Verify statistics
+        $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
+        $this->assertEquals(0, $stats['errors'], 'Should have no errors');
+        $this->assertEquals(0, $stats['skipped'], 'Should skip no files');
+
+        // Verify file was created with extracted content
+        $expectedFilename = $testId . '-httpsexamplecompassthrough-browserhtml.html';
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
+
+        $this->assertTrue(Storage::disk('local')->exists($expectedFilePath), 'File should be created');
+        $this->assertEquals($htmlContent, Storage::disk('local')->get($expectedFilePath), 'File should contain extracted HTML');
     }
 }

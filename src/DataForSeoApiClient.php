@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use FOfX\Helper\ReflectionUtils;
 use FOfX\Helper;
 use FOfX\Utility;
@@ -316,20 +317,18 @@ class DataForSeoApiClient extends BaseApiClient
     /**
      * Log response data to a file for debugging purposes
      *
-     * @param string $filename  The base filename (without extension)
+     * @param string $filename  The base filename (with or without .log extension; .log will be appended if missing)
      * @param string $idMessage The log message identifier
      * @param mixed  $data      The data to log
      */
     public function logResponse(string $filename, string $idMessage, mixed $data): void
     {
-        // Use full path as-is if absolute, otherwise treat as relative to storage/logs
-        $logFile = Helper\is_absolute_path($filename)
-            ? $filename
-            : __DIR__ . "/../storage/logs/{$filename}.log";
+        // Ensure .log extension
+        $logFile = str_ends_with($filename, '.log') ? $filename : "{$filename}.log";
 
         $logEntry = PHP_EOL . date('Y-m-d H:i:s') . ': ' . $idMessage . PHP_EOL . '---------' . PHP_EOL . print_r($data, true) . PHP_EOL . '---------';
 
-        @file_put_contents($logFile, $logEntry, FILE_APPEND);
+        Storage::disk('logs')->append($logFile, $logEntry);
     }
 
     /**

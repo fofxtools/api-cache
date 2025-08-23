@@ -65,7 +65,15 @@ class ScraperApiClient extends BaseApiClient
      */
     public function calculateCredits(string $url, array $additionalParams = []): int
     {
-        $registrableDomain = Utility\extract_registrable_domain($url);
+        try {
+            $registrableDomain = Utility\extract_registrable_domain($url);
+        } catch (\Exception $e) {
+            Log::warning('Failed to extract registrable domain from URL for credit calculation', [
+                'url'   => $url,
+                'error' => $e->getMessage(),
+            ]);
+            $registrableDomain = null;
+        }
 
         // Define known domains and their credit costs
         $domainCredits = [
@@ -177,7 +185,15 @@ class ScraperApiClient extends BaseApiClient
         $attributes = $url;
 
         // Pass extract_registrable_domain() as attributes2
-        $attributes2 = Utility\extract_registrable_domain($url);
+        try {
+            $attributes2 = Utility\extract_registrable_domain($url);
+        } catch (\Exception $e) {
+            Log::warning('Failed to extract registrable domain from URL', [
+                'url'   => $url,
+                'error' => $e->getMessage(),
+            ]);
+            $attributes2 = null;
+        }
 
         return $this->sendCachedRequest('', $params, 'GET', $attributes, $attributes2, amount: $credits);
     }

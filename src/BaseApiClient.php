@@ -13,8 +13,8 @@ use Illuminate\Http\Client\Response;
 use FOfX\Helper;
 use FOfX\Helper\ReflectionUtils;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Filesystem\Filesystem;
 
 class BaseApiClient
 {
@@ -1020,20 +1020,19 @@ class BaseApiClient
      * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
      * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
      * @param int         $truncateLength    Maximum length for filename slug (default: 180)
+     * @param string|null $jsonKey           Optional JSON field name to extract from response_body.
+     *                                       If provided, response_body is parsed as JSON and the
+     *                                       specified field value is saved instead of raw response.
+     * @param string|null $attributes        Optional filter for attributes column
+     * @param string|null $attributes2       Optional filter for attributes2 column
+     * @param string|null $attributes3       Optional filter for attributes3 column
      *
      * @return array Statistics about the processing
      */
-    public function saveResponseBodyToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180): array
+    public function saveResponseBodyToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180, ?string $jsonKey = null, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
     {
         $tableName = $this->getTableName();
-        $savePath  = $savePath ?? "storage/app/{$this->clientName}";
-
-        // Ensure the directory exists
-        $fullPath   = base_path($savePath);
-        $filesystem = new Filesystem();
-        if (!$filesystem->isDirectory($fullPath)) {
-            $filesystem->makeDirectory($fullPath, 0755, true);
-        }
+        $savePath  = $savePath ?? "{$this->clientName}";
 
         $stats = [
             'processed' => 0,
@@ -1055,6 +1054,17 @@ class BaseApiClient
             $query->where('endpoint', $endpoint);
         }
 
+        // Add attribute filters if provided
+        if ($attributes !== null) {
+            $query->where('attributes', $attributes);
+        }
+        if ($attributes2 !== null) {
+            $query->where('attributes2', $attributes2);
+        }
+        if ($attributes3 !== null) {
+            $query->where('attributes3', $attributes3);
+        }
+
         $rows = $query->limit($batchSize)->get();
 
         if ($rows->isEmpty()) {
@@ -1063,10 +1073,12 @@ class BaseApiClient
 
         // Bulk pre-filtering: Get all existing files once
         $existingFiles = [];
-        if (!$overwriteExisting && $filesystem->isDirectory($fullPath)) {
-            $files = $filesystem->glob($fullPath . '/*.html');
+        if (!$overwriteExisting) {
+            $files = Storage::disk('local')->files($savePath);
             foreach ($files as $file) {
-                $existingFiles[] = basename($file, '.html');
+                if (str_ends_with($file, '.html')) {
+                    $existingFiles[] = basename($file, '.html');
+                }
             }
         }
 
@@ -1090,16 +1102,16 @@ class BaseApiClient
                 $stats['skipped']++;
             } else {
                 $rowsToProcess[] = [
-                    'row'       => $row,
-                    'filename'  => $filename,
-                    'full_path' => $fullPath . '/' . $filename,
+                    'row'          => $row,
+                    'filename'     => $filename,
+                    'storage_path' => $savePath . '/' . $filename,
                 ];
             }
         }
 
         // Process everything in a single transaction
         try {
-            DB::transaction(function () use ($rowsToProcess, $rowsToSkip, $compressionService, &$stats) {
+            DB::transaction(function () use ($rowsToProcess, $rowsToSkip, $compressionService, $jsonKey, &$stats) {
                 $processedUpdates = [];
                 $errorUpdates     = [];
 
@@ -1109,9 +1121,21 @@ class BaseApiClient
                         // Decompress response body if needed
                         $responseBody = $compressionService->decompress($this->clientName, $item['row']->response_body, 'response_body');
 
-                        // Write file
-                        file_put_contents($item['full_path'], $responseBody);
-                        $fileSize = filesize($item['full_path']);
+                        // Extract from JSON if jsonKey is provided
+                        if ($jsonKey !== null) {
+                            $jsonData = json_decode($responseBody, true);
+                            if (json_last_error() !== JSON_ERROR_NONE) {
+                                throw new \Exception('Invalid JSON in response_body: ' . json_last_error_msg());
+                            }
+                            if (!isset($jsonData[$jsonKey])) {
+                                throw new \Exception("JSON key '{$jsonKey}' not found in response_body");
+                            }
+                            $responseBody = $jsonData[$jsonKey];
+                        }
+
+                        // Write file using Storage facade
+                        Storage::disk('local')->put($item['storage_path'], $responseBody);
+                        $fileSize = Storage::disk('local')->size($item['storage_path']);
 
                         $processedUpdates[] = [
                             'id'        => $item['row']->id,
@@ -1204,10 +1228,16 @@ class BaseApiClient
      * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
      * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
      * @param int         $truncateLength    Maximum length for filename slug (default: 180)
+     * @param string|null $jsonKey           Optional JSON field name to extract from response_body.
+     *                                       If provided, response_body is parsed as JSON and the
+     *                                       specified field value is saved instead of raw response.
+     * @param string|null $attributes        Optional filter for attributes column
+     * @param string|null $attributes2       Optional filter for attributes2 column
+     * @param string|null $attributes3       Optional filter for attributes3 column
      *
      * @return array Statistics about the processing
      */
-    public function saveAllResponseBodiesToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180): array
+    public function saveAllResponseBodiesToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180, ?string $jsonKey = null, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
     {
         $totalStats = [
             'processed' => 0,
@@ -1216,8 +1246,13 @@ class BaseApiClient
             'batches'   => 0,
         ];
 
+        // Log Storage facade path
+        Log::debug('Storage facade path', [
+            'storage_path' => Storage::disk('local')->path(''),
+        ]);
+
         while (true) {
-            $batchStats = $this->saveResponseBodyToFile($batchSize, $endpoint, $savePath, $overwriteExisting, $truncateLength);
+            $batchStats = $this->saveResponseBodyToFile($batchSize, $endpoint, $savePath, $overwriteExisting, $truncateLength, $jsonKey, $attributes, $attributes2, $attributes3);
 
             // If no work was done, we're finished
             if ($batchStats['processed'] === 0 && $batchStats['errors'] === 0 && $batchStats['skipped'] === 0) {

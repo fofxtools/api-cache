@@ -464,7 +464,6 @@ class ZyteApiClient extends BaseApiClient
      * @param bool|null   $javascript       Force JavaScript execution enabled/disabled. This field is not compatible with HTTP requests.
      * @param array|null  $actions          Browser action sequence
      * @param array|null  $viewport         Browser viewport settings
-     * @param string|null $device           Device type: desktop, mobile
      * @param bool|null   $includeIframes   Include iframe content in browserHtml
      * @param array       $additionalParams Additional parameters to pass to the API
      * @param string|null $attributes       Optional attributes to store with the cache entry
@@ -483,7 +482,6 @@ class ZyteApiClient extends BaseApiClient
         ?bool $javascript = null,
         ?array $actions = null,
         ?array $viewport = null,
-        ?string $device = null,
         ?bool $includeIframes = null,
         array $additionalParams = [],
         ?string $attributes = null,
@@ -506,7 +504,6 @@ class ZyteApiClient extends BaseApiClient
             javascript: $javascript,
             actions: $actions,
             viewport: $viewport,
-            device: $device,
             includeIframes: $includeIframes,
             additionalParams: $additionalParams,
             attributes: $attributes,

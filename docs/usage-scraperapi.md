@@ -33,7 +33,7 @@ To disable caching for specific requests:
 
 ```php
 $client->setUseCache(false);
-$result = $client->scrape('https://fiverr.com');
+$result = $client->scrape('https://www.fiverr.com');
 $client->setUseCache(true); // Re-enable
 ```
 
@@ -44,7 +44,7 @@ $client->setUseCache(true); // Re-enable
 Scrape any URL:
 
 ```php
-$result = $client->scrape('https://fiverr.com');
+$result = $client->scrape('https://www.fiverr.com');
 $response = $result['response'];
 $body = $response->body();
 ```
@@ -53,7 +53,7 @@ $body = $response->body();
 
 ```php
 $result = $client->scrape(
-    url: 'https://fiverr.com',
+    url: 'https://www.fiverr.com',
     autoparse: false,                   // Auto-parse JSON responses (default: false)
     outputFormat: 'markdown'            // Output format: 'text', 'markdown', etc. (optional)
 );
@@ -73,7 +73,7 @@ $additionalParams = [
 ];
 
 $result = $client->scrape(
-    'https://fiverr.com',
+    'https://www.fiverr.com',
     additionalParams: $additionalParams
 );
 ```
@@ -98,7 +98,7 @@ ScraperAPI uses a credit-based system. The client automatically calculates credi
 Check required credits for a URL. **Note:** This method only checks select sites. For the actual costs you need to check the official documentation:
 
 ```php
-$credits = $client->calculateCredits('https://amazon.com'); // Returns 5
+$credits = $client->calculateCredits('https://www.amazon.com'); // Returns 5
 ```
 
 ## Saving Response Bodies to Files
@@ -114,7 +114,7 @@ print_r($stats);
 $stats = $client->saveAllResponseBodiesToFile(
     batchSize: 10,                    // Process 10 at a time
     endpoint: '',                     // Only '' endpoint
-    savePath: 'storage/app/scraped',  // Custom directory
+    savePath: 'scraped',              // Custom directory
     overwriteExisting: true           // Overwrite existing files
 );
 ```

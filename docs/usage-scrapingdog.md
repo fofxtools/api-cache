@@ -33,7 +33,7 @@ To disable caching for specific requests:
 
 ```php
 $client->setUseCache(false);
-$result = $client->scrape('https://fiverr.com');
+$result = $client->scrape('https://www.fiverr.com');
 $client->setUseCache(true); // Re-enable
 ```
 
@@ -44,7 +44,7 @@ $client->setUseCache(true); // Re-enable
 Scrape any URL:
 
 ```php
-$result = $client->scrape('https://fiverr.com');
+$result = $client->scrape('https://www.fiverr.com');
 $response = $result['response'];
 $body = $response->body();
 ```
@@ -55,7 +55,7 @@ Enable JavaScript rendering:
 
 ```php
 $result = $client->scrape(
-    url: 'https://fiverr.com',
+    url: 'https://www.fiverr.com',
     dynamic: true                       // Enable JS rendering (default: false)
 );
 ```
@@ -66,7 +66,7 @@ Use premium residential proxies:
 
 ```php
 $result = $client->scrape(
-    url: 'https://yahoo.com',
+    url: 'https://www.yahoo.com',
     premium: true                       // Use premium proxies (default: null)
 );
 ```
@@ -77,7 +77,7 @@ Use AI to extract specific content:
 
 ```php
 $result = $client->scrape(
-    url: 'https://fiverr.com',
+    url: 'https://www.fiverr.com',
     ai_query: 'Extract the main heading and description'
 );
 ```
@@ -93,7 +93,7 @@ $extractRules = [
 ];
 
 $result = $client->scrape(
-    url: 'https://fiverr.com',
+    url: 'https://www.fiverr.com',
     ai_extract_rules: $extractRules
 );
 ```
@@ -111,7 +111,7 @@ $additionalParams = [
 ];
 
 $result = $client->scrape(
-    url: 'https://fiverr.com',
+    url: 'https://www.fiverr.com',
     additionalParams: $additionalParams
 );
 ```
@@ -149,7 +149,7 @@ print_r($stats);
 $stats = $client->saveAllResponseBodiesToFile(
     batchSize: 10,                    // Process 10 at a time
     endpoint: 'scrape',               // Only 'scrape' endpoint
-    savePath: 'storage/app/scraped',  // Custom directory
+    savePath: 'scraped',              // Custom directory
     overwriteExisting: true           // Overwrite existing files
 );
 ```

@@ -137,5 +137,9 @@ class ApiCacheServiceProvider extends ServiceProvider
         $this->app->singleton('db.connection', function () use ($capsule) {
             return $capsule->getDatabaseManager()->connection();
         });
+
+        $this->app->singleton('db.schema', function () use ($capsule) {
+            return $capsule->getDatabaseManager()->connection()->getSchemaBuilder();
+        });
     }
 }

@@ -62,6 +62,9 @@ function createProcessedResponseTables(Builder $schema, bool $dropExisting = fal
     // Create pixabay_images table
     create_pixabay_images_table($schema, dropExisting: $dropExisting, verify: $verify);
 
+    // Create dataforseo_serp_google_organic_listings table
+    create_dataforseo_serp_google_organic_listings_table($schema, dropExisting: $dropExisting, verify: $verify);
+
     // Create dataforseo_serp_google_organic_items table
     create_dataforseo_serp_google_organic_items_table($schema, dropExisting: $dropExisting, verify: $verify);
 

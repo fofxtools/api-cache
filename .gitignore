@@ -104,3 +104,13 @@ phpdoc.xml
 /phpunit.txt
 /phpstan.txt
 /junit.xml
+
+# Python virtual environments
+venv*/
+.venv*/
+
+# Python cache / Bytecode
+__pycache__/
+*.pyc
+*.py[codz]
+*$py.class

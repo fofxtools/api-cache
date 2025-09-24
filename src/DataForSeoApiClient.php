@@ -815,7 +815,7 @@ class DataForSeoApiClient extends BaseApiClient
         ?string $device = 'desktop',
         ?string $os = null,
         ?string $seDomain = null,
-        ?int $depth = 100,
+        ?int $depth = 10,
         ?string $target = null,
         ?bool $groupOrganicResults = true,
         ?int $maxCrawlPages = null,
@@ -900,7 +900,7 @@ class DataForSeoApiClient extends BaseApiClient
     public function serpGoogleOrganicLiveAdvanced(
         string $keyword,
         ?string $url = null,
-        ?int $depth = 100,
+        ?int $depth = 10,
         ?int $maxCrawlPages = null,
         ?string $locationName = null,
         ?int $locationCode = 2840,

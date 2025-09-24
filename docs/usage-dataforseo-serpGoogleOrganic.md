@@ -19,7 +19,7 @@ Get immediate Google organic search results with basic configuration.
 - `locationCode` - Location code (default: 2840 for US)
 - `languageCode` - Language code (default: 'en')
 - `device` - Device type: 'desktop' or 'mobile' (default: 'desktop')
-- `depth` - Number of results (max 700, default: 100)
+- `depth` - Number of results (max 700, default: 10)
 
 **Basic Usage:**
 ```php

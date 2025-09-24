@@ -61,6 +61,8 @@ class FunctionsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Fake the local storage disk for clean test isolation
         Storage::fake('local');
 
         // Set up cache manager mock

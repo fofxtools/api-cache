@@ -6,8 +6,8 @@ namespace FOfX\ApiCache;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use FOfX\Helper;
@@ -794,7 +794,7 @@ class BaseApiClient
         // Make the request with exception handling
         try {
             $apiResult = $this->sendRequest($endpoint, $params, $method, $trimmedAttributes, $trimmedAttributes2, $trimmedAttributes3, $amount);
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             // Handle connection errors (timeouts, DNS failures, etc.)
             $this->logHttpError(
                 0, // No HTTP status code for connection errors
@@ -810,7 +810,7 @@ class BaseApiClient
 
             // Re-throw the exception so calling code can handle it
             throw $e;
-        } catch (\Illuminate\Http\Client\RequestException $e) {
+        } catch (RequestException $e) {
             // Handle other HTTP client exceptions
             $this->logHttpError(
                 $e->response->status(),

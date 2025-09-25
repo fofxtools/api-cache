@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use FOfX\Helper\ReflectionUtils;
 use FOfX\Utility;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 
 class ZyteApiClient extends BaseApiClient
 {
@@ -1067,5 +1070,410 @@ class ZyteApiClient extends BaseApiClient
             attributes3: $attributes3,
             amount: $amount
         );
+    }
+
+    /**
+     * Parallel version of extract(). Each job mirrors extract() parameters as an associative array.
+     *
+     * @param array<int, array> $jobs Array of jobs to process
+     *
+     * @return array<int, array> Same shape as sendCachedRequest() per job
+     */
+    public function extractParallel(array $jobs): array
+    {
+        $cm         = $this->getCacheManager();
+        $clientName = $this->getClientName();
+        $version    = $this->getVersion();
+        $useCache   = $this->getUseCache();
+        $ttl        = config("api-cache.apis.{$clientName}.cache_ttl");
+
+        $endpoint = 'extract';
+        $method   = 'POST';
+
+        $results = [];
+        $toSend  = [];
+
+        // Prepare per-job data, check cache, collect misses
+        foreach ($jobs as $i => $job) {
+            $url = $job['url'] ?? null;
+            if (!$url) {
+                throw new \InvalidArgumentException('extractParallel job missing required url');
+            }
+
+            $additionalParams = $job['additionalParams'] ?? [];
+
+            // Build request data using extract() signature for parity (filters nulls, merges additionalParams)
+            $vars = [
+                'url'                         => $url,
+                'requestHeaders'              => $job['requestHeaders'] ?? null,
+                'tags'                        => $job['tags'] ?? null,
+                'ipType'                      => $job['ipType'] ?? null,
+                'httpRequestMethod'           => $job['httpRequestMethod'] ?? null,
+                'httpRequestBody'             => $job['httpRequestBody'] ?? null,
+                'httpRequestText'             => $job['httpRequestText'] ?? null,
+                'customHttpRequestHeaders'    => $job['customHttpRequestHeaders'] ?? null,
+                'httpResponseBody'            => $job['httpResponseBody'] ?? null,
+                'httpResponseHeaders'         => $job['httpResponseHeaders'] ?? null,
+                'browserHtml'                 => $job['browserHtml'] ?? null,
+                'screenshot'                  => $job['screenshot'] ?? null,
+                'screenshotOptions'           => $job['screenshotOptions'] ?? null,
+                'article'                     => $job['article'] ?? null,
+                'articleOptions'              => $job['articleOptions'] ?? null,
+                'articleList'                 => $job['articleList'] ?? null,
+                'articleListOptions'          => $job['articleListOptions'] ?? null,
+                'articleNavigation'           => $job['articleNavigation'] ?? null,
+                'articleNavigationOptions'    => $job['articleNavigationOptions'] ?? null,
+                'forumThread'                 => $job['forumThread'] ?? null,
+                'forumThreadOptions'          => $job['forumThreadOptions'] ?? null,
+                'jobPosting'                  => $job['jobPosting'] ?? null,
+                'jobPostingOptions'           => $job['jobPostingOptions'] ?? null,
+                'jobPostingNavigation'        => $job['jobPostingNavigation'] ?? null,
+                'jobPostingNavigationOptions' => $job['jobPostingNavigationOptions'] ?? null,
+                'pageContent'                 => $job['pageContent'] ?? null,
+                'pageContentOptions'          => $job['pageContentOptions'] ?? null,
+                'product'                     => $job['product'] ?? null,
+                'productOptions'              => $job['productOptions'] ?? null,
+                'productList'                 => $job['productList'] ?? null,
+                'productListOptions'          => $job['productListOptions'] ?? null,
+                'productNavigation'           => $job['productNavigation'] ?? null,
+                'productNavigationOptions'    => $job['productNavigationOptions'] ?? null,
+                'customAttributes'            => $job['customAttributes'] ?? null,
+                'customAttributesOptions'     => $job['customAttributesOptions'] ?? null,
+                'geolocation'                 => $job['geolocation'] ?? null,
+                'javascript'                  => $job['javascript'] ?? null,
+                'actions'                     => $job['actions'] ?? null,
+                'jobId'                       => $job['jobId'] ?? null,
+                'echoData'                    => $job['echoData'] ?? null,
+                'viewport'                    => $job['viewport'] ?? null,
+                'followRedirect'              => $job['followRedirect'] ?? null,
+                'sessionContext'              => $job['sessionContext'] ?? null,
+                'sessionContextParameters'    => $job['sessionContextParameters'] ?? null,
+                'session'                     => $job['session'] ?? null,
+                'networkCapture'              => $job['networkCapture'] ?? null,
+                'device'                      => $job['device'] ?? null,
+                'cookieManagement'            => $job['cookieManagement'] ?? null,
+                'requestCookies'              => $job['requestCookies'] ?? null,
+                'responseCookies'             => $job['responseCookies'] ?? null,
+                'serp'                        => $job['serp'] ?? null,
+                'serpOptions'                 => $job['serpOptions'] ?? null,
+                'includeIframes'              => $job['includeIframes'] ?? null,
+            ];
+
+            $params = array_merge(
+                ['url' => $url],
+                $this->buildApiParams($additionalParams, [], 'FOfX\\ApiCache\\ZyteApiClient::extract', $vars)
+            );
+
+            // Credits / amount
+            $amount  = $job['amount'] ?? null;
+            $credits = $amount === null ? $this->calculateCredits($params) : (int) $amount;
+
+            // Attributes
+            $attributes  = $job['attributes'] ?? $url;
+            $attributes2 = $job['attributes2'] ?? null;
+            if ($attributes2 === null) {
+                try {
+                    $attributes2 = Utility\extract_registrable_domain($url);
+                } catch (\Throwable $e) {
+                    $attributes2 = null;
+                }
+            }
+            $attributes3 = $job['attributes3'] ?? null;
+
+            // Trim attributes per BaseApiClient behavior
+            $trimmedAttributes  = mb_substr($attributes, 0, 255);
+            $trimmedAttributes2 = $attributes2 === null ? null : mb_substr($attributes2, 0, 255);
+            $trimmedAttributes3 = $attributes3 === null ? null : mb_substr($attributes3, 0, 255);
+
+            // Cache key and pre-check
+            $cacheKey = $cm->generateCacheKey($clientName, $endpoint, $params, $method, $version);
+
+            if (!$useCache) {
+                Log::debug('Caching disabled for this request', [
+                    'client'   => $clientName,
+                    'endpoint' => $endpoint,
+                    'method'   => $method,
+                ]);
+            } else {
+                $cached = $cm->getCachedResponse($clientName, $cacheKey);
+                if ($cached !== null) {
+                    Log::debug('Cache used', [
+                        'client'    => $clientName,
+                        'endpoint'  => $endpoint,
+                        'method'    => $method,
+                        'cache_key' => $cacheKey,
+                    ]);
+                    $results[$i] = $cached;
+
+                    continue;
+                } else {
+                    Log::debug('Cache not used', [
+                        'client'    => $clientName,
+                        'endpoint'  => $endpoint,
+                        'method'    => $method,
+                        'cache_key' => $cacheKey,
+                    ]);
+                }
+            }
+
+            $toSend[$i] = [
+                'params'      => $params,
+                'amount'      => $credits,
+                'attributes'  => $trimmedAttributes,
+                'attributes2' => $trimmedAttributes2,
+                'attributes3' => $trimmedAttributes3,
+                'cacheKey'    => $cacheKey,
+            ];
+        }
+
+        // Rate limit check for each to-be-sent job
+        if (!empty($toSend)) {
+            $needed    = array_sum(array_map(fn ($pp) => (int)($pp['amount']), $toSend));
+            $remaining = $cm->getRemainingAttempts($clientName);
+            if ($remaining < $needed) {
+                $availableIn = $cm->getAvailableIn($clientName);
+                Log::warning('Rate limit exceeded', [
+                    'client'       => $clientName,
+                    'available_in' => $availableIn,
+                    'needed'       => $needed,
+                    'remaining'    => $remaining,
+                ]);
+
+                throw new RateLimitException($clientName, $availableIn);
+            }
+
+            // Dispatch POST /extract calls in parallel
+            $endpointUrl = $this->buildUrl($endpoint);
+            $timings     = [];
+            $fullUrls    = [];
+            $headersUsed = [];
+            $bodiesUsed  = [];
+            $order       = array_keys($toSend);
+
+            try {
+                $responses = Http::pool(function ($pool) use ($toSend, $endpointUrl, &$timings, &$fullUrls, &$headersUsed, &$bodiesUsed) {
+                    $out = [];
+                    foreach ($toSend as $i => $job) {
+                        $pending = $pool
+                            ->withHeaders($this->getAuthHeaders())
+                            ->withMiddleware(function (callable $handler) use (&$fullUrls, &$headersUsed, &$bodiesUsed, $i) {
+                                return function (\Psr\Http\Message\RequestInterface $request, array $options) use ($handler, &$fullUrls, &$headersUsed, &$bodiesUsed, $i) {
+                                    $fullUrls[$i]    = (string) $request->getUri();
+                                    $headersUsed[$i] = $request->getHeaders();
+                                    $bodiesUsed[$i]  = (string) $request->getBody();
+
+                                    return $handler($request, $options);
+                                };
+                            })
+                            ->withOptions([
+                                'cookies'  => false,
+                                'on_stats' => function ($stats) use (&$timings, $i) {
+                                    if (method_exists($stats, 'getTransferTime')) {
+                                        $timings[$i] = $stats->getTransferTime();
+                                    }
+                                },
+                            ]);
+
+                        $timeout = $this->getTimeout();
+                        if ($timeout !== null) {
+                            $pending = $pending->timeout($timeout);
+                        }
+
+                        $out[] = $pending->post($endpointUrl, $job['params']);
+                    }
+
+                    return $out;
+                });
+
+                // Throw explicitly for response errors to suppressed PHPStan errors, "Dead catch - ... is never thrown in the try block."
+                foreach ($responses as $k => $response) {
+                    $i         = $order[$k];
+                    $queuedJob = $toSend[$i];
+
+                    // Must try/catch to prevent errors from bubbling up
+                    try {
+                        $response->throw();
+                    } catch (RequestException $e) {
+                        $status = $e->response->status();
+                        $body   = $e->response->body();
+                        $this->logHttpError($status, 'HTTP request error: ' . $e->getMessage(), [
+                            'url'       => $fullUrls[$i],
+                            'method'    => $method,
+                            'cache_key' => $queuedJob['cacheKey'],
+                        ], $body);
+                    }
+                }
+            } catch (ConnectionException $e) {
+                $this->logHttpError(
+                    0,
+                    'Batch Connection error: ' . $e->getMessage(),
+                    [
+                        'full_urls'  => $fullUrls,
+                        'method'     => $method,
+                        'error_type' => 'connection_error',
+                        'cache_keys' => array_map(fn ($x) => $x['cacheKey'], $toSend),
+                    ],
+                    null
+                );
+
+                throw $e;
+            } catch (RequestException $e) {
+                $status = method_exists($e, 'response') ? $e->response->status() : 0;
+                $body   = method_exists($e, 'response') ? $e->response->body() : null;
+                $this->logHttpError(
+                    $status,
+                    'Batch HTTP request error: ' . $e->getMessage(),
+                    [
+                        'full_urls'  => $fullUrls,
+                        'method'     => $method,
+                        'error_type' => 'request_error',
+                        'cache_keys' => array_map(fn ($x) => $x['cacheKey'], $toSend),
+                    ],
+                    $body
+                );
+
+                throw $e;
+            }
+
+            // Handle responses: increment attempts and optionally store in cache
+            foreach ($responses as $k => $response) {
+                // Responses may come back in a different order than we sent them
+                // Map response index back to original queued job index
+                $i         = $order[$k];
+                $queuedJob = $toSend[$i];
+
+                $body         = $response->body();
+                $cost         = $this->calculateCost($body);
+                $responseTime = isset($timings[$i]) ? (float) $timings[$i] : 0.0;
+
+                $apiResult = [
+                    'params'  => $queuedJob['params'],
+                    'request' => [
+                        'base_url'    => $this->baseUrl,
+                        'full_url'    => $fullUrls[$i],
+                        'method'      => $method,
+                        'attributes'  => $queuedJob['attributes'],
+                        'attributes2' => $queuedJob['attributes2'],
+                        'attributes3' => $queuedJob['attributes3'],
+                        'credits'     => $queuedJob['amount'],
+                        'cost'        => $cost,
+                        'headers'     => $headersUsed[$i],
+                        'body'        => $bodiesUsed[$i],
+                    ],
+                    'response'             => $response,
+                    'response_status_code' => $response->status(),
+                    'response_size'        => strlen($body),
+                    'response_time'        => $responseTime,
+                    'is_cached'            => false,
+                ];
+
+                // Rate limit increment
+                $cm->incrementAttempts($clientName, $queuedJob['amount']);
+
+                // Cache store logic + logging parity with sendCachedRequest()
+                if (!$response->successful()) {
+                    // Log the HTTP error with relevant details
+                    $this->logHttpError(
+                        $response->status(),
+                        'API request failed',
+                        [
+                            'url'       => $apiResult['request']['full_url'],
+                            'method'    => $method,
+                            'cache_key' => $queuedJob['cacheKey'],
+                        ],
+                        $response->body()
+                    );
+
+                    // If caching is enabled, log the cache failure due to the failed API request
+                    if ($useCache) {
+                        Log::warning('Failed to store API response in cache', [
+                            'client'           => $clientName,
+                            'endpoint'         => $endpoint,
+                            'version'          => $version,
+                            'cache_key'        => $queuedJob['cacheKey'],
+                            'status_code'      => $response->status(),
+                            'response_headers' => $response->headers(),
+                            'response_body'    => $response->body(),
+                        ]);
+                    }
+                } else {
+                    // Successful response path
+                    // Check if Caching is Disabled
+                    if (!$useCache) {
+                        Log::debug('Caching disabled for this request', [
+                            'client'   => $clientName,
+                            'endpoint' => $endpoint,
+                            'method'   => $method,
+                        ]);
+                    } else {
+                        // Proceed with caching Logic if the response is successful and caching is enabled
+                        if ($this->shouldCache($body)) {
+                            $cm->storeResponse(
+                                $clientName,
+                                $queuedJob['cacheKey'],
+                                $queuedJob['params'],
+                                $apiResult,
+                                $endpoint,
+                                $version,
+                                $ttl,
+                                $queuedJob['attributes'],
+                                $queuedJob['attributes2'],
+                                $queuedJob['attributes3'],
+                                $queuedJob['amount']
+                            );
+                            Log::debug('Cache stored', [
+                                'client'    => $clientName,
+                                'endpoint'  => $endpoint,
+                                'method'    => $method,
+                                'cache_key' => $queuedJob['cacheKey'],
+                            ]);
+                        } else {
+                            $this->logCacheRejected(
+                                'Response failed shouldCache() check',
+                                [
+                                    'url'       => $apiResult['request']['full_url'],
+                                    'endpoint'  => $endpoint,
+                                    'cache_key' => $queuedJob['cacheKey'],
+                                ],
+                                $response->body()
+                            );
+                            Log::debug('Cache not stored due to shouldCache() returning false', [
+                                'client'    => $clientName,
+                                'endpoint'  => $endpoint,
+                                'method'    => $method,
+                                'cache_key' => $queuedJob['cacheKey'],
+                            ]);
+                        }
+                    }
+                }
+
+                $results[$i] = $apiResult;
+            }
+        }
+
+        ksort($results);
+
+        return array_values($results);
+    }
+
+    /**
+     * Convenience wrapper for browserHtml parallel: sets browserHtml=true and delegates to extractParallel().
+     *
+     * @param array<int, array> $jobs Array of jobs to process
+     *
+     * @return array<int, array> Same shape as sendCachedRequest() per job
+     */
+    public function extractBrowserHtmlParallel(array $jobs): array
+    {
+        $mapped = array_map(function ($j) {
+            $j['browserHtml'] = true;
+            if (!isset($j['attributes3'])) {
+                $j['attributes3'] = 'browserHtml';
+            }
+
+            return $j;
+        }, $jobs);
+
+        return $this->extractParallel($mapped);
     }
 }

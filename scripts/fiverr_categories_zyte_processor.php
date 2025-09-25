@@ -15,7 +15,6 @@ use FOfX\ApiCache\ZyteApiClient;
 use FOfX\Utility\FiverrJsonImporter;
 use FOfX\Utility\FiverrSitemapImporter;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use FOfX\Utility;
 
 use function FOfX\Utility\ensure_table_exists;
@@ -104,20 +103,9 @@ foreach ($categories as $urlRecord) {
 
         $html = $response['response']->json()['browserHtml'];
 
-        // Save filtered JSON to file
-        /*
-        $folder = 'fiverr_categories_embedded_json';
-        $filename = "{$urlRecord->id}_{$urlRecord->slug}.json";
-        $filePath = $folder . '/' . $filename;
-        $savedFile = Utility\save_json_blocks_to_file($html, $filePath, 'perseus-initial-props');
-        $fullPath = Storage::disk('local')->path($savedFile);
-        $stats['downloaded']++;
-        */
-
         // Try to import the JSON data
         echo "  Attempting to import JSON data...\n";
 
-        //$importStats = $jsonImporter->importListingsFromFile($fullPath);
         $blocks      = Utility\extract_embedded_json_blocks($html);
         $filtered    = Utility\filter_json_blocks_by_selector($blocks, 'perseus-initial-props', true);
         $data        = $filtered[0] ?? [];

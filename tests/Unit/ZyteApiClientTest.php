@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use FOfX\ApiCache\ApiCacheManager;
+use FOfX\ApiCache\RateLimitException;
 
 class ZyteApiClientTest extends TestCase
 {
@@ -1028,5 +1030,260 @@ class ZyteApiClientTest extends TestCase
         $responseData = $response['response']->json();
         $this->assertEquals($fakeTaskId, $responseData['taskId']);
         $this->assertNotEmpty($responseData['screenshot']);
+    }
+
+    public function test_extractParallel_sends_jobs_and_returns_results()
+    {
+        $fakeTaskIds   = ['fake-a', 'fake-b', 'fake-c'];
+        $fakeResponses = [
+            Http::response(['url' => 'https://a.test', 'statusCode' => 200, 'taskId' => $fakeTaskIds[0]], 200),
+            Http::response(['url' => 'https://b.test', 'statusCode' => 200, 'taskId' => $fakeTaskIds[1]], 200),
+            Http::response(['url' => 'https://c.test', 'statusCode' => 200, 'taskId' => $fakeTaskIds[2]], 200),
+        ];
+
+        $i = 0;
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => function () use (&$i, $fakeResponses) {
+                $resp = $fakeResponses[$i % count($fakeResponses)];
+                $i++;
+
+                return $resp;
+            },
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $jobs = [
+            ['url' => 'https://a.test', 'browserHtml' => true, 'attributes' => 'A'],
+            ['url' => 'https://b.test', 'httpResponseBody' => true, 'attributes' => 'B'],
+            ['url' => 'https://c.test', 'httpResponseHeaders' => true, 'attributes' => 'C'],
+        ];
+
+        $results = $this->client->extractParallel($jobs);
+
+        // Count only POSTs to /extract
+        $matching = 0;
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $matching++;
+            }
+        }
+        $this->assertEquals(count($jobs), $matching, 'Unexpected number of POST /extract requests');
+
+        // Verify result shapes and that faked responses were used via taskId
+        $this->assertCount(3, $results);
+        foreach ($results as $idx => $result) {
+            $this->assertArrayHasKey('params', $result);
+            $this->assertArrayHasKey('request', $result);
+            $this->assertArrayHasKey('response', $result);
+            $this->assertArrayHasKey('response_status_code', $result);
+            $this->assertEquals(200, $result['response_status_code']);
+
+            $this->assertEquals($jobs[$idx]['url'], $result['params']['url']);
+            $this->assertEquals('POST', $result['request']['method']);
+            $this->assertEquals($this->apiBaseUrl, $result['request']['base_url']);
+
+            $responseData = $result['response']->json();
+            $this->assertEquals($fakeTaskIds[$idx], $responseData['taskId']);
+        }
+    }
+
+    public function test_extractParallel_with_empty_jobs_returns_empty_and_makes_no_requests()
+    {
+        Http::fake();
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $results = $this->client->extractParallel([]);
+
+        $this->assertSame([], $results);
+        Http::assertNothingSent();
+    }
+
+    public function test_extractParallel_logs_error_on_unsuccessful_response()
+    {
+        $fakeTaskId = 'fake-error-500';
+        $errorBody  = [
+            'type'   => '/zyte-api/errors/request-error',
+            'title'  => 'Request Error',
+            'detail' => 'Server exploded',
+            'taskId' => $fakeTaskId,
+        ];
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response($errorBody, 500),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $jobs    = [['url' => 'https://err.test', 'browserHtml' => true]];
+        $results = $this->client->extractParallel($jobs);
+
+        $this->assertCount(1, $results);
+        $this->assertEquals(500, $results[0]['response_status_code']);
+
+        // Verify error was logged by extractParallel via logHttpError
+        $this->assertDatabaseHas('api_cache_errors', [
+            'api_client'    => 'zyte',
+            'error_type'    => 'http_error',
+            'error_message' => 'API request failed',
+            'api_message'   => 'Server exploded',
+        ]);
+    }
+
+    public function test_extractParallel_throws_exception_when_job_missing_url()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->client->extractParallel([['browserHtml' => true]]);
+    }
+
+    public function test_extractParallel_uses_cached_responses_when_available()
+    {
+        // Prepare 1 cached job and 1 new job
+        $cachedResponse = new \Illuminate\Http\Client\Response(
+            new \GuzzleHttp\Psr7\Response(200, [], json_encode(['taskId' => 'cached-1']))
+        );
+
+        $cachedResult = [
+            'request' => [
+                'base_url'    => $this->apiBaseUrl,
+                'full_url'    => "{$this->apiBaseUrl}/extract",
+                'method'      => 'POST',
+                'attributes'  => 'A',
+                'attributes2' => null,
+                'attributes3' => null,
+                'credits'     => 1,
+                'cost'        => null,
+                'headers'     => [],
+                'body'        => json_encode(['url' => 'https://a.test']),
+            ],
+            'response'             => $cachedResponse,
+            'response_status_code' => 200,
+            'response_size'        => strlen($cachedResponse->body()),
+            'response_time'        => 0.0,
+            'is_cached'            => true,
+        ];
+
+        $mock = $this->createMock(ApiCacheManager::class);
+        $mock->method('generateCacheKey')->willReturnOnConsecutiveCalls('k1', 'k2');
+        $mock->method('getCachedResponse')->willReturnOnConsecutiveCalls($cachedResult, null);
+        $mock->method('getRemainingAttempts')->willReturn(10);
+        $mock->method('getAvailableIn')->willReturn(0);
+        // void methods: don't set return values
+        $mock->method('incrementAttempts');
+        $mock->method('storeResponse');
+        $mock->method('clearRateLimit');
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => 'live-2'], 200),
+        ]);
+
+        $client = new ZyteApiClient($mock);
+        $client->clearRateLimit();
+
+        $jobs = [
+            ['url' => 'https://a.test', 'attributes' => 'A'], // cached
+            ['url' => 'https://b.test', 'attributes' => 'B'], // live
+        ];
+
+        $results = $client->extractParallel($jobs);
+
+        // Only one network call for the live job
+        $matching = 0;
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $matching++;
+            }
+        }
+        $this->assertEquals(1, $matching);
+
+        $this->assertCount(2, $results);
+        $this->assertTrue($results[0]['is_cached']);
+        $this->assertEquals('cached-1', $results[0]['response']->json()['taskId']);
+        $this->assertFalse($results[1]['is_cached']);
+        $this->assertEquals('live-2', $results[1]['response']->json()['taskId']);
+    }
+
+    public function test_extractParallel_throws_rate_limit_exception_when_exceeded()
+    {
+        $mock = $this->createMock(ApiCacheManager::class);
+        $mock->method('generateCacheKey')->willReturnOnConsecutiveCalls('k1', 'k2');
+        $mock->method('getCachedResponse')->willReturnOnConsecutiveCalls(null, null);
+        $mock->method('getRemainingAttempts')->willReturn(1); // not enough for needed amount
+        $mock->method('getAvailableIn')->willReturn(30);
+        // void method: don't set return value
+        $mock->method('clearRateLimit');
+
+        Http::fake();
+
+        $client = new ZyteApiClient($mock);
+        $client->clearRateLimit();
+
+        $jobs = [
+            ['url' => 'https://a.test', 'amount' => 2],
+            ['url' => 'https://b.test', 'amount' => 2],
+        ];
+
+        $this->expectException(RateLimitException::class);
+        $client->extractParallel($jobs);
+    }
+
+    public function test_extractBrowserHtmlParallel_sets_browserHtml_and_delegates()
+    {
+        $fakeTaskId = 'fake-browser-123';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => $fakeTaskId], 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $jobs = [
+            ['url' => 'https://x.test'],
+            ['url' => 'https://y.test', 'attributes3' => null],
+        ];
+
+        $results = $this->client->extractBrowserHtmlParallel($jobs);
+
+        // Count only POSTs to /extract
+        $matching = 0;
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $matching++;
+            }
+        }
+        $this->assertEquals(2, $matching, 'Unexpected number of POST /extract requests');
+
+        foreach ($results as $res) {
+            $this->assertArrayHasKey('params', $res);
+            $this->assertEquals(true, $res['params']['browserHtml']);
+            $this->assertEquals('POST', $res['request']['method']);
+            $this->assertEquals('browserHtml', $res['request']['attributes3']);
+
+            $data = $res['response']->json();
+            $this->assertEquals($fakeTaskId, $data['taskId']);
+        }
+    }
+
+    public function test_extractBrowserHtmlParallel_preserves_existing_attributes3()
+    {
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => 'keep-1'], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $results = $this->client->extractBrowserHtmlParallel([
+            ['url' => 'https://keep.test', 'attributes3' => 'passed-attributes3'],
+        ]);
+
+        $this->assertEquals('passed-attributes3', $results[0]['request']['attributes3']);
     }
 }

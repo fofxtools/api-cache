@@ -1010,64 +1010,32 @@ class BaseApiClient
     }
 
     /**
-     * Save response bodies to files in batches
+     * Save response bodies to files for a given set of database rows
      *
-     * Processes rows where attributes is not null and processed_at/processed_status are null.
-     * Uses bulk operations and single transaction per batch.
+     * Shared helper used by saveResponseBodiesToFilesBatch() and ad-hoc callers.
      *
-     * @param int         $batchSize         Number of rows to process per batch (default: 100)
-     * @param string|null $endpoint          Optional endpoint filter (default: null for all rows)
-     * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
-     * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
-     * @param int         $truncateLength    Maximum length for filename slug (default: 180)
-     * @param string|null $jsonKey           Optional JSON field name to extract from response_body.
-     *                                       If provided, response_body is parsed as JSON and the
-     *                                       specified field value is saved instead of raw response.
-     * @param string|null $attributes        Optional filter for attributes column
-     * @param string|null $attributes2       Optional filter for attributes2 column
-     * @param string|null $attributes3       Optional filter for attributes3 column
+     * @param array       $rows              Array of DB row objects (stdClass) with id, response_body, attributes*
+     * @param string      $savePath          Relative directory on the 'local' disk
+     * @param bool        $overwriteExisting Whether to overwrite existing files
+     * @param int         $truncateLength    Maximum length for filename slug
+     * @param string|null $jsonKey           Optional JSON field name to extract from response_body
      *
-     * @return array Statistics about the processing
+     * @return array {processed:int, errors:int, skipped:int}
      */
-    public function saveResponseBodyToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180, ?string $jsonKey = null, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
-    {
-        $tableName = $this->getTableName();
-        $savePath  = $savePath ?? "{$this->clientName}";
-
+    public function saveResponseBodiesToFilesForRows(
+        array $rows,
+        string $savePath,
+        bool $overwriteExisting,
+        int $truncateLength,
+        ?string $jsonKey
+    ): array {
         $stats = [
             'processed' => 0,
             'errors'    => 0,
             'skipped'   => 0,
         ];
 
-        // Get batch of unprocessed rows
-        $query = DB::table($tableName)
-            ->where(function ($query) {
-                $query->whereNotNull('attributes')
-                    ->orWhereNotNull('attributes2')
-                    ->orWhereNotNull('attributes3');
-            })
-            ->whereNull('processed_at')
-            ->whereNull('processed_status');
-
-        if ($endpoint !== null) {
-            $query->where('endpoint', $endpoint);
-        }
-
-        // Add attribute filters if provided
-        if ($attributes !== null) {
-            $query->where('attributes', $attributes);
-        }
-        if ($attributes2 !== null) {
-            $query->where('attributes2', $attributes2);
-        }
-        if ($attributes3 !== null) {
-            $query->where('attributes3', $attributes3);
-        }
-
-        $rows = $query->limit($batchSize)->get();
-
-        if ($rows->isEmpty()) {
+        if (empty($rows)) {
             return $stats;
         }
 
@@ -1088,7 +1056,11 @@ class BaseApiClient
         $compressionService = $this->cacheManager->getCacheRepository()->getCompressionService();
 
         foreach ($rows as $row) {
-            // Generate filename using extracted method
+            if ($row === null) {
+                continue;
+            }
+
+            // Generate filename
             $filename = $this->generateFilename($row, $truncateLength);
 
             // Check if file should be skipped (bulk pre-filtering)
@@ -1218,6 +1190,90 @@ class BaseApiClient
     }
 
     /**
+     * Save response bodies to files for explicit database row IDs
+     */
+    public function saveResponseBodiesByIdsToFiles(
+        array $ids,
+        ?string $savePath = null,
+        bool $overwriteExisting = false,
+        int $truncateLength = 180,
+        ?string $jsonKey = null
+    ): array {
+        $tableName = $this->getTableName();
+        $savePath  = $savePath ?? "{$this->clientName}";
+
+        if (empty($ids)) {
+            return [
+                'processed' => 0,
+                'errors'    => 0,
+                'skipped'   => 0,
+            ];
+        }
+
+        // Fetch rows by IDs
+        $rows = DB::table($tableName)
+            ->whereIn('id', $ids)
+            ->get()
+            ->all();
+
+        return $this->saveResponseBodiesToFilesForRows($rows, $savePath, $overwriteExisting, $truncateLength, $jsonKey);
+    }
+
+    /**
+     * Save response bodies to files in batches
+     *
+     * Processes rows where attributes is not null and processed_at/processed_status are null.
+     * Uses bulk operations and single transaction per batch.
+     *
+     * @param int         $batchSize         Number of rows to process per batch (default: 100)
+     * @param string|null $endpoint          Optional endpoint filter (default: null for all rows)
+     * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
+     * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
+     * @param int         $truncateLength    Maximum length for filename slug (default: 180)
+     * @param string|null $jsonKey           Optional JSON field name to extract from response_body.
+     *                                       If provided, response_body is parsed as JSON and the
+     *                                       specified field value is saved instead of raw response.
+     * @param string|null $attributes        Optional filter for attributes column
+     * @param string|null $attributes2       Optional filter for attributes2 column
+     * @param string|null $attributes3       Optional filter for attributes3 column
+     *
+     * @return array Statistics about the processing
+     */
+    public function saveResponseBodiesToFilesBatch(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180, ?string $jsonKey = null, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
+    {
+        $tableName = $this->getTableName();
+        $savePath  = $savePath ?? "{$this->clientName}";
+
+        // Select a batch of unprocessed rows (optionally filtering by endpoint/attributes)
+        $query = DB::table($tableName)
+            ->where(function ($query) {
+                $query->whereNotNull('attributes')
+                    ->orWhereNotNull('attributes2')
+                    ->orWhereNotNull('attributes3');
+            })
+            ->whereNull('processed_at')
+            ->whereNull('processed_status');
+
+        if ($endpoint !== null) {
+            $query->where('endpoint', $endpoint);
+        }
+        if ($attributes !== null) {
+            $query->where('attributes', $attributes);
+        }
+        if ($attributes2 !== null) {
+            $query->where('attributes2', $attributes2);
+        }
+        if ($attributes3 !== null) {
+            $query->where('attributes3', $attributes3);
+        }
+
+        $rows = $query->limit($batchSize)->get()->all();
+
+        // Delegate actual file writing, decompression, JSON extraction, and status updates
+        return $this->saveResponseBodiesToFilesForRows($rows, $savePath, $overwriteExisting, $truncateLength, $jsonKey);
+    }
+
+    /**
      * Save all response bodies to files using batch processing
      *
      * Processes all rows where attributes is not null and processed_at/processed_status are null.
@@ -1252,7 +1308,7 @@ class BaseApiClient
         ]);
 
         while (true) {
-            $batchStats = $this->saveResponseBodyToFile($batchSize, $endpoint, $savePath, $overwriteExisting, $truncateLength, $jsonKey, $attributes, $attributes2, $attributes3);
+            $batchStats = $this->saveResponseBodiesToFilesBatch($batchSize, $endpoint, $savePath, $overwriteExisting, $truncateLength, $jsonKey, $attributes, $attributes2, $attributes3);
 
             // If no work was done, we're finished
             if ($batchStats['processed'] === 0 && $batchStats['errors'] === 0 && $batchStats['skipped'] === 0) {

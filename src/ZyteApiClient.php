@@ -1077,10 +1077,23 @@ class ZyteApiClient extends BaseApiClient
      *
      * @param array<int, array> $jobs Array of jobs to process
      *
+     * @throws \RuntimeException If cache manager is not initialized
+     *
      * @return array<int, array> Same shape as sendCachedRequest() per job
      */
     public function extractParallel(array $jobs): array
     {
+        // Add class and method name to the log context
+        Log::withContext([
+            'class'        => __CLASS__,
+            'class_method' => __METHOD__,
+        ]);
+
+        // Make sure $this->cacheManager is not null
+        if ($this->cacheManager === null) {
+            throw new \RuntimeException('Cache manager is not initialized');
+        }
+
         $cm         = $this->getCacheManager();
         $clientName = $this->getClientName();
         $version    = $this->getVersion();

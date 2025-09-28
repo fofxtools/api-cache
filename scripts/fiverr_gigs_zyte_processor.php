@@ -21,6 +21,8 @@ use FOfX\Helper;
 
 use function FOfX\Utility\ensure_table_exists;
 
+Helper\set_memory_max('2048M');
+
 $start = microtime(true);
 
 echo "=== Fiverr Gigs Zyte Downloader (Parallel) ===\n";
@@ -28,6 +30,8 @@ echo "=== Fiverr Gigs Zyte Downloader (Parallel) ===\n";
 $batchSize    = 5;
 $numBatches   = 2;
 $delaySeconds = 3;
+$lowPos       = 0;
+$highPos      = 7;
 
 echo "Configured: batchSize={$batchSize}, numBatches={$numBatches}, delaySeconds={$delaySeconds}s\n\n";
 
@@ -51,6 +55,7 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
     $gigs = DB::table('fiverr_listings_gigs')
         ->whereNull('processed_at')
         ->whereNotNull('gig_url')
+        ->whereBetween('pos', [$lowPos, $highPos])
         ->limit($batchSize)
         ->get(['gigId', 'gig_url', 'seller_name', 'cached_slug']);
 
@@ -60,7 +65,7 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
         break;
     }
 
-    echo "Batch {$batch}/{$numBatches}: processing {$gigs->count()} gigs in parallel...\n";
+    echo "\nBatch {$batch}/{$numBatches}: processing {$gigs->count()} gigs in parallel...\n";
 
     // Build jobs and URL→gig map
     $jobs     = [];
@@ -102,7 +107,8 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
 
     // Handle per-result processing
     foreach ($results as $res) {
-        $url        = $res['params']['url'] ?? null;
+        // Get URL from attributes
+        $url        = $res['request']['attributes'] ?? null;
         $gig        = $urlToGig[$url];
         $id         = $gig->gigId;
         $statusCode = $res['response_status_code'] ?? (method_exists($res['response'] ?? null, 'status') ? $res['response']->status() : null);

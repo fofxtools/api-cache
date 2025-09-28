@@ -16,19 +16,20 @@ use FOfX\Utility\FiverrJsonImporter;
 use FOfX\Utility\FiverrSitemapImporter;
 use Illuminate\Support\Facades\DB;
 use FOfX\Utility;
+use FOfX\Helper;
 
 use function FOfX\Utility\ensure_table_exists;
+
+Helper\set_memory_max('2048M');
 
 $start = microtime(true);
 
 echo "=== Fiverr Zyte Processor ===\n";
 
-$importer = new FiverrSitemapImporter();
-$importer->setBatchSize(500);
+$sitemapImporter = new FiverrSitemapImporter();
+$sitemapImporter->setBatchSize(500);
 $limit = 2;
 $delay = 500000; // 0.5 seconds
-
-$sitemapImporter = new FiverrSitemapImporter();
 
 // Ensure required tables exist
 ensure_table_exists('fiverr_sitemap_categories', $sitemapImporter->getCategoriesMigrationPath());
@@ -37,8 +38,8 @@ ensure_table_exists('fiverr_sitemap_tags', $sitemapImporter->getTagsMigrationPat
 // Populate fiverr_sitemap_categories if empty
 if (DB::table('fiverr_sitemap_categories')->count() === 0) {
     echo "Populating fiverr_sitemap_categories...\n\n";
-    $importer->setCategoriesSitemapPath(__DIR__ . '/../vendor/fofx/utility/resources/sitemap_categories.xml');
-    $stats = $importer->importCategories();
+    $sitemapImporter->setCategoriesSitemapPath(__DIR__ . '/../vendor/fofx/utility/resources/sitemap_categories.xml');
+    $stats = $sitemapImporter->importCategories();
     print_r($stats);
     echo "\nDone.\n\n";
 }
@@ -46,8 +47,8 @@ if (DB::table('fiverr_sitemap_categories')->count() === 0) {
 // Populate fiverr_sitemap_tags if empty
 if (DB::table('fiverr_sitemap_tags')->count() === 0) {
     echo "Populating fiverr_sitemap_tags...\n\n";
-    $importer->setTagsSitemapPath(__DIR__ . '/../vendor/fofx/utility/resources/sitemap_tags.xml');
-    $stats = $importer->importTags();
+    $sitemapImporter->setTagsSitemapPath(__DIR__ . '/../vendor/fofx/utility/resources/sitemap_tags.xml');
+    $stats = $sitemapImporter->importTags();
     print_r($stats);
     echo "\nDone.\n\n";
 }
@@ -61,6 +62,7 @@ ensure_table_exists('api_cache_zyte_responses', __DIR__ . '/../database/migratio
 ensure_table_exists('api_cache_zyte_responses_compressed', __DIR__ . '/../database/migrations/2025_08_23_000034_create_api_cache_zyte_responses_table_compressed.php');
 
 $jsonImporter = new FiverrJsonImporter();
+$jsonImporter->setDefaultSourceFormat('category'); // Set default source_format to category
 
 // Ensure required tables exist
 ensure_table_exists('fiverr_listings', $jsonImporter->getFiverrListingsMigrationPath());

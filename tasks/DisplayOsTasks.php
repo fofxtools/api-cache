@@ -12,7 +12,7 @@ $schedule
     ->description('Display OS and append to storage/logs/os_test.log')
     ->everyMinute()
     ->preventOverlapping()
-    ->skip(fn () => true) // Uncomment to skip
+    ->skip(fn () => true) // Comment to enable
     ->appendOutputTo(__DIR__ . '/../storage/logs/crunz_display_os.log');
 
 return $schedule;

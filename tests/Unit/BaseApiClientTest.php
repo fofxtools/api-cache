@@ -1735,7 +1735,186 @@ class BaseApiClientTest extends TestCase
         $this->assertLessThanOrEqual(50 + 4 + strlen('999-') + strlen('.html'), strlen($result)); // 50 chars + ID + dash + extension
     }
 
-    public function test_saveResponseBodyToFile_saves_response_body_to_file(): void
+    public function test_saveResponseBodiesToFilesForRows_saves_response_bodies_for_given_rows(): void
+    {
+        // Create client with REAL dependencies for file operations
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_for_rows_file_save';
+
+        // Insert test data with response body
+        $testResponseBody = '<html><body>Rows helper content</body></html>';
+        $testId           = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-for-rows',
+            'client'               => $this->clientName,
+            'endpoint'             => 'rows-endpoint',
+            'attributes'           => 'https://example.com/rows-helper',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => $testResponseBody,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Fetch rows explicitly and pass into helper
+        $rows = DB::table($tableName)->whereIn('id', [$testId])->get()->all();
+
+        $stats = $realClient->saveResponseBodiesToFilesForRows($rows, $testDir, false, 180, null);
+
+        // Verify statistics
+        $this->assertEquals(1, $stats['processed']);
+        $this->assertEquals(0, $stats['errors']);
+        $this->assertEquals(0, $stats['skipped']);
+
+        // Verify file was created with expected content
+        $expectedFilename = $testId . '-httpsexamplecomrows-helper.html';
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
+        $this->assertTrue(Storage::disk('local')->exists($expectedFilePath));
+        $this->assertEquals($testResponseBody, Storage::disk('local')->get($expectedFilePath));
+
+        // Verify database status was updated
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $this->assertNotNull($record->processed_at);
+        $this->assertNotNull($record->processed_status);
+        $status = json_decode($record->processed_status, true);
+        $this->assertEquals('OK', $status['status']);
+        $this->assertStringContainsString($expectedFilename, $status['filename']);
+    }
+
+    public function test_saveResponseBodiesByIdsToFiles_saves_response_bodies_for_given_ids(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_by_ids_file_save';
+
+        // Insert two test rows
+        $id1 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-by-ids-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'ids-endpoint',
+            'attributes'           => 'https://example.com/ids-one',
+            'response_status_code' => 200,
+            'response_body'        => '<html>One</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $id2 = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-by-ids-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'ids-endpoint',
+            'attributes'           => 'https://example.com/ids-two',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Two</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $stats = $realClient->saveResponseBodiesByIdsToFiles([$id1, $id2], $testDir, false, 180, null);
+
+        // Verify statistics
+        $this->assertEquals(2, $stats['processed']);
+        $this->assertEquals(0, $stats['errors']);
+        $this->assertEquals(0, $stats['skipped']);
+
+        // Verify both files created
+        $file1 = $testDir . '/' . $id1 . '-httpsexamplecomids-one.html';
+        $file2 = $testDir . '/' . $id2 . '-httpsexamplecomids-two.html';
+        $this->assertTrue(Storage::disk('local')->exists($file1));
+        $this->assertTrue(Storage::disk('local')->exists($file2));
+        $this->assertEquals('<html>One</html>', Storage::disk('local')->get($file1));
+        $this->assertEquals('<html>Two</html>', Storage::disk('local')->get($file2));
+
+        // Verify database status updated for both IDs
+        foreach ([$id1, $id2] as $id) {
+            $rec = DB::table($tableName)->where('id', $id)->first();
+            $this->assertNotNull($rec->processed_at);
+            $this->assertNotNull($rec->processed_status);
+            $st = json_decode($rec->processed_status, true);
+            $this->assertEquals('OK', $st['status']);
+        }
+    }
+
+    public function test_saveResponseBodiesByIdsToFiles_returns_zero_stats_for_empty_ids(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $stats = $realClient->saveResponseBodiesByIdsToFiles([]);
+
+        $this->assertEquals(0, $stats['processed']);
+        $this->assertEquals(0, $stats['errors']);
+        $this->assertEquals(0, $stats['skipped']);
+    }
+
+    public function test_saveResponseBodiesByIdsToFiles_ignores_nonexistent_ids_and_processes_existing(): void
+    {
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_by_ids_mixed';
+
+        // Insert a single existing row
+        $existingId = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-by-ids-existing',
+            'client'               => $this->clientName,
+            'endpoint'             => 'ids-endpoint',
+            'attributes'           => 'https://example.com/ids-existing',
+            'response_status_code' => 200,
+            'response_body'        => '<html>Existing</html>',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $nonExistentId = 999999999; // very unlikely to exist in test DB
+
+        $stats = $realClient->saveResponseBodiesByIdsToFiles([$existingId, $nonExistentId], $testDir, false, 180, null);
+
+        // Verify only the existing row was processed
+        $this->assertEquals(1, $stats['processed']);
+        $this->assertEquals(0, $stats['errors']);
+        $this->assertEquals(0, $stats['skipped']);
+
+        $expectedFile = $testDir . '/' . $existingId . '-httpsexamplecomids-existing.html';
+        $this->assertTrue(Storage::disk('local')->exists($expectedFile));
+        $this->assertEquals('<html>Existing</html>', Storage::disk('local')->get($expectedFile));
+
+        // Verify database status updated for existing ID
+        $rec = DB::table($tableName)->where('id', $existingId)->first();
+        $this->assertNotNull($rec->processed_at);
+        $this->assertNotNull($rec->processed_status);
+        $st = json_decode($rec->processed_status, true);
+        $this->assertEquals('OK', $st['status']);
+    }
+
+    public function test_saveResponseBodiesToFilesBatch_saves_response_body_to_file(): void
     {
         // Create client with REAL dependencies for file operations
         $realClient = new BaseApiClient(
@@ -1769,7 +1948,7 @@ class BaseApiClientTest extends TestCase
         $testDir = 'test_file_save';
 
         // Call the method to save files for the test endpoint
-        $stats = $realClient->saveResponseBodyToFile(10, 'test-endpoint', $testDir);
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, 'test-endpoint', $testDir);
 
         // Verify statistics
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -1802,7 +1981,7 @@ class BaseApiClientTest extends TestCase
         $this->assertGreaterThan(0, $status['file_size'], 'File size should be greater than 0');
     }
 
-    public function test_saveResponseBodyToFile_skips_existing_files_when_overwrite_disabled(): void
+    public function test_saveResponseBodiesToFilesBatch_skips_existing_files_when_overwrite_disabled(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -1837,7 +2016,7 @@ class BaseApiClientTest extends TestCase
         Storage::disk('local')->put($expectedFilePath, 'Original content');
 
         // Call method with overwriteExisting = false (default)
-        $stats = $realClient->saveResponseBodyToFile(10, 'skip-test', $testDir, false);
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, 'skip-test', $testDir, false);
 
         // Verify statistics
         $this->assertEquals(0, $stats['processed'], 'Should process 0 records');
@@ -1855,7 +2034,7 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals('Skipped', $status['status']);
     }
 
-    public function test_saveResponseBodyToFile_overwrites_existing_files_when_enabled(): void
+    public function test_saveResponseBodiesToFilesBatch_overwrites_existing_files_when_enabled(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -1891,7 +2070,7 @@ class BaseApiClientTest extends TestCase
         Storage::disk('local')->put($expectedFilePath, 'Original content');
 
         // Call method with overwriteExisting = true
-        $stats = $realClient->saveResponseBodyToFile(10, 'overwrite-test', $testDir, true);
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, 'overwrite-test', $testDir, true);
 
         // Verify statistics
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -1907,7 +2086,7 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals('OK', $status['status']);
     }
 
-    public function test_saveResponseBodyToFile_filters_by_endpoint(): void
+    public function test_saveResponseBodiesToFilesBatch_filters_by_endpoint(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -1950,7 +2129,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method filtering for 'target-endpoint' only
-        $stats = $realClient->saveResponseBodyToFile(10, 'target-endpoint', $testDir);
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, 'target-endpoint', $testDir);
 
         // Verify statistics - should only process the target endpoint
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -1967,7 +2146,7 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals('<html>Target content</html>', Storage::disk('local')->get($targetFile));
     }
 
-    public function test_saveResponseBodyToFile_filters_by_attributes(): void
+    public function test_saveResponseBodiesToFilesBatch_filters_by_attributes(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -2008,7 +2187,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method filtering for 'target-attribute' only
-        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, null, 'target-attribute');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, 'target-attribute');
 
         // Verify statistics - should only process the target attribute
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2025,7 +2204,7 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals('<html>Target attribute content</html>', Storage::disk('local')->get($targetFile));
     }
 
-    public function test_saveResponseBodyToFile_filters_by_attributes2(): void
+    public function test_saveResponseBodiesToFilesBatch_filters_by_attributes2(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -2068,7 +2247,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method filtering for 'target-attr2' only
-        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, null, null, 'target-attr2');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, null, 'target-attr2');
 
         // Verify statistics - should only process the target attributes2
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2085,7 +2264,7 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals('<html>Target attributes2 content</html>', Storage::disk('local')->get($targetFile));
     }
 
-    public function test_saveResponseBodyToFile_filters_by_attributes3(): void
+    public function test_saveResponseBodiesToFilesBatch_filters_by_attributes3(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -2128,7 +2307,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method filtering for 'browserHtml' only
-        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, null, null, null, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, null, null, 'browserHtml');
 
         // Verify statistics - should only process the browserHtml attribute
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2145,7 +2324,7 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals('<html>Browser HTML content</html>', Storage::disk('local')->get($targetFile));
     }
 
-    public function test_saveResponseBodyToFile_extracts_json_field(): void
+    public function test_saveResponseBodiesToFilesBatch_extracts_json_field(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -2182,7 +2361,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method with JSON extraction for 'browserHtml' field
-        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, 'browserHtml', null, null, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml', null, null, 'browserHtml');
 
         // Verify statistics
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2205,7 +2384,7 @@ class BaseApiClientTest extends TestCase
         $this->assertStringNotContainsString('otherField', $actualFileContent);
     }
 
-    public function test_saveResponseBodyToFile_handles_invalid_json_gracefully(): void
+    public function test_saveResponseBodiesToFilesBatch_handles_invalid_json_gracefully(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -2235,7 +2414,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method with JSON extraction - should handle invalid JSON gracefully
-        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml');
 
         // Verify statistics - should have 1 error
         $this->assertEquals(0, $stats['processed'], 'Should process 0 records');
@@ -2255,7 +2434,7 @@ class BaseApiClientTest extends TestCase
         $this->assertStringContainsString('Invalid JSON', $status['error']);
     }
 
-    public function test_saveResponseBodyToFile_handles_missing_json_key_gracefully(): void
+    public function test_saveResponseBodiesToFilesBatch_handles_missing_json_key_gracefully(): void
     {
         $realClient = new BaseApiClient(
             $this->clientName,
@@ -2290,7 +2469,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method with JSON extraction for missing key
-        $stats = $realClient->saveResponseBodyToFile(10, null, $testDir, false, 180, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml');
 
         // Verify statistics - should have 1 error
         $this->assertEquals(0, $stats['processed'], 'Should process 0 records');

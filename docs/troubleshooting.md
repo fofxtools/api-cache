@@ -4,6 +4,36 @@ This document tracks various issues encountered during development and their sol
 
 ## Development Issues
 
+### October 2025
+
+#### Parallel Processing Race Conditions with Duplicate Gig URLs (10-01-25)
+- **Issue**: After changing `fiverr_listings_gigs` unique index from `gigId` to `[listingAttributes__id, gigId]`, the script `scripts/fiverr_gigs_zyte_processor.php` started creating many rows with `processed_status='0'` instead of proper JSON status
+- **Symptoms**:
+  - Thousands of rows with `processed_status='0'` in database
+  - After adding safe_json_encode(), script crashed with "Integrity constraint violation: 1062 Duplicate entry" errors
+- **Root Cause**:
+  - Schema change allowed same `gigId` to appear in multiple rows (one per listing)
+  - Without deduplication, batch processing sent duplicate `gig_url` values to Zyte API
+  - Multiple parallel requests with identical URLs tried to INSERT the same cache key simultaneously
+  - `json_encode()` failures on invalid UTF-8 returned `false`, which was cast to `'0'` when stored
+- **Debugging Steps**:
+  1. Added `safe_json_encode()` function with `JSON_INVALID_UTF8_SUBSTITUTE` and `JSON_THROW_ON_ERROR` flags
+  2. Redirected script output to log file: `php script.php | tee output.log` to capture full error messages
+  3. Identified cache duplicate key errors in full log output
+  4. Verified data integrity: Confirmed each `gigId` maps to exactly one `gig_url` using:
+     ```sql
+     SELECT gigId, COUNT(DISTINCT gig_url) AS dn_gig_url
+     FROM fiverr_listings_gigs
+     GROUP BY gigId
+     HAVING dn_gig_url > 1;
+     ```
+- **Solution**: Added `->distinct()` to the gigs query to deduplicate by the selected column set before parallel processing
+- **Key Learnings**:
+  - Parallel batch processing requires careful deduplication when schema changes allow duplicate functional keys
+  - Terminal output truncation hid error details
+  - `json_encode()` silently returns `false` on invalid UTF-8 without proper flags, causing data corruption
+  - Use `JSON_INVALID_UTF8_SUBSTITUTE` and `JSON_THROW_ON_ERROR` flags for robust JSON encoding
+
 ### August 2025
 
 #### Storage Facade Refactoring (8-23-25)

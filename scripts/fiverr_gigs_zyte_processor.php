@@ -21,7 +21,46 @@ use FOfX\Helper;
 
 use function FOfX\Utility\ensure_table_exists;
 
-Helper\set_memory_max('2048M');
+ini_set('memory_limit', -1);
+
+/**
+ * Safely encode data to JSON, handling UTF-8 errors
+ *
+ * @param array $data   Data to encode
+ * @param bool  $pretty Whether to use JSON_PRETTY_PRINT
+ *
+ * @return string JSON string (never returns false)
+ */
+function safe_json_encode(array $data, bool $pretty = true): string
+{
+    $flags = JSON_UNESCAPED_SLASHES
+           | JSON_INVALID_UTF8_SUBSTITUTE  // Auto-substitute invalid UTF-8 with \ufffd
+           | JSON_THROW_ON_ERROR;          // Throw instead of returning false
+
+    if ($pretty) {
+        $flags |= JSON_PRETTY_PRINT;
+    }
+
+    try {
+        return json_encode($data, $flags);
+    } catch (\JsonException $e) {
+        // Fallback: create error JSON with safe data only
+        $errorData = [
+            'status'          => 'ERROR',
+            'error_type'      => 'JSON_ENCODE_ERROR',
+            'error'           => $e->getMessage(),
+            'original_status' => $data['status'] ?? 'UNKNOWN',
+        ];
+
+        try {
+            // Try without pretty print (simpler, less likely to fail)
+            return json_encode($errorData, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            // Absolute last resort: known-good literal
+            return '{"status":"ENCODE_ERROR","error":"Critical JSON encoding failure"}';
+        }
+    }
+}
 
 $start = microtime(true);
 
@@ -56,6 +95,7 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
         ->whereNull('processed_at')
         ->whereNotNull('gig_url')
         ->whereBetween('pos', [$lowPos, $highPos])
+        ->distinct() // Deduplicate to avoid parallel processing errors due to duplicate gig_url values
         ->limit($batchSize)
         ->get(['gigId', 'gig_url', 'seller_name', 'cached_slug']);
 
@@ -88,11 +128,11 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
                 ->where('gigId', $gig->gigId)
                 ->update([
                     'processed_at'     => now(),
-                    'processed_status' => json_encode([
+                    'processed_status' => safe_json_encode([
                         'status' => 'ERROR',
                         'error'  => 'Batch request failed: ' . $e->getMessage(),
                         'url'    => $url,
-                    ], JSON_PRETTY_PRINT),
+                    ]),
                 ]);
             $stats['errors']++;
         }
@@ -132,12 +172,12 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
                     ->where('gigId', $id)
                     ->update([
                         'processed_at'     => now(),
-                        'processed_status' => json_encode([
+                        'processed_status' => safe_json_encode([
                             'status'      => 'OK',
                             'status_code' => $statusCode,
                             'is_cached'   => $isCached,
                             'url'         => $url,
-                        ], JSON_PRETTY_PRINT),
+                        ]),
                     ]);
 
                 echo "    ✓ Done\n";
@@ -151,13 +191,13 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
                     ->where('gigId', $id)
                     ->update([
                         'processed_at'     => now(),
-                        'processed_status' => json_encode([
+                        'processed_status' => safe_json_encode([
                             'status'      => 'ERROR',
                             'error'       => $e->getMessage(),
                             'status_code' => $statusCode,
                             'is_cached'   => $isCached,
                             'url'         => $url,
-                        ], JSON_PRETTY_PRINT),
+                        ]),
                     ]);
                 $stats['errors']++;
             }
@@ -167,12 +207,12 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
                 ->where('gigId', $id)
                 ->update([
                     'processed_at'     => now(),
-                    'processed_status' => json_encode([
+                    'processed_status' => safe_json_encode([
                         'status'      => 'ERROR',
                         'status_code' => $statusCode,
                         'is_cached'   => $isCached,
                         'url'         => $url,
-                    ], JSON_PRETTY_PRINT),
+                    ]),
                 ]);
             $stats['errors']++;
         }

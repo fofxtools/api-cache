@@ -25,7 +25,7 @@ use FOfX\Helper;
 use function FOfX\Utility\ensure_table_exists;
 use function FOfX\ApiCache\createClientTables;
 
-Helper\set_memory_max('2048M');
+ini_set('memory_limit', -1);
 
 $start = microtime(true);
 
@@ -178,8 +178,9 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
                 $data     = $filtered[0] ?? [];
 
                 // Transform tag data into listings format and import
-                $transformedData = $jsonImporter->transformTagsPageForImport($data);
-                $importStats     = $jsonImporter->importListingsFromArray($transformedData);
+                $transformedData        = $jsonImporter->transformTagsPageForImport($data);
+                $transformedData['url'] = $url;
+                $importStats            = $jsonImporter->importListingsFromArray($transformedData);
                 print_r($importStats);
 
                 DB::table('fiverr_sitemap_tags')

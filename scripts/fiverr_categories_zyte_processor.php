@@ -16,11 +16,10 @@ use FOfX\Utility\FiverrJsonImporter;
 use FOfX\Utility\FiverrSitemapImporter;
 use Illuminate\Support\Facades\DB;
 use FOfX\Utility;
-use FOfX\Helper;
 
 use function FOfX\Utility\ensure_table_exists;
 
-Helper\set_memory_max('2048M');
+ini_set('memory_limit', -1);
 
 $start = microtime(true);
 
@@ -75,7 +74,7 @@ ensure_table_exists('fiverr_listings_stats', $jsonImporter->getFiverrListingsSta
 $categories = DB::table('fiverr_sitemap_categories')
     ->whereNull('processed_at')
     ->whereNotNull('slug')
-    ->whereNull('category_id')
+    ->whereNull('category_id') // First level categories don't have gigs listings, so skip them
     ->limit($limit)
     ->get(['id', 'url', 'slug']);
 
@@ -111,6 +110,7 @@ foreach ($categories as $urlRecord) {
         $blocks      = Utility\extract_embedded_json_blocks($html);
         $filtered    = Utility\filter_json_blocks_by_selector($blocks, 'perseus-initial-props', true);
         $data        = $filtered[0] ?? [];
+        $data['url'] = $urlRecord->url;
         $importStats = $jsonImporter->importListingsFromArray($data);
         print_r($importStats);
 

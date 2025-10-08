@@ -591,8 +591,13 @@ class DataForSeoLabsGoogleKeywordResearchProcessor
 
         // Skip sandbox if configured
         if ($this->skipSandbox) {
-            $query->where('base_url', 'not like', 'https://sandbox.%')
-                  ->where('base_url', 'not like', 'http://sandbox.%');
+            $query->where(function ($q) {
+                $q->whereNull('base_url')
+                  ->orWhere(function ($q2) {
+                      $q2->where('base_url', 'not like', 'https://sandbox.%')
+                         ->where('base_url', 'not like', 'http://sandbox.%');
+                  });
+            });
         }
 
         $query->limit($limit);

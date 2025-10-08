@@ -21,7 +21,7 @@ class DataForSeoMerchantAmazonProductsProcessor
     private bool $updateIfNewer       = true;
     private bool $skipNestedItems     = false;
     private array $endpointsToProcess = [
-        'merchant/amazon/products/task_get/advanced/%',
+        'merchant/amazon/products/task_get/advanced%',
     ];
     private string $listingsTable = 'dataforseo_merchant_amazon_products_listings';
     private string $itemsTable    = 'dataforseo_merchant_amazon_products_items';
@@ -583,8 +583,13 @@ class DataForSeoMerchantAmazonProductsProcessor
 
         // Skip sandbox if configured
         if ($this->skipSandbox) {
-            $query->where('base_url', 'not like', 'https://sandbox.%')
-                  ->where('base_url', 'not like', 'http://sandbox.%');
+            $query->where(function ($q) {
+                $q->whereNull('base_url')
+                  ->orWhere(function ($q2) {
+                      $q2->where('base_url', 'not like', 'https://sandbox.%')
+                         ->where('base_url', 'not like', 'http://sandbox.%');
+                  });
+            });
         }
 
         $query->limit($limit);

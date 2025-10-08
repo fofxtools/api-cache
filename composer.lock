@@ -667,16 +667,16 @@
         },
         {
             "name": "fofx/utility",
-            "version": "v0.2.8",
+            "version": "v0.2.9",
             "source": {
                 "type": "git",
                 "url": "https://github.com/fofxtools/utility.git",
-                "reference": "6ae16d14376e4c29e3104054132f30519af21569"
+                "reference": "e6c5ba5b7d117591e8ab1013c6a4f0e3cdd351dc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/fofxtools/utility/zipball/6ae16d14376e4c29e3104054132f30519af21569",
-                "reference": "6ae16d14376e4c29e3104054132f30519af21569",
+                "url": "https://api.github.com/repos/fofxtools/utility/zipball/e6c5ba5b7d117591e8ab1013c6a4f0e3cdd351dc",
+                "reference": "e6c5ba5b7d117591e8ab1013c6a4f0e3cdd351dc",
                 "shasum": ""
             },
             "require": {
@@ -717,9 +717,9 @@
             "description": "Utilities library",
             "support": {
                 "issues": "https://github.com/fofxtools/utility/issues",
-                "source": "https://github.com/fofxtools/utility/tree/v0.2.8"
+                "source": "https://github.com/fofxtools/utility/tree/v0.2.9"
             },
-            "time": "2025-10-03T03:30:53+00:00"
+            "time": "2025-10-07T03:26:36+00:00"
         },
         {
             "name": "fruitcake/php-cors",
@@ -1361,16 +1361,16 @@
         },
         {
             "name": "laravel/framework",
-            "version": "v12.32.5",
+            "version": "v12.33.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/framework.git",
-                "reference": "77b2740391cd2a825ba59d6fada45e9b8b9bcc5a"
+                "reference": "124efc5f09d4668a4dc13f94a1018c524a58bcb1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/framework/zipball/77b2740391cd2a825ba59d6fada45e9b8b9bcc5a",
-                "reference": "77b2740391cd2a825ba59d6fada45e9b8b9bcc5a",
+                "url": "https://api.github.com/repos/laravel/framework/zipball/124efc5f09d4668a4dc13f94a1018c524a58bcb1",
+                "reference": "124efc5f09d4668a4dc13f94a1018c524a58bcb1",
                 "shasum": ""
             },
             "require": {
@@ -1576,7 +1576,7 @@
                 "issues": "https://github.com/laravel/framework/issues",
                 "source": "https://github.com/laravel/framework"
             },
-            "time": "2025-09-30T17:39:22+00:00"
+            "time": "2025-10-07T14:30:39+00:00"
         },
         {
             "name": "laravel/prompts",

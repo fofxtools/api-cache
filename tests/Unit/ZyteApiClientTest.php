@@ -1286,4 +1286,170 @@ class ZyteApiClientTest extends TestCase
 
         $this->assertEquals('passed-attributes3', $results[0]['request']['attributes3']);
     }
+
+    public function test_extractParallel_deduplicates_duplicate_urls()
+    {
+        $fakeTaskId = 'fake-dedup-123';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => $fakeTaskId], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        // 5 jobs with 2 duplicate URLs
+        $jobs = [
+            ['url' => 'https://a.test', 'browserHtml' => true],
+            ['url' => 'https://b.test', 'browserHtml' => true],
+            ['url' => 'https://a.test', 'browserHtml' => true],  // Duplicate of index 0
+            ['url' => 'https://c.test', 'browserHtml' => true],
+            ['url' => 'https://b.test', 'browserHtml' => true],  // Duplicate of index 1
+        ];
+
+        $results = $this->client->extractParallel($jobs);
+
+        // Count only POSTs to /extract
+        $matching = 0;
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $matching++;
+            }
+        }
+
+        // Should only make 3 API calls (not 5) due to deduplication
+        $this->assertEquals(3, $matching, 'Should only make 3 API calls for 3 unique URLs');
+
+        // Should return 5 results (1:1 mapping maintained)
+        $this->assertCount(5, $results);
+
+        // Verify all results are valid
+        foreach ($results as $result) {
+            $this->assertArrayHasKey('response', $result);
+            $this->assertEquals(200, $result['response_status_code']);
+        }
+
+        // Verify duplicate indices have identical results
+        $this->assertEquals($results[0]['params']['url'], $results[2]['params']['url']);
+        $this->assertEquals($results[1]['params']['url'], $results[4]['params']['url']);
+    }
+
+    public function test_extractParallel_handles_many_duplicates_of_same_url()
+    {
+        $fakeTaskId = 'fake-many-123';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => $fakeTaskId], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        // 10 jobs all with the same URL
+        $jobs = [];
+        for ($i = 0; $i < 10; $i++) {
+            $jobs[] = ['url' => 'https://same.test', 'browserHtml' => true];
+        }
+
+        $results = $this->client->extractParallel($jobs);
+
+        // Count only POSTs to /extract
+        $matching = 0;
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $matching++;
+            }
+        }
+
+        // Should only make 1 API call (not 10) due to deduplication
+        $this->assertEquals(1, $matching, 'Should only make 1 API call for 10 duplicate URLs');
+
+        // Should return 10 results (1:1 mapping maintained)
+        $this->assertCount(10, $results);
+
+        // Verify all results are identical
+        $firstTaskId = $results[0]['response']->json()['taskId'];
+        foreach ($results as $result) {
+            $this->assertEquals(200, $result['response_status_code']);
+            $this->assertEquals($firstTaskId, $result['response']->json()['taskId']);
+            $this->assertEquals('https://same.test', $result['params']['url']);
+        }
+    }
+
+    public function test_extractParallel_deduplication_with_cached_responses()
+    {
+        // Prepare 1 cached response
+        $cachedResponse = new \Illuminate\Http\Client\Response(
+            new \GuzzleHttp\Psr7\Response(200, [], json_encode(['taskId' => 'cached-1']))
+        );
+
+        $cachedResult = [
+            'params'  => ['url' => 'https://a.test'],
+            'request' => [
+                'base_url'    => $this->apiBaseUrl,
+                'full_url'    => "{$this->apiBaseUrl}/extract",
+                'method'      => 'POST',
+                'attributes'  => 'https://a.test',
+                'attributes2' => 'a.test',
+                'attributes3' => 'browserHtml',
+                'credits'     => 1,
+                'cost'        => 0.0,
+                'headers'     => [],
+                'body'        => '',
+            ],
+            'response'             => $cachedResponse,
+            'response_status_code' => 200,
+            'response_size'        => 100,
+            'response_time'        => 0.5,
+            'is_cached'            => true,
+        ];
+
+        $mock = $this->createMock(ApiCacheManager::class);
+        $mock->method('generateCacheKey')->willReturnOnConsecutiveCalls('k1', 'k1', 'k2');  // k1 appears twice
+        $mock->method('getCachedResponse')->willReturnOnConsecutiveCalls($cachedResult, $cachedResult, null);
+        $mock->method('getRemainingAttempts')->willReturn(999);
+        $mock->method('incrementAttempts');
+        $mock->method('storeResponse');
+        $mock->method('clearRateLimit');
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => 'live-2'], 200),
+        ]);
+
+        $client = new ZyteApiClient($mock);
+        $client->clearRateLimit();
+
+        // 3 jobs: 2 with same URL (one cached), 1 with different URL
+        $jobs = [
+            ['url' => 'https://a.test', 'browserHtml' => true],  // Cached
+            ['url' => 'https://a.test', 'browserHtml' => true],  // Duplicate (also cached)
+            ['url' => 'https://b.test', 'browserHtml' => true],  // Live
+        ];
+
+        $results = $client->extractParallel($jobs);
+
+        // Count only POSTs to /extract
+        $matching = 0;
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $matching++;
+            }
+        }
+
+        // Should only make 1 API call (URL A is cached, URL B is live)
+        $this->assertEquals(1, $matching, 'Should only make 1 API call (1 cached, 1 live)');
+
+        // Should return 3 results
+        $this->assertCount(3, $results);
+
+        // Verify first two results are cached and identical
+        $this->assertTrue($results[0]['is_cached']);
+        $this->assertTrue($results[1]['is_cached']);
+        $this->assertEquals('cached-1', $results[0]['response']->json()['taskId']);
+        $this->assertEquals('cached-1', $results[1]['response']->json()['taskId']);
+
+        // Verify third result is live
+        $this->assertFalse($results[2]['is_cached']);
+        $this->assertEquals('live-2', $results[2]['response']->json()['taskId']);
+    }
 }

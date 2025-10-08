@@ -1075,6 +1075,10 @@ class ZyteApiClient extends BaseApiClient
     /**
      * Parallel version of extract(). Each job mirrors extract() parameters as an associative array.
      *
+     * For duplicate URLs, we deduplicate the URL requests but replicate the results. This maintains
+     * the expected 1:1 mapping of jobs to results, even though some jobs are not actually sent. This
+     * saves API credits.
+     *
      * @param array<int, array> $jobs Array of jobs to process
      *
      * @throws \RuntimeException If cache manager is not initialized
@@ -1103,8 +1107,9 @@ class ZyteApiClient extends BaseApiClient
         $endpoint = 'extract';
         $method   = 'POST';
 
-        $results = [];
-        $toSend  = [];
+        $results           = [];
+        $toSend            = [];
+        $cacheKeyToIndices = []; // Track which job indices share the same cache key
 
         // Prepare per-job data, check cache, collect misses
         foreach ($jobs as $i => $job) {
@@ -1201,6 +1206,9 @@ class ZyteApiClient extends BaseApiClient
             // Cache key and pre-check
             $cacheKey = $cm->generateCacheKey($clientName, $endpoint, $params, $method, $version);
 
+            // Track which indices share this cache key
+            $cacheKeyToIndices[$cacheKey][] = $i;
+
             if (!$useCache) {
                 Log::debug('Caching disabled for this request', [
                     'client'   => $clientName,
@@ -1229,14 +1237,17 @@ class ZyteApiClient extends BaseApiClient
                 }
             }
 
-            $toSend[$i] = [
-                'params'      => $params,
-                'amount'      => $credits,
-                'attributes'  => $trimmedAttributes,
-                'attributes2' => $trimmedAttributes2,
-                'attributes3' => $trimmedAttributes3,
-                'cacheKey'    => $cacheKey,
-            ];
+            // Only add to toSend if this is the first occurrence of this cache key
+            if (count($cacheKeyToIndices[$cacheKey]) === 1) {
+                $toSend[$i] = [
+                    'params'      => $params,
+                    'amount'      => $credits,
+                    'attributes'  => $trimmedAttributes,
+                    'attributes2' => $trimmedAttributes2,
+                    'attributes3' => $trimmedAttributes3,
+                    'cacheKey'    => $cacheKey,
+                ];
+            }
         }
 
         // Rate limit check for each to-be-sent job
@@ -1460,7 +1471,19 @@ class ZyteApiClient extends BaseApiClient
                     }
                 }
 
+                // Store result for the primary index
                 $results[$i] = $apiResult;
+
+                // Replicate result to all duplicate indices that share the same cache key
+                // This replication block executes once per unique URL. The inner loop runs
+                // once for each duplicate index, writing the result to each duplicate.
+                $cacheKey   = $queuedJob['cacheKey'];
+                $allIndices = $cacheKeyToIndices[$cacheKey] ?? [];
+                foreach ($allIndices as $duplicateIndex) {
+                    if ($duplicateIndex !== $i) {
+                        $results[$duplicateIndex] = $apiResult;
+                    }
+                }
             }
         }
 

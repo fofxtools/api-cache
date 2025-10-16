@@ -684,4 +684,69 @@ class DataForSeoMerchantAmazonProductsProcessor
 
         return $stats;
     }
+
+    /**
+     * Process all available unprocessed DataForSEO Merchant Amazon Products responses
+     *
+     * Loops over all available responses by repeatedly calling processResponses()
+     * until no more unprocessed responses are found.
+     *
+     * @param int $batchSize Number of responses to process per batch (default: 100)
+     *
+     * @return array Cumulative statistics about all processing
+     */
+    public function processResponsesAll(int $batchSize = 100): array
+    {
+        $cumulativeStats = [
+            'processed_responses' => 0,
+            'listings_items'      => 0,
+            'listings_inserted'   => 0,
+            'listings_updated'    => 0,
+            'listings_skipped'    => 0,
+            'items_processed'     => 0,
+            'items_inserted'      => 0,
+            'items_updated'       => 0,
+            'items_skipped'       => 0,
+            'total_items'         => 0,
+            'errors'              => 0,
+            'batches_processed'   => 0,
+        ];
+
+        Log::debug('Starting processResponsesAll for DataForSEO Merchant Amazon Products', [
+            'batch_size' => $batchSize,
+        ]);
+
+        while (true) {
+            $batchStats = $this->processResponses($batchSize);
+
+            // Stop if no responses were processed in this batch
+            if ($batchStats['processed_responses'] === 0) {
+                break;
+            }
+
+            // Accumulate stats
+            $cumulativeStats['processed_responses'] += $batchStats['processed_responses'];
+            $cumulativeStats['listings_items'] += $batchStats['listings_items'];
+            $cumulativeStats['listings_inserted'] += $batchStats['listings_inserted'];
+            $cumulativeStats['listings_updated'] += $batchStats['listings_updated'];
+            $cumulativeStats['listings_skipped'] += $batchStats['listings_skipped'];
+            $cumulativeStats['items_processed'] += $batchStats['items_processed'];
+            $cumulativeStats['items_inserted'] += $batchStats['items_inserted'];
+            $cumulativeStats['items_updated'] += $batchStats['items_updated'];
+            $cumulativeStats['items_skipped'] += $batchStats['items_skipped'];
+            $cumulativeStats['total_items'] += $batchStats['total_items'];
+            $cumulativeStats['errors'] += $batchStats['errors'];
+            $cumulativeStats['batches_processed']++;
+
+            Log::debug('Processed batch of DataForSEO Merchant Amazon Products responses', [
+                'batch_number'         => $cumulativeStats['batches_processed'],
+                'batch_responses'      => $batchStats['processed_responses'],
+                'cumulative_responses' => $cumulativeStats['processed_responses'],
+            ]);
+        }
+
+        Log::debug('Completed processResponsesAll for DataForSEO Merchant Amazon Products', $cumulativeStats);
+
+        return $cumulativeStats;
+    }
 }

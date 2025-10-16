@@ -13,6 +13,8 @@ use FOfX\Helper;
 
 ini_set('memory_limit', -1);
 
+$start = microtime(true);
+
 // Configuration
 $maxRank      = 3;
 $batchSize    = 5;
@@ -226,3 +228,6 @@ echo "Parsed: {$stats['parsed']}\n";
 echo "Inserted: {$stats['inserted']}\n";
 echo "Skipped: {$stats['skipped']}\n";
 echo "Errors: {$stats['errors']}\n";
+
+$end = microtime(true);
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

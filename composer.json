@@ -21,7 +21,7 @@
         "laravel/framework": "^12.22",
         "fofx/helper": "^1.2",
         "guzzlehttp/guzzle": "^7.9",
-        "fofx/utility": "^0.2.2",
+        "fofx/utility": "^0.3.1",
         "crunzphp/crunz": "^3.8"
     },
     "require-dev": {

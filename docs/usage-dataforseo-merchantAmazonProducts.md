@@ -158,7 +158,7 @@ $processor = new DataForSeoMerchantAmazonProductsProcessor();
 //$processor->clearProcessedTables();
 
 // Process responses and extract Amazon product data
-$stats = $processor->processResponses(limit: 100);
+$stats = $processor->processResponsesAll();
 ```
 
 ### Features

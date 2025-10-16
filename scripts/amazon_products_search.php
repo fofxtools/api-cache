@@ -8,6 +8,8 @@ require_once __DIR__ . '/../examples/bootstrap.php';
 
 use Illuminate\Support\Facades\Log;
 
+$start = microtime(true);
+
 // Delay before processing using DataForSeoMerchantAmazonProductsProcessor
 $delay   = 0;
 $process = true;
@@ -116,3 +118,6 @@ if ($process) {
 }
 
 echo "\n=== Script Complete ===\n";
+
+$end = microtime(true);
+echo 'Time taken: ' . ($end - $start) . " seconds\n";

@@ -737,7 +737,7 @@ function create_dataforseo_serp_google_organic_listings_table(
             $table->string('result_keyword')->nullable()->index(); // From tasks.result.keyword
             $table->string('type')->nullable()->index();
             $table->string('se_domain')->nullable()->index();
-            $table->string('check_url')->nullable()->index();
+            $table->text('check_url')->nullable();
             $table->string('result_datetime')->nullable()->index(); // From tasks.result.datetime
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('refinement_chips')->nullable(); // JSON, should be pretty printed
@@ -1437,7 +1437,7 @@ function create_dataforseo_merchant_amazon_products_listings_table(
             $table->string('result_keyword')->nullable(); // From tasks.result.keyword
             $table->string('type')->nullable();
             $table->string('se_domain')->nullable();
-            $table->string('check_url')->nullable();
+            $table->text('check_url')->nullable();
             $table->string('result_datetime')->nullable(); // From tasks.result.datetime
             $table->text('spell')->nullable(); // JSON, should be pretty printed
             $table->text('item_types')->nullable(); // JSON, should be pretty printed
@@ -1470,7 +1470,6 @@ function create_dataforseo_merchant_amazon_products_listings_table(
                 $table->index('result_keyword', 'dmapl_result_keyword_idx');
                 $table->index('type', 'dmapl_type_idx');
                 $table->index('se_domain', 'dmapl_se_domain_idx');
-                $table->index('check_url', 'dmapl_check_url_idx');
                 $table->index('result_datetime', 'dmapl_result_datetime_idx');
                 $table->index('se_results_count', 'dmapl_se_results_count_idx');
                 $table->index('items_count', 'dmapl_items_count_idx');
@@ -1494,7 +1493,6 @@ function create_dataforseo_merchant_amazon_products_listings_table(
                 $table->index('result_keyword');
                 $table->index('type');
                 $table->index('se_domain');
-                $table->index('check_url');
                 $table->index('result_datetime');
                 $table->index('se_results_count');
                 $table->index('items_count');

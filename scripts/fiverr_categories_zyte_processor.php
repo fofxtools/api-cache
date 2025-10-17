@@ -98,15 +98,26 @@ foreach ($categories as $urlRecord) {
     try {
         // Download content using Zyte API
         echo "  Downloading with Zyte API...\n";
-        $response = $zyteClient->extractBrowserHtml(
+        $response = $zyteClient->extractHttpResponseBody(
             $urlRecord->url
         );
 
-        $html = $response['response']->json()['browserHtml'];
+        $json        = $response['response']->json();
+        $attributes3 = $response['request']['attributes3'] ?? null;
+
+        // Handle both httpResponseBody (base64-encoded) and browserHtml (plain) responses
+        if ($attributes3 === 'httpResponseBody') {
+            $html = isset($json['httpResponseBody']) ? base64_decode($json['httpResponseBody']) : null;
+        } else {
+            // Fallback to browserHtml for cached responses from before the change
+            $html = $json['browserHtml'] ?? null;
+        }
 
         // Try to import the JSON data
         echo "  Attempting to import JSON data...\n";
 
+        // Extract embedded JSON. extract_embedded_json_blocks() expects string input.
+        $html        = $html ?? '';
         $blocks      = Utility\extract_embedded_json_blocks($html);
         $filtered    = Utility\filter_json_blocks_by_selector($blocks, 'perseus-initial-props', true);
         $data        = $filtered[0] ?? [];

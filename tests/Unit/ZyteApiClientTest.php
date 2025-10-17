@@ -497,6 +497,144 @@ class ZyteApiClientTest extends TestCase
         $this->assertEquals('<html><body>Browser HTML content</body></html>', $responseData['browserHtml']);
     }
 
+    public function test_makes_successful_extractHttpResponseBody_request()
+    {
+        $fakeTaskId = 'fake-http-body-890';
+        $fakeBody   = base64_encode('<html><body>HTTP Response Body content</body></html>');
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response([
+                'url'              => 'https://example.com',
+                'statusCode'       => 200,
+                'httpResponseBody' => $fakeBody,
+                'taskId'           => $fakeTaskId,
+            ], 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->extractHttpResponseBody('https://example.com');
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/extract" &&
+                   $request->method() === 'POST' &&
+                   $data['url'] === 'https://example.com' &&
+                   $data['httpResponseBody'] === true;
+        });
+
+        // Make sure we used the Http::fake() response
+        $responseData = $response['response']->json();
+        $this->assertEquals($fakeTaskId, $responseData['taskId']);
+        $this->assertEquals($fakeBody, $responseData['httpResponseBody']);
+    }
+
+    public function test_extractHttpResponseBody_sets_attributes3_to_httpResponseBody()
+    {
+        $fakeTaskId = 'fake-http-attrs-891';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response([
+                'url'              => 'https://example.com',
+                'statusCode'       => 200,
+                'httpResponseBody' => base64_encode('test'),
+                'taskId'           => $fakeTaskId,
+            ], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->extractHttpResponseBody('https://example.com');
+
+        // Check database to verify attributes3
+        $tableName = $this->client->getTableName();
+        $lastRow   = DB::table($tableName)->orderBy('id', 'desc')->first();
+
+        $this->assertEquals('httpResponseBody', $lastRow->attributes3);
+    }
+
+    public function test_extractHttpResponseBody_with_http_request_parameters()
+    {
+        $fakeTaskId = 'fake-http-params-892';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response([
+                'url'              => 'https://example.com/api',
+                'statusCode'       => 200,
+                'httpResponseBody' => base64_encode('{"result": "success"}'),
+                'taskId'           => $fakeTaskId,
+            ], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->extractHttpResponseBody(
+            url: 'https://example.com/api',
+            httpRequestMethod: 'POST',
+            httpRequestText: '{"test": "data"}',
+            customHttpRequestHeaders: [
+                ['name' => 'Content-Type', 'value' => 'application/json'],
+                ['name' => 'X-Custom-Header', 'value' => 'test-value'],
+            ]
+        );
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/extract" &&
+                   $request->method() === 'POST' &&
+                   $data['url'] === 'https://example.com/api' &&
+                   $data['httpResponseBody'] === true &&
+                   $data['httpRequestMethod'] === 'POST' &&
+                   $data['httpRequestText'] === '{"test": "data"}' &&
+                   isset($data['customHttpRequestHeaders']) &&
+                   count($data['customHttpRequestHeaders']) === 2;
+        });
+
+        $responseData = $response['response']->json();
+        $this->assertEquals($fakeTaskId, $responseData['taskId']);
+    }
+
+    public function test_extractHttpResponseBody_with_device_parameter()
+    {
+        $fakeTaskId = 'fake-http-device-893';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response([
+                'url'              => 'https://example.com',
+                'statusCode'       => 200,
+                'httpResponseBody' => base64_encode('mobile content'),
+                'taskId'           => $fakeTaskId,
+            ], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $response = $this->client->extractHttpResponseBody(
+            url: 'https://example.com',
+            device: 'mobile'
+        );
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/extract" &&
+                   $request->method() === 'POST' &&
+                   $data['url'] === 'https://example.com' &&
+                   $data['httpResponseBody'] === true &&
+                   $data['device'] === 'mobile';
+        });
+
+        $responseData = $response['response']->json();
+        $this->assertEquals($fakeTaskId, $responseData['taskId']);
+    }
+
     public function test_makes_successful_extractArticle_request()
     {
         $fakeTaskId = 'fake-article-101';
@@ -1075,13 +1213,11 @@ class ZyteApiClientTest extends TestCase
         // Verify result shapes and that faked responses were used via taskId
         $this->assertCount(3, $results);
         foreach ($results as $idx => $result) {
-            $this->assertArrayHasKey('params', $result);
             $this->assertArrayHasKey('request', $result);
             $this->assertArrayHasKey('response', $result);
             $this->assertArrayHasKey('response_status_code', $result);
             $this->assertEquals(200, $result['response_status_code']);
 
-            $this->assertEquals($jobs[$idx]['url'], $result['params']['url']);
             $this->assertEquals('POST', $result['request']['method']);
             $this->assertEquals($this->apiBaseUrl, $result['request']['base_url']);
 
@@ -1232,61 +1368,6 @@ class ZyteApiClientTest extends TestCase
         $client->extractParallel($jobs);
     }
 
-    public function test_extractBrowserHtmlParallel_sets_browserHtml_and_delegates()
-    {
-        $fakeTaskId = 'fake-browser-123';
-
-        Http::fake([
-            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => $fakeTaskId], 200),
-        ]);
-
-        // Reinitialize client so that its HTTP pending request picks up the fake
-        $this->client = new ZyteApiClient();
-        $this->client->clearRateLimit();
-
-        $jobs = [
-            ['url' => 'https://x.test'],
-            ['url' => 'https://y.test', 'attributes3' => null],
-        ];
-
-        $results = $this->client->extractBrowserHtmlParallel($jobs);
-
-        // Count only POSTs to /extract
-        $matching = 0;
-        foreach (Http::recorded() as [$req]) {
-            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
-                $matching++;
-            }
-        }
-        $this->assertEquals(2, $matching, 'Unexpected number of POST /extract requests');
-
-        foreach ($results as $res) {
-            $this->assertArrayHasKey('params', $res);
-            $this->assertEquals(true, $res['params']['browserHtml']);
-            $this->assertEquals('POST', $res['request']['method']);
-            $this->assertEquals('browserHtml', $res['request']['attributes3']);
-
-            $data = $res['response']->json();
-            $this->assertEquals($fakeTaskId, $data['taskId']);
-        }
-    }
-
-    public function test_extractBrowserHtmlParallel_preserves_existing_attributes3()
-    {
-        Http::fake([
-            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => 'keep-1'], 200),
-        ]);
-
-        $this->client = new ZyteApiClient();
-        $this->client->clearRateLimit();
-
-        $results = $this->client->extractBrowserHtmlParallel([
-            ['url' => 'https://keep.test', 'attributes3' => 'passed-attributes3'],
-        ]);
-
-        $this->assertEquals('passed-attributes3', $results[0]['request']['attributes3']);
-    }
-
     public function test_extractParallel_deduplicates_duplicate_urls()
     {
         $fakeTaskId = 'fake-dedup-123';
@@ -1329,9 +1410,9 @@ class ZyteApiClientTest extends TestCase
             $this->assertEquals(200, $result['response_status_code']);
         }
 
-        // Verify duplicate indices have identical results
-        $this->assertEquals($results[0]['params']['url'], $results[2]['params']['url']);
-        $this->assertEquals($results[1]['params']['url'], $results[4]['params']['url']);
+        // Verify duplicate indices have identical results (check attributes which contains the URL)
+        $this->assertEquals($results[0]['request']['attributes'], $results[2]['request']['attributes']);
+        $this->assertEquals($results[1]['request']['attributes'], $results[4]['request']['attributes']);
     }
 
     public function test_extractParallel_handles_many_duplicates_of_same_url()
@@ -1372,7 +1453,7 @@ class ZyteApiClientTest extends TestCase
         foreach ($results as $result) {
             $this->assertEquals(200, $result['response_status_code']);
             $this->assertEquals($firstTaskId, $result['response']->json()['taskId']);
-            $this->assertEquals('https://same.test', $result['params']['url']);
+            $this->assertEquals('https://same.test', $result['request']['attributes']);
         }
     }
 
@@ -1384,7 +1465,6 @@ class ZyteApiClientTest extends TestCase
         );
 
         $cachedResult = [
-            'params'  => ['url' => 'https://a.test'],
             'request' => [
                 'base_url'    => $this->apiBaseUrl,
                 'full_url'    => "{$this->apiBaseUrl}/extract",
@@ -1451,5 +1531,202 @@ class ZyteApiClientTest extends TestCase
         // Verify third result is live
         $this->assertFalse($results[2]['is_cached']);
         $this->assertEquals('live-2', $results[2]['response']->json()['taskId']);
+    }
+
+    public function test_extractBrowserHtmlParallel_sets_browserHtml_and_delegates()
+    {
+        $fakeTaskId = 'fake-browser-123';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => $fakeTaskId], 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $jobs = [
+            ['url' => 'https://x.test'],
+            ['url' => 'https://y.test', 'attributes3' => null],
+        ];
+
+        $results = $this->client->extractBrowserHtmlParallel($jobs);
+
+        // Count only POSTs to /extract
+        $matching = 0;
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $matching++;
+            }
+        }
+        $this->assertEquals(2, $matching, 'Unexpected number of POST /extract requests');
+
+        // Verify browserHtml was sent in the requests
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $data = $req->data();
+                $this->assertEquals(true, $data['browserHtml']);
+            }
+        }
+
+        foreach ($results as $res) {
+            $this->assertEquals('POST', $res['request']['method']);
+            $this->assertEquals('browserHtml', $res['request']['attributes3']);
+
+            $data = $res['response']->json();
+            $this->assertEquals($fakeTaskId, $data['taskId']);
+        }
+    }
+
+    public function test_extractBrowserHtmlParallel_preserves_existing_attributes3()
+    {
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => 'keep-1'], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $results = $this->client->extractBrowserHtmlParallel([
+            ['url' => 'https://keep.test', 'attributes3' => 'passed-attributes3'],
+        ]);
+
+        $this->assertEquals('passed-attributes3', $results[0]['request']['attributes3']);
+    }
+
+    public function test_extractHttpResponseBodyParallel_sets_httpResponseBody_and_delegates()
+    {
+        $fakeTaskId = 'fake-http-parallel-123';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => $fakeTaskId], 200),
+        ]);
+
+        // Reinitialize client so that its HTTP pending request picks up the fake
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $jobs = [
+            ['url' => 'https://a.test'],
+            ['url' => 'https://b.test'],
+            ['url' => 'https://c.test'],
+        ];
+
+        $results = $this->client->extractHttpResponseBodyParallel($jobs);
+
+        // Should have 3 results
+        $this->assertCount(3, $results);
+
+        // Verify httpResponseBody was sent in the requests
+        foreach (Http::recorded() as [$req]) {
+            if ($req->url() === "{$this->apiBaseUrl}/extract" && $req->method() === 'POST') {
+                $data = $req->data();
+                $this->assertEquals(true, $data['httpResponseBody']);
+            }
+        }
+
+        // Each result should have attributes3='httpResponseBody'
+        foreach ($results as $res) {
+            $this->assertEquals('POST', $res['request']['method']);
+            $this->assertEquals('httpResponseBody', $res['request']['attributes3']);
+
+            $data = $res['response']->json();
+            $this->assertEquals($fakeTaskId, $data['taskId']);
+        }
+    }
+
+    public function test_extractHttpResponseBodyParallel_preserves_existing_attributes3()
+    {
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response(['statusCode' => 200, 'taskId' => 'keep-2'], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $results = $this->client->extractHttpResponseBodyParallel([
+            ['url' => 'https://keep.test', 'attributes3' => 'custom-attributes3'],
+        ]);
+
+        $this->assertEquals('custom-attributes3', $results[0]['request']['attributes3']);
+    }
+
+    public function test_extractHttpResponseBodyParallel_with_http_request_parameters()
+    {
+        $fakeTaskId = 'fake-http-parallel-params-124';
+
+        Http::fake([
+            "{$this->apiBaseUrl}/extract" => Http::response([
+                'statusCode'       => 200,
+                'taskId'           => $fakeTaskId,
+                'httpResponseBody' => base64_encode('response'),
+            ], 200),
+        ]);
+
+        $this->client = new ZyteApiClient();
+        $this->client->clearRateLimit();
+
+        $jobs = [
+            [
+                'url'                      => 'https://api.test/endpoint1',
+                'httpRequestMethod'        => 'POST',
+                'httpRequestText'          => '{"data": "test1"}',
+                'customHttpRequestHeaders' => [
+                    ['name' => 'Content-Type', 'value' => 'application/json'],
+                ],
+            ],
+            [
+                'url'    => 'https://api.test/endpoint2',
+                'device' => 'mobile',
+            ],
+        ];
+
+        $results = $this->client->extractHttpResponseBodyParallel($jobs);
+
+        $this->assertCount(2, $results);
+
+        // Verify both have httpResponseBody=true in request data
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return $request->url() === "{$this->apiBaseUrl}/extract" &&
+                   $request->method() === 'POST' &&
+                   isset($data['httpResponseBody']) &&
+                   $data['httpResponseBody'] === true;
+        });
+
+        // Verify first job has POST parameters (check request body sent to API)
+        $recorded = Http::recorded();
+        $this->assertGreaterThanOrEqual(2, count($recorded));
+
+        // Find the POST request in recorded requests
+        $postRequest = null;
+        foreach ($recorded as [$req]) {
+            $data = $req->data();
+            if (isset($data['httpRequestMethod']) && $data['httpRequestMethod'] === 'POST') {
+                $postRequest = $data;
+
+                break;
+            }
+        }
+
+        $this->assertNotNull($postRequest, 'POST request should be found in recorded requests');
+        $this->assertEquals('POST', $postRequest['httpRequestMethod']);
+        $this->assertEquals('{"data": "test1"}', $postRequest['httpRequestText']);
+        $this->assertIsArray($postRequest['customHttpRequestHeaders']);
+
+        // Verify second job has device parameter
+        $mobileRequest = null;
+        foreach ($recorded as [$req]) {
+            $data = $req->data();
+            if (isset($data['device']) && $data['device'] === 'mobile') {
+                $mobileRequest = $data;
+
+                break;
+            }
+        }
+
+        $this->assertNotNull($mobileRequest, 'Mobile device request should be found in recorded requests');
+        $this->assertEquals('mobile', $mobileRequest['device']);
     }
 }

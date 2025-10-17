@@ -672,4 +672,61 @@ class DataForSeoLabsGoogleKeywordResearchProcessor
 
         return $stats;
     }
+
+    /**
+     * Process all available unprocessed DataForSEO Labs Google Keyword Research responses
+     *
+     * Loops over all available responses by repeatedly calling processResponses()
+     * until no more unprocessed responses are found.
+     *
+     * @param int $batchSize Number of responses to process per batch (default: 100)
+     *
+     * @return array Cumulative statistics about all processing
+     */
+    public function processResponsesAll(int $batchSize = 100): array
+    {
+        $cumulativeStats = [
+            'processed_responses' => 0,
+            'keyword_items'       => 0,
+            'items_inserted'      => 0,
+            'items_updated'       => 0,
+            'items_skipped'       => 0,
+            'total_items'         => 0,
+            'errors'              => 0,
+            'batches_processed'   => 0,
+        ];
+
+        Log::debug('Starting processResponsesAll for DataForSEO Labs Google Keyword Research', [
+            'batch_size' => $batchSize,
+        ]);
+
+        while (true) {
+            $batchStats = $this->processResponses($batchSize);
+
+            // Stop if no responses were processed in this batch
+            if ($batchStats['processed_responses'] === 0) {
+                break;
+            }
+
+            // Accumulate statistics
+            $cumulativeStats['processed_responses'] += $batchStats['processed_responses'];
+            $cumulativeStats['keyword_items'] += $batchStats['keyword_items'];
+            $cumulativeStats['items_inserted'] += $batchStats['items_inserted'];
+            $cumulativeStats['items_updated'] += $batchStats['items_updated'];
+            $cumulativeStats['items_skipped'] += $batchStats['items_skipped'];
+            $cumulativeStats['total_items'] += $batchStats['total_items'];
+            $cumulativeStats['errors'] += $batchStats['errors'];
+            $cumulativeStats['batches_processed']++;
+
+            Log::debug('Processed batch of DataForSEO Labs Google Keyword Research responses', [
+                'batch_number'         => $cumulativeStats['batches_processed'],
+                'batch_responses'      => $batchStats['processed_responses'],
+                'cumulative_responses' => $cumulativeStats['processed_responses'],
+            ]);
+        }
+
+        Log::debug('Completed processResponsesAll for DataForSEO Labs Google Keyword Research', $cumulativeStats);
+
+        return $cumulativeStats;
+    }
 }

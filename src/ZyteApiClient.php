@@ -288,7 +288,7 @@ class ZyteApiClient extends BaseApiClient
         ?bool $javascript = null,
         ?array $actions = null,
         ?string $jobId = null,
-        $echoData = null,
+        mixed $echoData = null,
         ?array $viewport = null,
         ?bool $followRedirect = null,
         ?array $sessionContext = null,
@@ -508,6 +508,98 @@ class ZyteApiClient extends BaseApiClient
             actions: $actions,
             viewport: $viewport,
             includeIframes: $includeIframes,
+            additionalParams: $additionalParams,
+            attributes: $attributes,
+            attributes2: $attributes2,
+            attributes3: $attributes3,
+            amount: $amount
+        );
+    }
+
+    /**
+     * Extract HTTP response body from a URL
+     *
+     * Gets the HTTP response body without browser rendering. This is for HTTP-only requests.
+     *
+     * @param string      $url                      The URL to extract data from (required)
+     * @param array|null  $tags                     Assign arbitrary key-value pairs to the request that you can use for filtering in the Stats API
+     * @param string|null $ipType                   IP type: datacenter, residential
+     * @param string|null $httpRequestMethod        HTTP method: GET, POST, PUT, DELETE, OPTIONS, TRACE, PATCH, HEAD
+     * @param string|null $httpRequestBody          Base64-encoded request body (≤400000 chars)
+     * @param string|null $httpRequestText          UTF-8 text request body (1-400000 chars)
+     * @param array|null  $customHttpRequestHeaders Can only be used in combination with httpResponseBody. To set headers with other outputs, see requestHeaders.
+     * @param bool|null   $httpResponseHeaders      Set to true to get the HTTP response headers in the httpResponseHeaders response field
+     * @param string|null $geolocation              ISO 3166-1 alpha-2 country code
+     * @param string|null $jobId                    Scrapy Cloud job ID (≤100 chars)
+     * @param mixed       $echoData                 Data to echo back in response
+     * @param bool|null   $followRedirect           Whether to follow HTTP redirects. Only supported in HTTP requests, browser requests always follow redirection.
+     * @param array|null  $sessionContext           Server-managed session context
+     * @param array|null  $sessionContextParameters Session initialization parameters
+     * @param array|null  $session                  Client-managed session
+     * @param string|null $device                   Device type: desktop, mobile
+     * @param string|null $cookieManagement         Cookie handling: auto, discard
+     * @param array|null  $requestCookies           Cookies to send with request
+     * @param bool|null   $responseCookies          Get response cookies
+     * @param array       $additionalParams         Additional parameters to pass to the API
+     * @param string|null $attributes               Optional attributes to store with the cache entry
+     * @param string|null $attributes2              Optional secondary attributes to store with the cache entry
+     * @param string|null $attributes3              Optional tertiary attributes to store with the cache entry
+     * @param int|null    $amount                   Amount to pass to incrementAttempts, overrides calculated credits
+     *
+     * @return array The API response data
+     */
+    public function extractHttpResponseBody(
+        string $url,
+        ?array $tags = null,
+        ?string $ipType = null,
+        ?string $httpRequestMethod = null,
+        ?string $httpRequestBody = null,
+        ?string $httpRequestText = null,
+        ?array $customHttpRequestHeaders = null,
+        ?bool $httpResponseHeaders = null,
+        ?string $geolocation = null,
+        ?string $jobId = null,
+        mixed $echoData = null,
+        ?bool $followRedirect = null,
+        ?array $sessionContext = null,
+        ?array $sessionContextParameters = null,
+        ?array $session = null,
+        ?string $device = null,
+        ?string $cookieManagement = null,
+        ?array $requestCookies = null,
+        ?bool $responseCookies = null,
+        array $additionalParams = [],
+        ?string $attributes = null,
+        ?string $attributes2 = null,
+        ?string $attributes3 = null,
+        ?int $amount = null
+    ): array {
+        // Set attributes3 to method type if not provided
+        if ($attributes3 === null) {
+            $attributes3 = 'httpResponseBody';
+        }
+
+        return $this->extract(
+            url: $url,
+            tags: $tags,
+            ipType: $ipType,
+            httpRequestMethod: $httpRequestMethod,
+            httpRequestBody: $httpRequestBody,
+            httpRequestText: $httpRequestText,
+            customHttpRequestHeaders: $customHttpRequestHeaders,
+            httpResponseBody: true,
+            httpResponseHeaders: $httpResponseHeaders,
+            geolocation: $geolocation,
+            jobId: $jobId,
+            echoData: $echoData,
+            followRedirect: $followRedirect,
+            sessionContext: $sessionContext,
+            sessionContextParameters: $sessionContextParameters,
+            session: $session,
+            device: $device,
+            cookieManagement: $cookieManagement,
+            requestCookies: $requestCookies,
+            responseCookies: $responseCookies,
             additionalParams: $additionalParams,
             attributes: $attributes,
             attributes2: $attributes2,
@@ -1505,6 +1597,27 @@ class ZyteApiClient extends BaseApiClient
             $j['browserHtml'] = true;
             if (!isset($j['attributes3'])) {
                 $j['attributes3'] = 'browserHtml';
+            }
+
+            return $j;
+        }, $jobs);
+
+        return $this->extractParallel($mapped);
+    }
+
+    /**
+     * Convenience wrapper for httpResponseBody parallel: sets httpResponseBody=true and delegates to extractParallel().
+     *
+     * @param array<int, array> $jobs Array of jobs to process
+     *
+     * @return array<int, array> Same shape as sendCachedRequest() per job
+     */
+    public function extractHttpResponseBodyParallel(array $jobs): array
+    {
+        $mapped = array_map(function ($j) {
+            $j['httpResponseBody'] = true;
+            if (!isset($j['attributes3'])) {
+                $j['attributes3'] = 'httpResponseBody';
             }
 
             return $j;

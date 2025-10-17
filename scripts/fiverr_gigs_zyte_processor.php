@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Fiverr Gigs Zyte Downloader (parallel batches)
  *
  * - Reads unprocessed gig URLs from fiverr_listings_gigs
- * - Downloads via ZyteApiClient::extractBrowserHtmlParallel() in batches
+ * - Downloads via ZyteApiClient::extractHttpResponseBodyParallel() in batches
  * - Updates processed_at and processed_status
  * - Defaults: batchSize=5, numBatches=3 (15 requests per run), delaySeconds=5
  */
@@ -118,7 +118,7 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
     }
 
     try {
-        $results = $client->extractBrowserHtmlParallel($jobs);
+        $results = $client->extractHttpResponseBodyParallel($jobs);
     } catch (\Throwable $e) {
         // Catastrophic failure for the whole batch; mark all as error
         echo "Batch error: {$e->getMessage()}\n";
@@ -156,12 +156,22 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
 
         if ((int)$statusCode === 200) {
             try {
-                $json = $res['response']->json();
-                $html = $json['browserHtml'] ?? '';
+                $json        = $res['response']->json();
+                $attributes3 = $res['request']['attributes3'] ?? null;
+
+                // Handle both httpResponseBody (base64-encoded) and browserHtml (plain) responses
+                if ($attributes3 === 'httpResponseBody') {
+                    $html = isset($json['httpResponseBody']) ? base64_decode($json['httpResponseBody']) : null;
+                } else {
+                    // Fallback to browserHtml for cached responses from before the change
+                    $html = $json['browserHtml'] ?? null;
+                }
 
                 echo "  Processing gig {$id}: {$url}\n";
                 echo "    Attempting to import JSON data...\n";
 
+                // Extract embedded JSON. extract_embedded_json_blocks() expects string input.
+                $html        = $html ?? '';
                 $blocks      = Utility\extract_embedded_json_blocks($html);
                 $filtered    = Utility\filter_json_blocks_by_selector($blocks, 'perseus-initial-props', true);
                 $data        = $filtered[0] ?? [];

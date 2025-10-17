@@ -2515,4 +2515,304 @@ class DataForSeoSerpGoogleOrganicProcessorTest extends TestCase
             ->first();
         $this->assertNull($errorResponse->processed_at);
     }
+
+    public function test_process_responses_all_processes_all_available(): void
+    {
+        // Insert 5 unprocessed responses
+        $responses = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $responses[] = [
+                'client'        => 'dataforseo',
+                'key'           => "unprocessed-key-{$i}",
+                'endpoint'      => 'serp/google/organic/task_get/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => "task-{$i}",
+                            'data' => [
+                                'keyword'       => "keyword {$i}",
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                                'se'            => 'google',
+                                'se_type'       => 'organic',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => "keyword {$i}",
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'check_url'     => "https://www.google.com/search?q=keyword+{$i}",
+                                    'datetime'      => '2023-01-01 12:00:00',
+                                    'item_types'    => ['organic'],
+                                    'items'         => [
+                                        [
+                                            'type'          => 'organic',
+                                            'rank_absolute' => 1,
+                                            'domain'        => "example{$i}.com",
+                                            'title'         => "Title {$i}",
+                                            'url'           => "https://example{$i}.com/test",
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ];
+        }
+        DB::table($this->responsesTable)->insert($responses);
+
+        // Process all with batch size of 2
+        $stats = $this->processor->processResponsesAll(2);
+
+        $this->assertEquals(5, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['listings_items']);
+        $this->assertEquals(5, $stats['organic_items']);
+        $this->assertEquals(5, $stats['listings_items_inserted']);
+        $this->assertEquals(5, $stats['organic_items_inserted']);
+        $this->assertEquals(3, $stats['batches_processed']); // 2 + 2 + 1 = 3 batches
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all were processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(5, $processedCount);
+    }
+
+    public function test_process_responses_all_with_no_responses(): void
+    {
+        // No unprocessed responses
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(0, $stats['processed_responses']);
+        $this->assertEquals(0, $stats['batches_processed']);
+    }
+
+    public function test_process_responses_all_accumulates_stats(): void
+    {
+        // Insert 2 responses with different numbers of items
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-1',
+                'endpoint'      => 'serp/google/organic/task_get/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-1',
+                            'data' => [
+                                'keyword'       => 'keyword 1',
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                                'se'            => 'google',
+                                'se_type'       => 'organic',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => 'keyword 1',
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'check_url'     => 'https://www.google.com/search?q=keyword+1',
+                                    'datetime'      => '2023-01-01 12:00:00',
+                                    'item_types'    => ['organic'],
+                                    'items'         => [
+                                        [
+                                            'type'          => 'organic',
+                                            'rank_absolute' => 1,
+                                            'domain'        => 'example1.com',
+                                            'title'         => 'Title 1',
+                                            'url'           => 'https://example1.com/test1',
+                                        ],
+                                        [
+                                            'type'          => 'organic',
+                                            'rank_absolute' => 2,
+                                            'domain'        => 'example2.com',
+                                            'title'         => 'Title 2',
+                                            'url'           => 'https://example2.com/test2',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-2',
+                'endpoint'      => 'serp/google/organic/live/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-2',
+                            'data' => [
+                                'keyword'       => 'keyword 2',
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                                'se'            => 'google',
+                                'se_type'       => 'organic',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => 'keyword 2',
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'check_url'     => 'https://www.google.com/search?q=keyword+2',
+                                    'datetime'      => '2023-01-01 12:00:00',
+                                    'item_types'    => ['organic'],
+                                    'items'         => [
+                                        [
+                                            'type'          => 'organic',
+                                            'rank_absolute' => 1,
+                                            'domain'        => 'example3.com',
+                                            'title'         => 'Title 3',
+                                            'url'           => 'https://example3.com/test3',
+                                        ],
+                                        [
+                                            'type'          => 'organic',
+                                            'rank_absolute' => 2,
+                                            'domain'        => 'example4.com',
+                                            'title'         => 'Title 4',
+                                            'url'           => 'https://example4.com/test4',
+                                        ],
+                                        [
+                                            'type'          => 'organic',
+                                            'rank_absolute' => 3,
+                                            'domain'        => 'example5.com',
+                                            'title'         => 'Title 5',
+                                            'url'           => 'https://example5.com/test5',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(2, $stats['processed_responses']);
+        $this->assertEquals(2, $stats['listings_items']);
+        $this->assertEquals(5, $stats['organic_items']);
+        $this->assertEquals(2, $stats['listings_items_inserted']);
+        $this->assertEquals(5, $stats['organic_items_inserted']);
+        $this->assertEquals(5, $stats['total_items']); // 2 + 3 = 5 organic items total
+        $this->assertEquals(1, $stats['batches_processed']);
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all items were inserted
+        $this->assertEquals(2, DB::table($this->listingsTable)->count());
+        $this->assertEquals(5, DB::table($this->organicItemsTable)->count());
+    }
+
+    public function test_process_responses_all_handles_errors_and_continues(): void
+    {
+        // Insert one invalid and one valid response
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'invalid-response',
+                'endpoint'             => 'serp/google/organic/task_get/advanced',
+                'response_body'        => 'invalid json',
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'valid-response',
+                'endpoint'      => 'serp/google/organic/task_get/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-valid',
+                            'data' => [
+                                'keyword'       => 'valid keyword',
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                                'se'            => 'google',
+                                'se_type'       => 'organic',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => 'valid keyword',
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'check_url'     => 'https://www.google.com/search?q=valid+keyword',
+                                    'datetime'      => '2023-01-01 12:00:00',
+                                    'item_types'    => ['organic'],
+                                    'items'         => [
+                                        [
+                                            'type'          => 'organic',
+                                            'rank_absolute' => 1,
+                                            'domain'        => 'valid.com',
+                                            'title'         => 'Valid Title',
+                                            'url'           => 'https://valid.com/test',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(1, $stats['processed_responses']); // Only valid one processed
+        $this->assertEquals(1, $stats['listings_items']);
+        $this->assertEquals(1, $stats['organic_items']);
+        $this->assertEquals(1, $stats['listings_items_inserted']);
+        $this->assertEquals(1, $stats['organic_items_inserted']);
+        $this->assertEquals(1, $stats['errors']);
+
+        // Verify valid items were inserted
+        $this->assertEquals(1, DB::table($this->listingsTable)->count());
+        $this->assertEquals(1, DB::table($this->organicItemsTable)->count());
+        $item = DB::table($this->organicItemsTable)->first();
+        $this->assertEquals('Valid Title', $item->title);
+
+        // Verify both responses were marked as processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(2, $processedCount);
+    }
 }

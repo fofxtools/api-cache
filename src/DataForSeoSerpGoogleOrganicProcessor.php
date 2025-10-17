@@ -844,4 +844,79 @@ class DataForSeoSerpGoogleOrganicProcessor
 
         return $stats;
     }
+
+    /**
+     * Process all available unprocessed DataForSEO SERP Google organic responses
+     *
+     * Loops over all available responses by repeatedly calling processResponses()
+     * until no more unprocessed responses are found.
+     *
+     * @param int  $batchSize   Number of responses to process per batch (default: 100)
+     * @param bool $processPaas Whether to process People Also Ask items (default: true)
+     *
+     * @return array Cumulative statistics about all processing
+     */
+    public function processResponsesAll(int $batchSize = 100, bool $processPaas = true): array
+    {
+        $cumulativeStats = [
+            'processed_responses'     => 0,
+            'listings_items'          => 0,
+            'listings_items_inserted' => 0,
+            'listings_items_updated'  => 0,
+            'listings_items_skipped'  => 0,
+            'organic_items'           => 0,
+            'organic_items_inserted'  => 0,
+            'organic_items_updated'   => 0,
+            'organic_items_skipped'   => 0,
+            'paa_items'               => 0,
+            'paa_items_inserted'      => 0,
+            'paa_items_updated'       => 0,
+            'paa_items_skipped'       => 0,
+            'total_items'             => 0,
+            'errors'                  => 0,
+            'batches_processed'       => 0,
+        ];
+
+        Log::debug('Starting processResponsesAll for DataForSEO SERP Google organic', [
+            'batch_size'   => $batchSize,
+            'process_paas' => $processPaas,
+        ]);
+
+        while (true) {
+            $batchStats = $this->processResponses($batchSize, $processPaas);
+
+            // Stop if no responses were processed in this batch
+            if ($batchStats['processed_responses'] === 0) {
+                break;
+            }
+
+            // Accumulate statistics
+            $cumulativeStats['processed_responses'] += $batchStats['processed_responses'];
+            $cumulativeStats['listings_items'] += $batchStats['listings_items'];
+            $cumulativeStats['listings_items_inserted'] += $batchStats['listings_items_inserted'];
+            $cumulativeStats['listings_items_updated'] += $batchStats['listings_items_updated'];
+            $cumulativeStats['listings_items_skipped'] += $batchStats['listings_items_skipped'];
+            $cumulativeStats['organic_items'] += $batchStats['organic_items'];
+            $cumulativeStats['organic_items_inserted'] += $batchStats['organic_items_inserted'];
+            $cumulativeStats['organic_items_updated'] += $batchStats['organic_items_updated'];
+            $cumulativeStats['organic_items_skipped'] += $batchStats['organic_items_skipped'];
+            $cumulativeStats['paa_items'] += $batchStats['paa_items'];
+            $cumulativeStats['paa_items_inserted'] += $batchStats['paa_items_inserted'];
+            $cumulativeStats['paa_items_updated'] += $batchStats['paa_items_updated'];
+            $cumulativeStats['paa_items_skipped'] += $batchStats['paa_items_skipped'];
+            $cumulativeStats['total_items'] += $batchStats['total_items'];
+            $cumulativeStats['errors'] += $batchStats['errors'];
+            $cumulativeStats['batches_processed']++;
+
+            Log::debug('Processed batch of DataForSEO SERP Google organic responses', [
+                'batch_number'         => $cumulativeStats['batches_processed'],
+                'batch_responses'      => $batchStats['processed_responses'],
+                'cumulative_responses' => $cumulativeStats['processed_responses'],
+            ]);
+        }
+
+        Log::debug('Completed processResponsesAll for DataForSEO SERP Google organic', $cumulativeStats);
+
+        return $cumulativeStats;
+    }
 }

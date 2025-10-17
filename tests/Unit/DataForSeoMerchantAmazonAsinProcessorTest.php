@@ -90,10 +90,10 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
                 'response_body'        => json_encode(['tasks' => []]),
                 'response_status_code' => 200,
                 'base_url'             => 'https://api.dataforseo.com',
-                'processed_at'         => now(),
-                'processed_status'     => json_encode(['status' => 'OK']),
                 'created_at'           => now(),
                 'updated_at'           => now(),
+                'processed_at'         => now(),
+                'processed_status'     => json_encode(['status' => 'OK']),
             ],
             [
                 'client'               => 'dataforseo',
@@ -102,10 +102,10 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
                 'response_body'        => json_encode(['tasks' => []]),
                 'response_status_code' => 200,
                 'base_url'             => 'https://api.dataforseo.com',
-                'processed_at'         => now(),
-                'processed_status'     => json_encode(['status' => 'OK']),
                 'created_at'           => now(),
                 'updated_at'           => now(),
+                'processed_at'         => now(),
+                'processed_status'     => json_encode(['status' => 'OK']),
             ],
             [
                 'client'               => 'dataforseo',
@@ -114,10 +114,10 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
                 'response_body'        => json_encode(['tasks' => []]),
                 'response_status_code' => 200,
                 'base_url'             => 'https://api.dataforseo.com',
-                'processed_at'         => now(),
-                'processed_status'     => json_encode(['status' => 'OK']),
                 'created_at'           => now(),
                 'updated_at'           => now(),
+                'processed_at'         => now(),
+                'processed_status'     => json_encode(['status' => 'OK']),
             ],
         ]);
 
@@ -338,9 +338,6 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
 
     public function test_process_responses_handles_invalid_json(): void
     {
-        // Clear any existing responses first
-        DB::table($this->responsesTable)->where('endpoint', 'like', 'merchant/amazon/asin/task_get/advanced%')->delete();
-
         // Insert response with invalid JSON
         $responseId = DB::table($this->responsesTable)->insertGetId([
             'client'               => 'dataforseo',
@@ -366,9 +363,6 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
             ->count();
         $this->assertEquals(1, $unprocessedCount);
 
-        // Disable sandbox filtering to ensure our response is processed
-        $this->processor->setSkipSandbox(false);
-
         $stats = $this->processor->processResponses();
 
         // For invalid JSON, the transaction rolls back so processed_responses stays 0
@@ -379,9 +373,6 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
 
     public function test_process_responses_handles_missing_tasks(): void
     {
-        // Clear any existing responses first
-        DB::table($this->responsesTable)->where('endpoint', 'like', 'merchant/amazon/asin/task_get/advanced%')->delete();
-
         // Insert response without tasks array
         DB::table($this->responsesTable)->insert([
             'client'               => 'dataforseo',
@@ -393,9 +384,6 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
             'created_at'           => now(),
             'updated_at'           => now(),
         ]);
-
-        // Disable sandbox filtering to ensure our response is processed
-        $this->processor->setSkipSandbox(false);
 
         $stats = $this->processor->processResponses();
 
@@ -470,10 +458,6 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
 
     public function test_process_responses_with_valid_asin_data(): void
     {
-        // Clear any existing responses first
-        DB::table($this->responsesTable)->where('endpoint', 'like', 'merchant/amazon/asin/task_get/advanced%')->delete();
-        DB::table($this->asinItemsTable)->truncate();
-
         // Insert response with valid ASIN data
         $testData = [
             'tasks' => [
@@ -529,7 +513,6 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
             'updated_at'           => now(),
         ]);
 
-        $this->processor->setSkipSandbox(false);
         $stats = $this->processor->processResponses();
 
         // Verify processing stats
@@ -555,5 +538,265 @@ class DataForSeoMerchantAmazonAsinProcessorTest extends TestCase
         $this->assertEquals('B123ITEM002', $items[1]->data_asin);
         $this->assertEquals('Test Product 2', $items[1]->title);
         $this->assertEquals(39.99, $items[1]->price_from);
+    }
+
+    public function test_process_responses_all_processes_all_available(): void
+    {
+        // Insert 5 unprocessed responses
+        $responses = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $responses[] = [
+                'client'        => 'dataforseo',
+                'key'           => "unprocessed-key-{$i}",
+                'endpoint'      => 'merchant/amazon/asin/task_get/advanced/12345678-1234-1234-1234-123456789000' . $i,
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => "task-{$i}",
+                            'data' => [
+                                'asin'          => "B{$i}{$i}{$i}ASIN{$i}{$i}{$i}",
+                                'se_type'       => 'asin',
+                                'location_code' => 2840,
+                                'language_code' => 'en_US',
+                            ],
+                            'result' => [
+                                [
+                                    'asin'      => "B{$i}{$i}{$i}RESULT{$i}{$i}",
+                                    'se_domain' => 'amazon.com',
+                                    'items'     => [
+                                        [
+                                            'type'       => 'amazon_product_info',
+                                            'title'      => "Product {$i}",
+                                            'data_asin'  => "B{$i}{$i}{$i}DATA{$i}{$i}{$i}",
+                                            'price_from' => $i * 10.0,
+                                            'rating'     => ['value' => 4.5],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+                'processed_at'         => null,
+                'processed_status'     => null,
+            ];
+        }
+        DB::table($this->responsesTable)->insert($responses);
+
+        // Process all with batch size of 2
+        $stats = $this->processor->processResponsesAll(2);
+
+        $this->assertEquals(5, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['items_processed']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(3, $stats['batches_processed']); // 2 + 2 + 1 = 3 batches
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all were processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(5, $processedCount);
+    }
+
+    public function test_process_responses_all_with_no_responses(): void
+    {
+        // No unprocessed responses
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(0, $stats['processed_responses']);
+        $this->assertEquals(0, $stats['batches_processed']);
+    }
+
+    public function test_process_responses_all_accumulates_stats(): void
+    {
+        // Insert 2 responses with different numbers of items
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-1',
+                'endpoint'      => 'merchant/amazon/asin/task_get/advanced/11111111-1111-1111-1111-111111111111',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-1',
+                            'data' => [
+                                'asin'          => 'B111ASIN111',
+                                'se_type'       => 'asin',
+                                'location_code' => 2840,
+                                'language_code' => 'en_US',
+                            ],
+                            'result' => [
+                                [
+                                    'asin'      => 'B111RESULT11',
+                                    'se_domain' => 'amazon.com',
+                                    'items'     => [
+                                        [
+                                            'type'       => 'amazon_product_info',
+                                            'title'      => 'Product 1',
+                                            'data_asin'  => 'B111DATA111',
+                                            'price_from' => 19.99,
+                                        ],
+                                        [
+                                            'type'       => 'amazon_product_info',
+                                            'title'      => 'Product 2',
+                                            'data_asin'  => 'B222DATA222',
+                                            'price_from' => 29.99,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+                'processed_at'         => null,
+                'processed_status'     => null,
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-2',
+                'endpoint'      => 'merchant/amazon/asin/task_get/advanced/22222222-2222-2222-2222-222222222222',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-2',
+                            'data' => [
+                                'asin'          => 'B333ASIN333',
+                                'se_type'       => 'asin',
+                                'location_code' => 2840,
+                                'language_code' => 'en_US',
+                            ],
+                            'result' => [
+                                [
+                                    'asin'      => 'B333RESULT33',
+                                    'se_domain' => 'amazon.com',
+                                    'items'     => [
+                                        [
+                                            'type'       => 'amazon_product_info',
+                                            'title'      => 'Product 3',
+                                            'data_asin'  => 'B333DATA333',
+                                            'price_from' => 39.99,
+                                        ],
+                                        [
+                                            'type'       => 'amazon_product_info',
+                                            'title'      => 'Product 4',
+                                            'data_asin'  => 'B444DATA444',
+                                            'price_from' => 49.99,
+                                        ],
+                                        [
+                                            'type'       => 'amazon_product_info',
+                                            'title'      => 'Product 5',
+                                            'data_asin'  => 'B555DATA555',
+                                            'price_from' => 59.99,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+                'processed_at'         => null,
+                'processed_status'     => null,
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(2, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['items_processed']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(5, $stats['total_items']); // 2 + 3 = 5 items total
+        $this->assertEquals(1, $stats['batches_processed']);
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all items were inserted
+        $this->assertEquals(5, DB::table($this->asinItemsTable)->count());
+    }
+
+    public function test_process_responses_all_handles_errors_and_continues(): void
+    {
+        // Insert one invalid and one valid response
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'invalid-response',
+                'endpoint'             => 'merchant/amazon/asin/task_get/advanced/88888888-8888-8888-8888-888888888888',
+                'response_body'        => 'invalid json',
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+                'processed_at'         => null,
+                'processed_status'     => null,
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'valid-response',
+                'endpoint'      => 'merchant/amazon/asin/task_get/advanced/99999999-9999-9999-9999-999999999999',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-valid',
+                            'data' => [
+                                'asin'          => 'B999ASIN999',
+                                'se_type'       => 'asin',
+                                'location_code' => 2840,
+                                'language_code' => 'en_US',
+                            ],
+                            'result' => [
+                                [
+                                    'asin'      => 'B999RESULT99',
+                                    'se_domain' => 'amazon.com',
+                                    'items'     => [
+                                        [
+                                            'type'       => 'amazon_product_info',
+                                            'title'      => 'Valid Product',
+                                            'data_asin'  => 'B999DATA999',
+                                            'price_from' => 99.99,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+                'processed_at'         => null,
+                'processed_status'     => null,
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(1, $stats['processed_responses']); // Only valid one processed
+        $this->assertEquals(1, $stats['items_processed']);
+        $this->assertEquals(1, $stats['items_inserted']);
+        $this->assertEquals(1, $stats['errors']);
+
+        // Verify valid item was inserted
+        $this->assertEquals(1, DB::table($this->asinItemsTable)->count());
+        $item = DB::table($this->asinItemsTable)->first();
+        $this->assertEquals('Valid Product', $item->title);
+
+        // Verify both responses were marked as processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(2, $processedCount);
     }
 }

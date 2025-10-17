@@ -33,20 +33,34 @@ To disable caching for specific requests:
 
 ```php
 $client->setUseCache(false);
-$result = $client->extractBrowserHtml('https://www.fiverr.com');
+$result = $client->extractHttpResponseBody('https://www.fiverr.com');
 $client->setUseCache(true); // Re-enable
 ```
 
 ## Methods
 
+### HTTP Response Body Extraction
+
+Extract the HTTP response body without browser rendering. This is for HTTP-only requests (cheapest option).
+
+Note that the HTML is base64-encoded in the response when using `httpResponseBody`.
+
+```php
+$result = $client->extractHttpResponseBody('https://www.fiverr.com/categories');
+$response = $result['response'];
+$json = $response->json();
+$html = base64_decode($json['httpResponseBody']);
+```
+
 ### Browser HTML Extraction
 
-Extract browser-rendered HTML after JavaScript execution:
+Extract browser-rendered HTML after JavaScript execution. Note that this costs more than HTTP requests (e.g. 10x the price):
 
 ```php
 $result = $client->extractBrowserHtml('https://www.fiverr.com/categories');
 $response = $result['response'];
 $json = $response->json();
+$html = $json['browserHtml'];
 ```
 
 ### Article Extraction
@@ -135,6 +149,28 @@ $result = $client->extractCommon(
     geolocation: 'US',
     javascript: false
 );
+```
+
+## Parallel Requests
+
+Make parallel requests for batch processing:
+
+```php
+$jobs = [
+    ['url' => 'https://example.com'],
+    ['url' => 'https://httpbin.org/headers'],
+    ['url' => 'https://httpbin.org/user-agent'],
+];
+
+$results = $client->extractHttpResponseBodyParallel($jobs);
+foreach ($results as $result) {
+    $response = $result['response'];
+    $json     = $response->json();
+    $url      = $result['request']['attributes'];
+    $html     = base64_decode($json['httpResponseBody']);
+    echo "\n=== URL: {$url} ===\n";
+    echo "\n" . $html;
+}
 ```
 
 ## Advanced Options
@@ -230,6 +266,7 @@ The client supports these specialized extraction methods:
 - `extract()` - Full flexibility with all parameters
 - `extractCommon()` - Simplified method for common use cases
 - `extractBrowserHtml()` - Browser-rendered HTML
+- `extractHttpResponseBody()` - HTTP response body (no JavaScript); HTML is base64-encoded
 - `extractArticle()` - Article content and metadata
 - `extractArticleList()` - Lists of articles
 - `extractArticleNavigation()` - Article navigation data
@@ -242,3 +279,7 @@ The client supports these specialized extraction methods:
 - `extractProductNavigation()` - E-commerce navigation
 - `extractSerp()` - Search engine results
 - `extractCustomAttributes()` - AI-powered custom extraction
+- `screenshot()` - Page screenshots
+- `extractParallel()` - Parallel requests for batch processing
+- `extractBrowserHtmlParallel()` - Convenience wrapper for parallel browser HTML requests
+- `extractHttpResponseBodyParallel()` - Convenience wrapper for parallel HTTP response body requests

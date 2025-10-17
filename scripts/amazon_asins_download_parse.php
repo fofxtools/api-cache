@@ -78,7 +78,7 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
     }
 
     try {
-        $results = $zyte->extractBrowserHtmlParallel($jobs);
+        $results = $zyte->extractHttpResponseBodyParallel($jobs);
     } catch (\Throwable $e) {
         // Catastrophic failure for the whole batch; mark all as error
         echo "Batch request error: {$e->getMessage()}\n";
@@ -124,8 +124,16 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
 
             if ((int)$statusCode === 200) {
                 try {
-                    $json = $res['response']->json();
-                    $html = $json['browserHtml'] ?? null;
+                    $json        = $res['response']->json();
+                    $attributes3 = $res['request']['attributes3'] ?? null;
+
+                    // Handle both httpResponseBody (base64-encoded) and browserHtml (plain) responses
+                    if ($attributes3 === 'httpResponseBody') {
+                        $html = isset($json['httpResponseBody']) ? base64_decode($json['httpResponseBody']) : null;
+                    } else {
+                        // Fallback to browserHtml for cached responses from before the change
+                        $html = $json['browserHtml'] ?? null;
+                    }
 
                     if ($isCached) {
                         echo "    → Cached\n";
@@ -136,10 +144,11 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
                     }
 
                     if ($html === null) {
-                        echo "    → Error: No browserHtml in response\n";
-                        Log::error('No browserHtml in Zyte response', [
-                            'asin' => $asin,
-                            'url'  => $url,
+                        echo "    → Error: No HTML in response\n";
+                        Log::error('No HTML in Zyte response', [
+                            'asin'        => $asin,
+                            'url'         => $url,
+                            'attributes3' => $attributes3,
                         ]);
                         $stats['errors']++;
 
@@ -147,7 +156,7 @@ for ($batch = 1; $batch <= $numBatches; $batch++) {
                             ->where('id', $row->id)
                             ->update([
                                 'processed_at'     => now(),
-                                'processed_status' => 'ERROR (No browserHtml in response)',
+                                'processed_status' => 'ERROR (No HTML in response)',
                             ]);
 
                         continue;

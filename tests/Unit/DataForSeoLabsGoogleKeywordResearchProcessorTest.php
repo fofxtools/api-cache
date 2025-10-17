@@ -1105,4 +1105,256 @@ class DataForSeoLabsGoogleKeywordResearchProcessorTest extends TestCase
         $this->assertNotNull($sandboxItem);
         $this->assertNotNull($productionItem);
     }
+
+    public function test_process_responses_all_processes_all_available(): void
+    {
+        // Insert 5 unprocessed responses
+        for ($i = 1; $i <= 5; $i++) {
+            DB::table($this->responsesTable)->insert([
+                'client'        => 'dataforseo',
+                'key'           => "unprocessed-key-{$i}",
+                'endpoint'      => 'dataforseo_labs/google/keyword_overview/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => "task-{$i}",
+                            'data' => [
+                                'se_type'       => 'google',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                            ],
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'keyword'      => "keyword {$i}",
+                                            'keyword_info' => [
+                                                'search_volume' => $i * 1000,
+                                                'competition'   => 0.5,
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ]);
+        }
+
+        // Process all with batch size of 2
+        $stats = $this->processor->processResponsesAll(2);
+
+        $this->assertEquals(5, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['keyword_items']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(3, $stats['batches_processed']); // 2 + 2 + 1 = 3 batches
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all were processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(5, $processedCount);
+    }
+
+    public function test_process_responses_all_with_no_responses(): void
+    {
+        // No unprocessed responses
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(0, $stats['processed_responses']);
+        $this->assertEquals(0, $stats['batches_processed']);
+    }
+
+    public function test_process_responses_all_accumulates_stats(): void
+    {
+        // Insert 2 responses with different numbers of items
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-1',
+                'endpoint'      => 'dataforseo_labs/google/keyword_overview/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-1',
+                            'data' => [
+                                'se_type'       => 'google',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                            ],
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'keyword'      => 'keyword 1',
+                                            'keyword_info' => [
+                                                'search_volume' => 1000,
+                                                'competition'   => 0.5,
+                                            ],
+                                        ],
+                                        [
+                                            'keyword'      => 'keyword 2',
+                                            'keyword_info' => [
+                                                'search_volume' => 2000,
+                                                'competition'   => 0.6,
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-2',
+                'endpoint'      => 'dataforseo_labs/google/related_keywords/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-2',
+                            'data' => [
+                                'se_type'       => 'google',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                            ],
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'keyword'      => 'keyword 3',
+                                            'keyword_info' => [
+                                                'search_volume' => 3000,
+                                                'competition'   => 0.7,
+                                            ],
+                                        ],
+                                        [
+                                            'keyword'      => 'keyword 4',
+                                            'keyword_info' => [
+                                                'search_volume' => 4000,
+                                                'competition'   => 0.8,
+                                            ],
+                                        ],
+                                        [
+                                            'keyword'      => 'keyword 5',
+                                            'keyword_info' => [
+                                                'search_volume' => 5000,
+                                                'competition'   => 0.9,
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(2, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['keyword_items']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(5, $stats['total_items']); // 2 + 3 = 5 items total
+        $this->assertEquals(1, $stats['batches_processed']);
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all items were inserted
+        $this->assertEquals(5, DB::table($this->itemsTable)->count());
+    }
+
+    public function test_process_responses_all_handles_errors_and_continues(): void
+    {
+        // Insert one invalid and one valid response
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'invalid-response',
+                'endpoint'             => 'dataforseo_labs/google/keyword_overview/live',
+                'response_body'        => 'invalid json',
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'valid-response',
+                'endpoint'      => 'dataforseo_labs/google/keyword_overview/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-valid',
+                            'data' => [
+                                'se_type'       => 'google',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                            ],
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'keyword'      => 'valid keyword',
+                                            'keyword_info' => [
+                                                'search_volume' => 10000,
+                                                'competition'   => 0.75,
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(1, $stats['processed_responses']); // Only valid one processed
+        $this->assertEquals(1, $stats['keyword_items']);
+        $this->assertEquals(1, $stats['items_inserted']);
+        $this->assertEquals(1, $stats['errors']);
+
+        // Verify valid item was inserted
+        $this->assertEquals(1, DB::table($this->itemsTable)->count());
+        $item = DB::table($this->itemsTable)->first();
+        $this->assertEquals('valid keyword', $item->keyword);
+
+        // Verify both responses were marked as processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(2, $processedCount);
+    }
 }

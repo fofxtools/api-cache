@@ -893,4 +893,226 @@ class DataForSeoBacklinksBulkProcessorTest extends TestCase
             ->first();
         $this->assertNull($errorResponse->processed_at);
     }
+
+    public function test_process_responses_all_processes_all_available(): void
+    {
+        // Insert 5 unprocessed responses
+        for ($i = 1; $i <= 5; $i++) {
+            DB::table($this->responsesTable)->insert([
+                'client'        => 'dataforseo',
+                'key'           => "unprocessed-key-{$i}",
+                'endpoint'      => 'backlinks/bulk_ranks/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'     => "task-{$i}",
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'target'     => "https://example.com/page{$i}",
+                                            'rank'       => $i * 100,
+                                            'backlinks'  => $i * 10,
+                                            'spam_score' => $i,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ]);
+        }
+
+        // Process all with batch size of 2
+        $stats = $this->processor->processResponsesAll(2);
+
+        $this->assertEquals(5, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['bulk_items']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(3, $stats['batches_processed']); // 2 + 2 + 1 = 3 batches
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all were processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(5, $processedCount);
+    }
+
+    public function test_process_responses_all_with_no_responses(): void
+    {
+        // No unprocessed responses
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(0, $stats['processed_responses']);
+        $this->assertEquals(0, $stats['batches_processed']);
+    }
+
+    public function test_process_responses_all_accumulates_stats(): void
+    {
+        // Insert 2 responses with different numbers of items
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-1',
+                'endpoint'      => 'backlinks/bulk_ranks/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'     => 'task-1',
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'target'     => 'https://example.com/page1',
+                                            'rank'       => 100,
+                                            'backlinks'  => 50,
+                                            'spam_score' => 5,
+                                        ],
+                                        [
+                                            'target'     => 'https://example.com/page2',
+                                            'rank'       => 200,
+                                            'backlinks'  => 75,
+                                            'spam_score' => 10,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-2',
+                'endpoint'      => 'backlinks/bulk_backlinks/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'     => 'task-2',
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'target'            => 'https://example.com/page3',
+                                            'backlinks'         => 100,
+                                            'referring_domains' => 30,
+                                        ],
+                                        [
+                                            'target'            => 'https://example.com/page4',
+                                            'backlinks'         => 150,
+                                            'referring_domains' => 45,
+                                        ],
+                                        [
+                                            'target'            => 'https://example.com/page5',
+                                            'backlinks'         => 200,
+                                            'referring_domains' => 60,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(2, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['bulk_items']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(5, $stats['total_items']); // 2 + 3 = 5 items total
+        $this->assertEquals(1, $stats['batches_processed']);
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all items were inserted
+        $this->assertEquals(5, DB::table($this->bulkItemsTable)->count());
+    }
+
+    public function test_process_responses_all_handles_errors_and_continues(): void
+    {
+        // Insert one invalid and one valid response
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'invalid-response',
+                'endpoint'             => 'backlinks/bulk_ranks/live',
+                'response_body'        => 'invalid json',
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'valid-response',
+                'endpoint'      => 'backlinks/bulk_ranks/live',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'     => 'task-valid',
+                            'result' => [
+                                [
+                                    'items' => [
+                                        [
+                                            'target'     => 'https://example.com/valid',
+                                            'rank'       => 100,
+                                            'backlinks'  => 50,
+                                            'spam_score' => 5,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'processed_at'         => null,
+                'processed_status'     => null,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(1, $stats['processed_responses']); // Only valid one processed
+        $this->assertEquals(1, $stats['bulk_items']);
+        $this->assertEquals(1, $stats['items_inserted']);
+        $this->assertEquals(1, $stats['errors']);
+
+        // Verify valid item was inserted
+        $this->assertEquals(1, DB::table($this->bulkItemsTable)->count());
+        $bulkItem = DB::table($this->bulkItemsTable)->first();
+        $this->assertEquals('https://example.com/valid', $bulkItem->target);
+
+        // Verify both responses were marked as processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(2, $processedCount);
+    }
 }

@@ -1223,4 +1223,262 @@ class DataForSeoSerpGoogleAutocompleteProcessorTest extends TestCase
             ->first();
         $this->assertNull($errorResponse->processed_at);
     }
+
+    public function test_process_responses_all_processes_all_available(): void
+    {
+        // Insert 5 unprocessed responses
+        $responses = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $responses[] = [
+                'client'        => 'dataforseo',
+                'key'           => "unprocessed-key-{$i}",
+                'endpoint'      => 'serp/google/autocomplete/task_get/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => "task-{$i}",
+                            'data' => [
+                                'keyword'       => "keyword {$i}",
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => "keyword {$i}",
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'items'         => [
+                                        [
+                                            'type'          => 'autocomplete',
+                                            'rank_absolute' => 1,
+                                            'suggestion'    => "suggestion {$i}",
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ];
+        }
+        DB::table($this->responsesTable)->insert($responses);
+
+        // Process all with batch size of 2
+        $stats = $this->processor->processResponsesAll(2);
+
+        $this->assertEquals(5, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['autocomplete_items']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(3, $stats['batches_processed']); // 2 + 2 + 1 = 3 batches
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all were processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(5, $processedCount);
+    }
+
+    public function test_process_responses_all_with_no_responses(): void
+    {
+        // No unprocessed responses
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(0, $stats['processed_responses']);
+        $this->assertEquals(0, $stats['batches_processed']);
+    }
+
+    public function test_process_responses_all_accumulates_stats(): void
+    {
+        // Insert 2 responses with different numbers of items
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-1',
+                'endpoint'      => 'serp/google/autocomplete/task_get/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-1',
+                            'data' => [
+                                'keyword'       => 'keyword 1',
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => 'keyword 1',
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'items'         => [
+                                        [
+                                            'type'          => 'autocomplete',
+                                            'rank_absolute' => 1,
+                                            'suggestion'    => 'suggestion 1',
+                                        ],
+                                        [
+                                            'type'          => 'autocomplete',
+                                            'rank_absolute' => 2,
+                                            'suggestion'    => 'suggestion 2',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'response-2',
+                'endpoint'      => 'serp/google/autocomplete/live/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-2',
+                            'data' => [
+                                'keyword'       => 'keyword 2',
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => 'keyword 2',
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'items'         => [
+                                        [
+                                            'type'          => 'autocomplete',
+                                            'rank_absolute' => 1,
+                                            'suggestion'    => 'suggestion 3',
+                                        ],
+                                        [
+                                            'type'          => 'autocomplete',
+                                            'rank_absolute' => 2,
+                                            'suggestion'    => 'suggestion 4',
+                                        ],
+                                        [
+                                            'type'          => 'autocomplete',
+                                            'rank_absolute' => 3,
+                                            'suggestion'    => 'suggestion 5',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(2, $stats['processed_responses']);
+        $this->assertEquals(5, $stats['autocomplete_items']);
+        $this->assertEquals(5, $stats['items_inserted']);
+        $this->assertEquals(5, $stats['total_items']); // 2 + 3 = 5 items total
+        $this->assertEquals(1, $stats['batches_processed']);
+        $this->assertEquals(0, $stats['errors']);
+
+        // Verify all items were inserted
+        $this->assertEquals(5, DB::table($this->autocompleteItemsTable)->count());
+    }
+
+    public function test_process_responses_all_handles_errors_and_continues(): void
+    {
+        // Insert one invalid and one valid response
+        DB::table($this->responsesTable)->insert([
+            [
+                'client'               => 'dataforseo',
+                'key'                  => 'invalid-response',
+                'endpoint'             => 'serp/google/autocomplete/task_get/advanced',
+                'response_body'        => 'invalid json',
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+            [
+                'client'        => 'dataforseo',
+                'key'           => 'valid-response',
+                'endpoint'      => 'serp/google/autocomplete/task_get/advanced',
+                'response_body' => json_encode([
+                    'tasks' => [
+                        [
+                            'id'   => 'task-valid',
+                            'data' => [
+                                'keyword'       => 'valid keyword',
+                                'se_domain'     => 'google.com',
+                                'location_code' => 2840,
+                                'language_code' => 'en',
+                                'device'        => 'desktop',
+                            ],
+                            'result' => [
+                                [
+                                    'keyword'       => 'valid keyword',
+                                    'se_domain'     => 'google.com',
+                                    'location_code' => 2840,
+                                    'language_code' => 'en',
+                                    'device'        => 'desktop',
+                                    'items'         => [
+                                        [
+                                            'type'          => 'autocomplete',
+                                            'rank_absolute' => 1,
+                                            'suggestion'    => 'valid suggestion',
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]),
+                'response_status_code' => 200,
+                'base_url'             => 'https://api.dataforseo.com',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ],
+        ]);
+
+        $stats = $this->processor->processResponsesAll(10);
+
+        $this->assertEquals(1, $stats['processed_responses']); // Only valid one processed
+        $this->assertEquals(1, $stats['autocomplete_items']);
+        $this->assertEquals(1, $stats['items_inserted']);
+        $this->assertEquals(1, $stats['errors']);
+
+        // Verify valid item was inserted
+        $this->assertEquals(1, DB::table($this->autocompleteItemsTable)->count());
+        $item = DB::table($this->autocompleteItemsTable)->first();
+        $this->assertEquals('valid suggestion', $item->suggestion);
+
+        // Verify both responses were marked as processed
+        $processedCount = DB::table($this->responsesTable)
+            ->whereNotNull('processed_at')
+            ->count();
+        $this->assertEquals(2, $processedCount);
+    }
 }

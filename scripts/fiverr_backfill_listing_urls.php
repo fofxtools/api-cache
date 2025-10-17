@@ -101,8 +101,9 @@ while (true) {
 
         try {
             // Fetch HTML (should be cached)
-            $response = $zyteClient->extractBrowserHtml($category->url);
-            $isCached = $response['is_cached'] ?? false;
+            $response    = $zyteClient->extractHttpResponseBody($category->url);
+            $isCached    = $response['is_cached'] ?? false;
+            $attributes3 = $response['request']['attributes3'] ?? null;
 
             if ($isCached) {
                 $stats['cache_hits']++;
@@ -112,9 +113,17 @@ while (true) {
             }
 
             $json = $response['response']->json();
-            $html = $json['browserHtml'] ?? '';
 
-            // Extract embedded JSON
+            // Handle both httpResponseBody (base64-encoded) and browserHtml (plain) responses
+            if ($attributes3 === 'httpResponseBody') {
+                $html = isset($json['httpResponseBody']) ? base64_decode($json['httpResponseBody']) : null;
+            } else {
+                // Fallback to browserHtml for cached responses from before the change
+                $html = $json['browserHtml'] ?? null;
+            }
+
+            // Extract embedded JSON. extract_embedded_json_blocks() expects string input.
+            $html     = $html ?? '';
             $blocks   = Utility\extract_embedded_json_blocks($html);
             $filtered = Utility\filter_json_blocks_by_selector($blocks, 'perseus-initial-props', true);
             $data     = $filtered[0] ?? [];
@@ -194,8 +203,9 @@ while (true) {
 
         try {
             // Fetch HTML (should be cached)
-            $response = $zyteClient->extractBrowserHtml($tag->url);
-            $isCached = $response['is_cached'] ?? false;
+            $response    = $zyteClient->extractHttpResponseBody($tag->url);
+            $isCached    = $response['is_cached'] ?? false;
+            $attributes3 = $response['request']['attributes3'] ?? null;
 
             if ($isCached) {
                 $stats['cache_hits']++;
@@ -205,9 +215,17 @@ while (true) {
             }
 
             $json = $response['response']->json();
-            $html = $json['browserHtml'] ?? '';
 
-            // Extract embedded JSON
+            // Handle both httpResponseBody (base64-encoded) and browserHtml (plain) responses
+            if ($attributes3 === 'httpResponseBody') {
+                $html = isset($json['httpResponseBody']) ? base64_decode($json['httpResponseBody']) : null;
+            } else {
+                // Fallback to browserHtml for cached responses from before the change
+                $html = $json['browserHtml'] ?? null;
+            }
+
+            // Extract embedded JSON. extract_embedded_json_blocks() expects string input.
+            $html     = $html ?? '';
             $blocks   = Utility\extract_embedded_json_blocks($html);
             $filtered = Utility\filter_json_blocks_by_selector($blocks, 'perseus-initial-props', true);
             $data     = $filtered[0] ?? [];

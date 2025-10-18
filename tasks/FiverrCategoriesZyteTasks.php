@@ -1,10 +1,10 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Crunz Task for Fiverr Categories Zyte Processor
  */
+
+declare(strict_types=1);
 
 use Crunz\Schedule;
 

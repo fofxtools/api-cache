@@ -331,18 +331,39 @@ class BaseApiClient
     /**
      * Reset processed_at and processed_status columns to null for responses
      *
-     * @param string|null $endpoint Optional endpoint filter (default: null for all rows)
+     * @param string|null $endpoint    Optional endpoint filter (default: null for all rows)
+     * @param string|null $attributes  Optional filter for attributes column
+     * @param string|null $attributes2 Optional filter for attributes2 column
+     * @param string|null $attributes3 Optional filter for attributes3 column
      *
      * @return void
      */
-    public function resetProcessed(?string $endpoint = null): void
+    public function resetProcessed(?string $endpoint = null, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): void
     {
         $tableName = $this->getTableName();
+
+        Log::debug('Resetting processed status for responses...', [
+            'client'      => $this->clientName,
+            'table_name'  => $tableName,
+            'endpoint'    => $endpoint,
+            'attributes'  => $attributes,
+            'attributes2' => $attributes2,
+            'attributes3' => $attributes3,
+        ]);
 
         $query = DB::table($tableName);
 
         if ($endpoint !== null) {
             $query->where('endpoint', $endpoint);
+        }
+        if ($attributes !== null) {
+            $query->where('attributes', $attributes);
+        }
+        if ($attributes2 !== null) {
+            $query->where('attributes2', $attributes2);
+        }
+        if ($attributes3 !== null) {
+            $query->where('attributes3', $attributes3);
         }
 
         $updated = $query->update([
@@ -350,10 +371,14 @@ class BaseApiClient
             'processed_status' => null,
         ]);
 
-        Log::debug('Reset processed status for responses', [
+        Log::debug('Done resettting processed status for responses', [
+            'client'        => $this->clientName,
             'table_name'    => $tableName,
             'updated_count' => $updated,
             'endpoint'      => $endpoint,
+            'attributes'    => $attributes,
+            'attributes2'   => $attributes2,
+            'attributes3'   => $attributes3,
         ]);
     }
 
@@ -987,17 +1012,17 @@ class BaseApiClient
     /**
      * Generate filename for a database row
      *
-     * @param \stdClass $row            Database row object
-     * @param int       $truncateLength Maximum length for filename slug (default: 180)
+     * @param \stdClass $row                   Database row object
+     * @param int       $filenameSlugMaxLength Maximum length for filename slug (default: 180)
      *
      * @return string Generated filename with row ID prefix
      */
-    public function generateFilename(\stdClass $row, int $truncateLength = 180): string
+    public function generateFilename(\stdClass $row, int $filenameSlugMaxLength = 180): string
     {
         // Generate filename slug from source data
         $slug = Str::slug($this->resolveFilenameSlugSource($row));
-        if (mb_strlen($slug) > $truncateLength) {
-            $slug = mb_substr($slug, 0, $truncateLength);
+        if (mb_strlen($slug) > $filenameSlugMaxLength) {
+            $slug = mb_substr($slug, 0, $filenameSlugMaxLength);
         }
 
         // If slug is empty, just use ID without dash
@@ -1014,11 +1039,14 @@ class BaseApiClient
      *
      * Shared helper used by saveResponseBodiesToFilesBatch() and ad-hoc callers.
      *
-     * @param array       $rows              Array of DB row objects (stdClass) with id, response_body, attributes*
-     * @param string      $savePath          Relative directory on the 'local' disk
-     * @param bool        $overwriteExisting Whether to overwrite existing files
-     * @param int         $truncateLength    Maximum length for filename slug
-     * @param string|null $jsonKey           Optional JSON field name to extract from response_body
+     * @param array       $rows                  Array of DB row objects (stdClass) with id, response_body, attributes*
+     * @param string      $savePath              Relative directory on the 'local' disk
+     * @param bool        $overwriteExisting     Whether to overwrite existing files
+     * @param int         $filenameSlugMaxLength Maximum length for filename slug
+     * @param string|null $jsonKey               Optional JSON field name to extract from response_body.
+     *                                           If provided, response_body is parsed as JSON and the
+     *                                           specified field value is saved instead of raw response.
+     * @param bool        $base64Decode          Whether to base64-decode the response body (or JSON field)
      *
      * @return array {processed:int, errors:int, skipped:int}
      */
@@ -1026,8 +1054,9 @@ class BaseApiClient
         array $rows,
         string $savePath,
         bool $overwriteExisting,
-        int $truncateLength,
-        ?string $jsonKey
+        int $filenameSlugMaxLength,
+        ?string $jsonKey,
+        bool $base64Decode = false
     ): array {
         $stats = [
             'processed' => 0,
@@ -1061,7 +1090,7 @@ class BaseApiClient
             }
 
             // Generate filename
-            $filename = $this->generateFilename($row, $truncateLength);
+            $filename = $this->generateFilename($row, $filenameSlugMaxLength);
 
             // Check if file should be skipped (bulk pre-filtering)
             // Check for the full filename without extension
@@ -1083,7 +1112,7 @@ class BaseApiClient
 
         // Process everything in a single transaction
         try {
-            DB::transaction(function () use ($rowsToProcess, $rowsToSkip, $compressionService, $jsonKey, &$stats) {
+            DB::transaction(function () use ($rowsToProcess, $rowsToSkip, $compressionService, $jsonKey, $base64Decode, &$stats) {
                 $processedUpdates = [];
                 $errorUpdates     = [];
 
@@ -1103,6 +1132,14 @@ class BaseApiClient
                                 throw new \Exception("JSON key '{$jsonKey}' not found in response_body");
                             }
                             $responseBody = $jsonData[$jsonKey];
+                        }
+
+                        // Base64-decode if requested
+                        if ($base64Decode) {
+                            $responseBody = base64_decode($responseBody, true);
+                            if ($responseBody === false) {
+                                throw new \Exception('Failed to base64-decode response body');
+                            }
                         }
 
                         // Write file using Storage facade
@@ -1191,13 +1228,25 @@ class BaseApiClient
 
     /**
      * Save response bodies to files for explicit database row IDs
+     *
+     * @param array       $ids                   Array of row IDs to process
+     * @param string|null $savePath              Path to save files to (default: storage/app/<clientname>)
+     * @param bool        $overwriteExisting     Whether to overwrite existing files (default: false)
+     * @param int         $filenameSlugMaxLength Maximum length for filename slug (default: 180)
+     * @param string|null $jsonKey               Optional JSON field name to extract from response_body.
+     *                                           If provided, response_body is parsed as JSON and the
+     *                                           specified field value is saved instead of raw response.
+     * @param bool        $base64Decode          Whether to base64-decode the response body (or JSON field)
+     *
+     * @return array Statistics about the processing
      */
     public function saveResponseBodiesByIdsToFiles(
         array $ids,
         ?string $savePath = null,
         bool $overwriteExisting = false,
-        int $truncateLength = 180,
-        ?string $jsonKey = null
+        int $filenameSlugMaxLength = 180,
+        ?string $jsonKey = null,
+        bool $base64Decode = false
     ): array {
         $tableName = $this->getTableName();
         $savePath  = $savePath ?? "{$this->clientName}";
@@ -1216,7 +1265,7 @@ class BaseApiClient
             ->get()
             ->all();
 
-        return $this->saveResponseBodiesToFilesForRows($rows, $savePath, $overwriteExisting, $truncateLength, $jsonKey);
+        return $this->saveResponseBodiesToFilesForRows($rows, $savePath, $overwriteExisting, $filenameSlugMaxLength, $jsonKey, $base64Decode);
     }
 
     /**
@@ -1225,21 +1274,22 @@ class BaseApiClient
      * Processes rows where attributes is not null and processed_at/processed_status are null.
      * Uses bulk operations and single transaction per batch.
      *
-     * @param int         $batchSize         Number of rows to process per batch (default: 100)
-     * @param string|null $endpoint          Optional endpoint filter (default: null for all rows)
-     * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
-     * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
-     * @param int         $truncateLength    Maximum length for filename slug (default: 180)
-     * @param string|null $jsonKey           Optional JSON field name to extract from response_body.
-     *                                       If provided, response_body is parsed as JSON and the
-     *                                       specified field value is saved instead of raw response.
-     * @param string|null $attributes        Optional filter for attributes column
-     * @param string|null $attributes2       Optional filter for attributes2 column
-     * @param string|null $attributes3       Optional filter for attributes3 column
+     * @param int         $batchSize             Number of rows to process per batch (default: 100)
+     * @param string|null $endpoint              Optional endpoint filter (default: null for all rows)
+     * @param string|null $savePath              Path to save files to (default: storage/app/<clientname>)
+     * @param bool        $overwriteExisting     Whether to overwrite existing files (default: false)
+     * @param int         $filenameSlugMaxLength Maximum length for filename slug (default: 180)
+     * @param string|null $jsonKey               Optional JSON field name to extract from response_body.
+     *                                           If provided, response_body is parsed as JSON and the
+     *                                           specified field value is saved instead of raw response.
+     * @param bool        $base64Decode          Whether to base64-decode the response body (or JSON field)
+     * @param string|null $attributes            Optional filter for attributes column
+     * @param string|null $attributes2           Optional filter for attributes2 column
+     * @param string|null $attributes3           Optional filter for attributes3 column
      *
      * @return array Statistics about the processing
      */
-    public function saveResponseBodiesToFilesBatch(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180, ?string $jsonKey = null, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
+    public function saveResponseBodiesToFilesBatch(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $filenameSlugMaxLength = 180, ?string $jsonKey = null, bool $base64Decode = false, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
     {
         $tableName = $this->getTableName();
         $savePath  = $savePath ?? "{$this->clientName}";
@@ -1270,7 +1320,7 @@ class BaseApiClient
         $rows = $query->limit($batchSize)->get()->all();
 
         // Delegate actual file writing, decompression, JSON extraction, and status updates
-        return $this->saveResponseBodiesToFilesForRows($rows, $savePath, $overwriteExisting, $truncateLength, $jsonKey);
+        return $this->saveResponseBodiesToFilesForRows($rows, $savePath, $overwriteExisting, $filenameSlugMaxLength, $jsonKey, $base64Decode);
     }
 
     /**
@@ -1279,21 +1329,22 @@ class BaseApiClient
      * Processes all rows where attributes is not null and processed_at/processed_status are null.
      * Uses the batch processing method in a loop to cover all rows.
      *
-     * @param int         $batchSize         Number of rows to process per batch (default: 100)
-     * @param string|null $endpoint          Optional endpoint filter (default: null for all rows)
-     * @param string|null $savePath          Path to save files to (default: storage/app/<clientname>)
-     * @param bool        $overwriteExisting Whether to overwrite existing files (default: false)
-     * @param int         $truncateLength    Maximum length for filename slug (default: 180)
-     * @param string|null $jsonKey           Optional JSON field name to extract from response_body.
-     *                                       If provided, response_body is parsed as JSON and the
-     *                                       specified field value is saved instead of raw response.
-     * @param string|null $attributes        Optional filter for attributes column
-     * @param string|null $attributes2       Optional filter for attributes2 column
-     * @param string|null $attributes3       Optional filter for attributes3 column
+     * @param int         $batchSize             Number of rows to process per batch (default: 100)
+     * @param string|null $endpoint              Optional endpoint filter (default: null for all rows)
+     * @param string|null $savePath              Path to save files to (default: storage/app/<clientname>)
+     * @param bool        $overwriteExisting     Whether to overwrite existing files (default: false)
+     * @param int         $filenameSlugMaxLength Maximum length for filename slug (default: 180)
+     * @param string|null $jsonKey               Optional JSON field name to extract from response_body.
+     *                                           If provided, response_body is parsed as JSON and the
+     *                                           specified field value is saved instead of raw response.
+     * @param bool        $base64Decode          Whether to base64-decode the response body (or JSON field)
+     * @param string|null $attributes            Optional filter for attributes column
+     * @param string|null $attributes2           Optional filter for attributes2 column
+     * @param string|null $attributes3           Optional filter for attributes3 column
      *
      * @return array Statistics about the processing
      */
-    public function saveAllResponseBodiesToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $truncateLength = 180, ?string $jsonKey = null, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
+    public function saveAllResponseBodiesToFile(int $batchSize = 100, ?string $endpoint = null, ?string $savePath = null, bool $overwriteExisting = false, int $filenameSlugMaxLength = 180, ?string $jsonKey = null, bool $base64Decode = false, ?string $attributes = null, ?string $attributes2 = null, ?string $attributes3 = null): array
     {
         $totalStats = [
             'processed' => 0,
@@ -1308,7 +1359,7 @@ class BaseApiClient
         ]);
 
         while (true) {
-            $batchStats = $this->saveResponseBodiesToFilesBatch($batchSize, $endpoint, $savePath, $overwriteExisting, $truncateLength, $jsonKey, $attributes, $attributes2, $attributes3);
+            $batchStats = $this->saveResponseBodiesToFilesBatch($batchSize, $endpoint, $savePath, $overwriteExisting, $filenameSlugMaxLength, $jsonKey, $base64Decode, $attributes, $attributes2, $attributes3);
 
             // If no work was done, we're finished
             if ($batchStats['processed'] === 0 && $batchStats['errors'] === 0 && $batchStats['skipped'] === 0) {

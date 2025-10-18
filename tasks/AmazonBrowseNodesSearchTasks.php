@@ -1,10 +1,10 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Crunz Task for Amazon Browse Nodes DFS API Search
  */
+
+declare(strict_types=1);
 
 use Crunz\Schedule;
 

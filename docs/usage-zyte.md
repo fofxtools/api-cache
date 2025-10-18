@@ -240,24 +240,26 @@ echo "Screenshot saved to: $filePath";
 Save cached response bodies to files:
 
 ```php
-// Save all browserHtml responses to files
-$client->resetProcessed();                // Reset processed status if needed
-$stats = $client->saveAllResponseBodiesToFile(attributes3: 'browserHtml', jsonKey: 'browserHtml');
+// Save all httpResponseBody responses to files
+//$client->resetProcessed(attributes3: 'httpResponseBody');     // Reset processed status if needed
+$stats = $client->saveAllResponseBodiesToFile(attributes3: 'httpResponseBody', jsonKey: 'httpResponseBody', base64Decode: true);
 print_r($stats);
 
 // Save with custom options
-$client->resetProcessed();                // Reset processed status if needed
+//$client->resetProcessed(attributes3: 'httpResponseBody');     // Reset processed status if needed
 $stats = $client->saveAllResponseBodiesToFile(
-    attributes3: 'browserHtml',           // Filter by extraction type
-    jsonKey: 'browserHtml',               // Extract specific JSON field
-    batchSize: 10,                        // Process 10 at a time
-    savePath: 'scraped',                  // Custom directory
-    overwriteExisting: true               // Overwrite existing files
+    attributes3: 'httpResponseBody',        // Filter by extraction type
+    jsonKey: 'httpResponseBody',            // Extract specific JSON field
+    base64Decode: true,                     // Decode base64-encoded content
+                                            // (necessary for 'httpResponseBody'; not needed for 'browserHtml')
+    batchSize: 10,                          // Process 10 at a time
+    savePath: 'zyte',                       // Custom directory
+    overwriteExisting: true                 // Overwrite existing files
 );
 print_r($stats);
 ```
 
-Files are saved as `{id}-{url-slug}.html` in the specified directory.
+Files are saved as `{id}-{url-slug}.html` in the specified directory. By default filename slugs are truncated to 180 characters.
 
 ## All Extraction Types
 

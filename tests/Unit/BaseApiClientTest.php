@@ -404,6 +404,238 @@ class BaseApiClientTest extends TestCase
         $this->assertEquals('failed', $detailsRecord->processed_status);
     }
 
+    public function test_resetProcessed_with_attributes_filter(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert test data with different attributes
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/test',
+            'attributes'           => 'https://example.com/page1',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data1"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/test',
+            'attributes'           => 'https://example.com/page2',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data2"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call resetProcessed with attributes filter
+        $this->client->resetProcessed(null, 'https://example.com/page1');
+
+        // Verify only page1 was reset
+        $page1Record = DB::table($tableName)->where('attributes', 'https://example.com/page1')->first();
+        $this->assertNull($page1Record->processed_at);
+        $this->assertNull($page1Record->processed_status);
+
+        // Verify page2 was NOT reset
+        $page2Record = DB::table($tableName)->where('attributes', 'https://example.com/page2')->first();
+        $this->assertNotNull($page2Record->processed_at);
+        $this->assertNotNull($page2Record->processed_status);
+        $this->assertEquals('completed', $page2Record->processed_status);
+    }
+
+    public function test_resetProcessed_with_attributes2_filter(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert test data with different attributes2
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/test',
+            'attributes2'          => 'filter-a',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data1"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/test',
+            'attributes2'          => 'filter-b',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data2"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call resetProcessed with attributes2 filter
+        $this->client->resetProcessed(null, null, 'filter-a');
+
+        // Verify only filter-a was reset
+        $filterARecord = DB::table($tableName)->where('attributes2', 'filter-a')->first();
+        $this->assertNull($filterARecord->processed_at);
+        $this->assertNull($filterARecord->processed_status);
+
+        // Verify filter-b was NOT reset
+        $filterBRecord = DB::table($tableName)->where('attributes2', 'filter-b')->first();
+        $this->assertNotNull($filterBRecord->processed_at);
+        $this->assertNotNull($filterBRecord->processed_status);
+        $this->assertEquals('completed', $filterBRecord->processed_status);
+    }
+
+    public function test_resetProcessed_with_attributes3_filter(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert test data with different attributes3
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/test',
+            'attributes3'          => 'browserHtml',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data1"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/test',
+            'attributes3'          => 'screenshot',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data2"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call resetProcessed with attributes3 filter
+        $this->client->resetProcessed(null, null, null, 'browserHtml');
+
+        // Verify only browserHtml was reset
+        $browserHtmlRecord = DB::table($tableName)->where('attributes3', 'browserHtml')->first();
+        $this->assertNull($browserHtmlRecord->processed_at);
+        $this->assertNull($browserHtmlRecord->processed_status);
+
+        // Verify screenshot was NOT reset
+        $screenshotRecord = DB::table($tableName)->where('attributes3', 'screenshot')->first();
+        $this->assertNotNull($screenshotRecord->processed_at);
+        $this->assertNotNull($screenshotRecord->processed_status);
+        $this->assertEquals('completed', $screenshotRecord->processed_status);
+    }
+
+    public function test_resetProcessed_with_multiple_filters(): void
+    {
+        $tableName = 'api_cache_' . str_replace('-', '_', $this->clientName) . '_responses';
+
+        $this->mockCacheManager->shouldReceive('getTableName')
+            ->once()
+            ->with($this->clientName)
+            ->andReturn($tableName);
+
+        // Insert test data with different combinations
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-1',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/search',
+            'attributes'           => 'https://example.com/page1',
+            'attributes2'          => 'filter-a',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data1"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-2',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/search',
+            'attributes'           => 'https://example.com/page2',
+            'attributes2'          => 'filter-a',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data2"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        DB::table($tableName)->insert([
+            'key'                  => 'test-key-3',
+            'client'               => $this->clientName,
+            'endpoint'             => 'api/details',
+            'attributes'           => 'https://example.com/page1',
+            'attributes2'          => 'filter-a',
+            'response_status_code' => 200,
+            'response_body'        => '{"test": "data3"}',
+            'processed_at'         => now(),
+            'processed_status'     => 'completed',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Call resetProcessed with multiple filters (endpoint + attributes + attributes2)
+        $this->client->resetProcessed('api/search', 'https://example.com/page1', 'filter-a');
+
+        // Verify only the matching row was reset
+        $matchingRecord = DB::table($tableName)
+            ->where('endpoint', 'api/search')
+            ->where('attributes', 'https://example.com/page1')
+            ->where('attributes2', 'filter-a')
+            ->first();
+        $this->assertNull($matchingRecord->processed_at);
+        $this->assertNull($matchingRecord->processed_status);
+
+        // Verify other rows were NOT reset
+        $otherRecords = DB::table($tableName)
+            ->where(function ($query) {
+                $query->where('endpoint', '!=', 'api/search')
+                    ->orWhere('attributes', '!=', 'https://example.com/page1')
+                    ->orWhere('attributes2', '!=', 'filter-a');
+            })
+            ->get();
+
+        foreach ($otherRecords as $record) {
+            $this->assertNotNull($record->processed_at);
+            $this->assertNotNull($record->processed_status);
+        }
+    }
+
     public function test_builds_url_with_leading_slash(): void
     {
         $url = $this->client->buildUrl('/predictions');
@@ -1768,7 +2000,7 @@ class BaseApiClientTest extends TestCase
         // Fetch rows explicitly and pass into helper
         $rows = DB::table($tableName)->whereIn('id', [$testId])->get()->all();
 
-        $stats = $realClient->saveResponseBodiesToFilesForRows($rows, $testDir, false, 180, null);
+        $stats = $realClient->saveResponseBodiesToFilesForRows($rows, $testDir, false, 180, null, false);
 
         // Verify statistics
         $this->assertEquals(1, $stats['processed']);
@@ -1780,6 +2012,62 @@ class BaseApiClientTest extends TestCase
         $expectedFilePath = $testDir . '/' . $expectedFilename;
         $this->assertTrue(Storage::disk('local')->exists($expectedFilePath));
         $this->assertEquals($testResponseBody, Storage::disk('local')->get($expectedFilePath));
+
+        // Verify database status was updated
+        $record = DB::table($tableName)->where('id', $testId)->first();
+        $this->assertNotNull($record->processed_at);
+        $this->assertNotNull($record->processed_status);
+        $status = json_decode($record->processed_status, true);
+        $this->assertEquals('OK', $status['status']);
+        $this->assertStringContainsString($expectedFilename, $status['filename']);
+    }
+
+    public function test_saveResponseBodiesToFilesForRows_base64_decodes_when_enabled(): void
+    {
+        // Create client with REAL dependencies for file operations
+        $realClient = new BaseApiClient(
+            $this->clientName,
+            $this->apiBaseUrl,
+            config("api-cache.apis.{$this->clientName}.api_key"),
+            $this->version,
+            $this->realCacheManager
+        );
+
+        $tableName = $this->realCacheManager->getTableName($this->clientName);
+        $testDir   = 'test_base64_decode';
+
+        // Insert test data with base64-encoded response body
+        $originalContent      = '<html><body>Base64 decoded content</body></html>';
+        $base64EncodedContent = base64_encode($originalContent);
+        $testId               = DB::table($tableName)->insertGetId([
+            'key'                  => 'test-base64',
+            'client'               => $this->clientName,
+            'endpoint'             => 'base64-endpoint',
+            'attributes'           => 'https://example.com/base64',
+            'request_headers'      => json_encode([]),
+            'request_body'         => '',
+            'response_status_code' => 200,
+            'response_headers'     => json_encode([]),
+            'response_body'        => $base64EncodedContent,
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        // Fetch rows explicitly and pass into helper with base64Decode = true
+        $rows = DB::table($tableName)->whereIn('id', [$testId])->get()->all();
+
+        $stats = $realClient->saveResponseBodiesToFilesForRows($rows, $testDir, false, 180, null, true);
+
+        // Verify statistics
+        $this->assertEquals(1, $stats['processed']);
+        $this->assertEquals(0, $stats['errors']);
+        $this->assertEquals(0, $stats['skipped']);
+
+        // Verify file was created with decoded content
+        $expectedFilename = $testId . '-httpsexamplecombase64.html';
+        $expectedFilePath = $testDir . '/' . $expectedFilename;
+        $this->assertTrue(Storage::disk('local')->exists($expectedFilePath));
+        $this->assertEquals($originalContent, Storage::disk('local')->get($expectedFilePath));
 
         // Verify database status was updated
         $record = DB::table($tableName)->where('id', $testId)->first();
@@ -1826,7 +2114,7 @@ class BaseApiClientTest extends TestCase
             'updated_at'           => now(),
         ]);
 
-        $stats = $realClient->saveResponseBodiesByIdsToFiles([$id1, $id2], $testDir, false, 180, null);
+        $stats = $realClient->saveResponseBodiesByIdsToFiles([$id1, $id2], $testDir, false, 180, null, false);
 
         // Verify statistics
         $this->assertEquals(2, $stats['processed']);
@@ -1895,7 +2183,7 @@ class BaseApiClientTest extends TestCase
 
         $nonExistentId = 999999999; // very unlikely to exist in test DB
 
-        $stats = $realClient->saveResponseBodiesByIdsToFiles([$existingId, $nonExistentId], $testDir, false, 180, null);
+        $stats = $realClient->saveResponseBodiesByIdsToFiles([$existingId, $nonExistentId], $testDir, false, 180, null, false);
 
         // Verify only the existing row was processed
         $this->assertEquals(1, $stats['processed']);
@@ -2187,7 +2475,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method filtering for 'target-attribute' only
-        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, 'target-attribute');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, false, 'target-attribute');
 
         // Verify statistics - should only process the target attribute
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2247,7 +2535,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method filtering for 'target-attr2' only
-        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, null, 'target-attr2');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, false, null, 'target-attr2');
 
         // Verify statistics - should only process the target attributes2
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2307,7 +2595,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method filtering for 'browserHtml' only
-        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, null, null, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, null, false, null, null, 'browserHtml');
 
         // Verify statistics - should only process the browserHtml attribute
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2361,7 +2649,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method with JSON extraction for 'browserHtml' field
-        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml', null, null, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml', false, null, null, 'browserHtml');
 
         // Verify statistics
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');
@@ -2414,7 +2702,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method with JSON extraction - should handle invalid JSON gracefully
-        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml', false);
 
         // Verify statistics - should have 1 error
         $this->assertEquals(0, $stats['processed'], 'Should process 0 records');
@@ -2469,7 +2757,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call method with JSON extraction for missing key
-        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml');
+        $stats = $realClient->saveResponseBodiesToFilesBatch(10, null, $testDir, false, 180, 'browserHtml', false);
 
         // Verify statistics - should have 1 error
         $this->assertEquals(0, $stats['processed'], 'Should process 0 records');
@@ -2581,7 +2869,7 @@ class BaseApiClientTest extends TestCase
         ]);
 
         // Call saveAllResponseBodiesToFile with new parameters
-        $stats = $realClient->saveAllResponseBodiesToFile(10, null, $testDir, false, 180, 'browserHtml', null, null, 'browserHtml');
+        $stats = $realClient->saveAllResponseBodiesToFile(10, null, $testDir, false, 180, 'browserHtml', false, null, null, 'browserHtml');
 
         // Verify statistics
         $this->assertEquals(1, $stats['processed'], 'Should process 1 record');

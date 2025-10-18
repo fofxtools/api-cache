@@ -11,9 +11,10 @@ $start = microtime(true);
 // Initialize processor
 $processor = new DataForSeoMerchantAmazonProductsProcessor();
 
-// Process all available responses
-echo "=== Processing all available responses ===\n\n";
-$stats = $processor->processResponsesAll();
+// Process available responses
+echo "=== Processing available responses ===\n\n";
+//$stats = $processor->processResponsesAll();
+$stats = $processor->processResponses();
 print_r($stats);
 
 $end = microtime(true);

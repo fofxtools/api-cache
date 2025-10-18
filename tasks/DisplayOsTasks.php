@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * Crunz Task for Displaying OS
+ */
+
 declare(strict_types=1);
 
 use Crunz\Schedule;

@@ -228,10 +228,12 @@ return [
         'log_events' => [
             'http_error'     => env('API_CACHE_LOG_HTTP_ERRORS', true),
             'cache_rejected' => env('API_CACHE_LOG_CACHE_REJECTED', true),
+            'unknown_error'  => env('API_CACHE_LOG_UNKNOWN_ERRORS', true),
         ],
         'levels' => [
             'http_error'     => env('API_CACHE_HTTP_ERROR_LEVEL', 'error'),
             'cache_rejected' => env('API_CACHE_CACHE_REJECTED_LEVEL', 'error'),
+            'unknown_error'  => env('API_CACHE_UNKNOWN_ERROR_LEVEL', 'error'),
         ],
     ],
 ];

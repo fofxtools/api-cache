@@ -540,6 +540,23 @@ class BaseApiClient
     }
 
     /**
+     * Log an unknown error
+     *
+     * Catch-all method for general errors
+     *
+     * @param string|null $message  Error message
+     * @param array       $context  Additional context data
+     * @param string|null $response Response body
+     *
+     * @return void
+     */
+    public function logUnknownError(?string $message = null, array $context = [], ?string $response = null): void
+    {
+        $message = $message ?? 'Unknown error';
+        $this->logApiError('unknown_error', $message, $context, $response);
+    }
+
+    /**
      * Build API parameters from method arguments
      *
      * @param array       $additionalParams       Additional parameters to merge from the result

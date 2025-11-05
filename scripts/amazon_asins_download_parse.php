@@ -1,5 +1,16 @@
 <?php
 
+/**
+ * Amazon ASIN Download and Parse Script (Parallel)
+ *
+ * This script downloads ASINs from dataforseo_merchant_amazon_products_items using Zyte API.
+ * And inserts the parsed data into the amazon_products table.
+ *
+ * Query to check how many ASINs are left to process:
+ *
+ * SELECT COUNT(*) FROM dataforseo_merchant_amazon_products_items WHERE processed_at IS NULL AND data_asin IS NOT NULL AND rank_absolute <= 3;
+ */
+
 declare(strict_types=1);
 
 namespace FOfX\ApiCache;

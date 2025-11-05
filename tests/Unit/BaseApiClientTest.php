@@ -836,6 +836,26 @@ class BaseApiClientTest extends TestCase
         ]);
     }
 
+    public function test_logUnknownError_calls_logApiError_with_correct_parameters(): void
+    {
+        config(['api-cache.error_logging.enabled' => true]);
+        config(['api-cache.error_logging.log_events.unknown_error' => true]);
+        config(['api-cache.error_logging.levels.unknown_error' => 'error']);
+
+        $message  = 'Unexpected response type';
+        $context  = ['type' => 'stdClass', 'index' => 0];
+        $response = 'Unknown error response body';
+
+        $this->client->logUnknownError($message, $context, $response);
+
+        $this->assertDatabaseHas('api_cache_errors', [
+            'api_client'    => $this->clientName,
+            'error_type'    => 'unknown_error',
+            'log_level'     => 'error',
+            'error_message' => $message,
+        ]);
+    }
+
     public function test_logApiError_stores_pretty_printed_context_when_enabled(): void
     {
         config(['api-cache.error_logging.enabled' => true]);

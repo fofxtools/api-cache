@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Fiverr Gigs Zyte Downloader (parallel batches)
  *
@@ -10,6 +8,8 @@ declare(strict_types=1);
  * - Updates processed_at and processed_status
  * - Defaults: batchSize=5, numBatches=3 (15 requests per run), delaySeconds=5
  */
+
+declare(strict_types=1);
 
 require_once __DIR__ . '/../examples/bootstrap.php';
 

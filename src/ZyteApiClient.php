@@ -12,6 +12,7 @@ use FOfX\Utility;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 
 class ZyteApiClient extends BaseApiClient
 {
@@ -1406,6 +1407,21 @@ class ZyteApiClient extends BaseApiClient
                     $i         = $order[$k];
                     $queuedJob = $toSend[$i];
 
+                    // If this is not a Response object, and if it's a throwable, throw it to be caught by outer catch blocks
+                    if (!($response instanceof Response)) {
+                        if ($response instanceof \Throwable) {
+                            throw $response;
+                        }
+
+                        $this->logUnknownError('Unexpected response type in extractParallel', [
+                            'url'       => $fullUrls[$i],
+                            'method'    => $method,
+                            'cache_key' => $queuedJob['cacheKey'],
+                        ]);
+
+                        continue;
+                    }
+
                     // Must try/catch to prevent errors from bubbling up
                     try {
                         $response->throw();
@@ -1447,6 +1463,15 @@ class ZyteApiClient extends BaseApiClient
                     ],
                     $body
                 );
+
+                throw $e;
+            } catch (\Throwable $e) {
+                $this->logUnknownError('Unknown error in extractParallel', [
+                    'full_urls'  => $fullUrls,
+                    'method'     => $method,
+                    'error_type' => 'unknown_error',
+                    'cache_keys' => array_map(fn ($x) => $x['cacheKey'], $toSend),
+                ]);
 
                 throw $e;
             }

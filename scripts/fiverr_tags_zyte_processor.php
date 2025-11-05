@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Fiverr Tags Listings Zyte Processor (parallel batches)
  *
@@ -12,6 +10,8 @@ declare(strict_types=1);
  * - Updates processed_at and processed_status
  * - Defaults: batchSize=5, numBatches=2, delaySeconds=3
  */
+
+declare(strict_types=1);
 
 require_once __DIR__ . '/../examples/bootstrap.php';
 

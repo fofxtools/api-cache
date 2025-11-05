@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Amazon Products Search Script
+ *
+ * This script searches for a set list of Amazon products using DataForSEO API and caches the responses.
+ * Optionally processes the responses to extract data into dataforseo_merchant_amazon_products_listings
+ * and dataforseo_merchant_amazon_products_items.
+ */
+
 declare(strict_types=1);
 
 namespace FOfX\ApiCache;

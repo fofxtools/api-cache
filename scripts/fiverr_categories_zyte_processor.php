@@ -1,13 +1,13 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Fiverr Zyte Processor Script
  *
  * Downloads URLs from fiverr_sitemap_categories table using Zyte API,
  * then processes the downloaded content using FiverrJsonImporter.
  */
+
+declare(strict_types=1);
 
 require_once __DIR__ . '/../examples/bootstrap.php';
 

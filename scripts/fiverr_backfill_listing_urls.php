@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Fiverr Listings URL Backfill Script
  *
@@ -22,6 +20,8 @@ declare(strict_types=1);
  * SET fiverr_listings_stats.url = fiverr_listings.url
  * WHERE fiverr_listings_stats.url IS NULL AND fiverr_listings.url IS NOT NULL;
  */
+
+declare(strict_types=1);
 
 require_once __DIR__ . '/../examples/bootstrap.php';
 

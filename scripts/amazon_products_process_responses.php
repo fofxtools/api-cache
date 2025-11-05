@@ -13,7 +13,6 @@ $processor = new DataForSeoMerchantAmazonProductsProcessor();
 
 // Process available responses
 echo "=== Processing available responses ===\n\n";
-//$stats = $processor->processResponsesAll();
 $stats = $processor->processResponses();
 print_r($stats);
 

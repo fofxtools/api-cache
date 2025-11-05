@@ -1,5 +1,11 @@
 <?php
 
+/**
+ * Amazon Browse Nodes Search Script
+ *
+ * This script searches Amazon browse nodes using DataForSEO API and updates the amazon_browse_nodes table.
+ */
+
 declare(strict_types=1);
 
 namespace FOfX\ApiCache;

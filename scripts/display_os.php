@@ -1,12 +1,12 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Basic OS Test Script
  *
  * Outputs the OS and appends timestamp + OS to log file
  */
+
+declare(strict_types=1);
 
 // Get current timestamp
 $timestamp = date('Y-m-d H:i:s');

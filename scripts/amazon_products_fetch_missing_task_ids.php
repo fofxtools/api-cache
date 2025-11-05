@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Log;
 $start = microtime(true);
 
 // Configuration
-$limit = 10;
+$limit = 5;
 
 echo "=== Amazon Products Fetch Missing Task IDs Script ===\n";
 echo "Limit: {$limit} tasks per execution\n\n";

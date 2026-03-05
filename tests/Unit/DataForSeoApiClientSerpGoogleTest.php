@@ -220,8 +220,8 @@ class DataForSeoApiClientSerpGoogleTest extends TestCase
     public function test_serp_google_task_get_wrapper_methods_pass_custom_parameters(
         string $method,
         string $endpointPath,
-        array $pathResult = null,
-        string $keyword = null
+        ?array $pathResult = null,
+        ?string $keyword = null
     ) {
         $taskId     = '12345678-1234-1234-1234-123456789012';
         $attributes = 'custom-attributes-test';

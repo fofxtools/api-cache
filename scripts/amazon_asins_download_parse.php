@@ -28,8 +28,8 @@ $start = microtime(true);
 
 // Configuration
 $maxRank      = 3;
-$batchSize    = 5;
-$numBatches   = 2;
+$batchSize    = 10;
+$numBatches   = 1;
 $delaySeconds = 3;
 
 echo "=== Amazon ASIN Download and Parse Script (Parallel) ===\n";
